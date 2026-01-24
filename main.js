@@ -549,6 +549,219 @@ ipcMain.handle('apps-set-dashboard', async (event, appId, showOnDashboard) => {
 const APP_FILES_XML_URL = 'https://archive.org/download/dev-env/dev-env_files.xml';
 const ARCHIVE_BASE_URL = 'https://archive.org/download/dev-env/';
 
+// ========== Config File Management ==========
+
+// Read config file
+ipcMain.handle('app-read-config', async (event, installPath, configPath) => {
+  try {
+    const configFullPath = path.join(installPath, configPath);
+    const backupPath = configFullPath + '.bak';
+
+    logApp(`Reading config: ${configFullPath}`, 'CONFIG');
+
+    if (!fs.existsSync(configFullPath)) {
+      return { error: `Config file not found: ${configFullPath}` };
+    }
+
+    const content = fs.readFileSync(configFullPath, 'utf-8');
+    const hasBackup = fs.existsSync(backupPath);
+
+    return { content, hasBackup };
+  } catch (err) {
+    logApp(`Failed to read config: ${err.message}`, 'ERROR');
+    return { error: err.message };
+  }
+});
+
+// Save config file (backup if needed)
+ipcMain.handle('app-save-config', async (event, installPath, configPath, content) => {
+  try {
+    const configFullPath = path.join(installPath, configPath);
+    const backupPath = configFullPath + '.bak';
+
+    if (!fs.existsSync(configFullPath)) {
+      return { error: `Config file not found: ${configFullPath}` };
+    }
+
+    // Backup if not exists
+    if (!fs.existsSync(backupPath)) {
+      fs.copyFileSync(configFullPath, backupPath);
+      logApp(`Created backup: ${backupPath}`, 'CONFIG');
+    }
+
+    // Save new content
+    fs.writeFileSync(configFullPath, content, 'utf-8');
+    logApp(`Saved config: ${configFullPath}`, 'CONFIG');
+
+    return { success: true, hasBackup: true };
+  } catch (err) {
+    logApp(`Failed to save config: ${err.message}`, 'ERROR');
+    return { error: err.message };
+  }
+});
+
+// Restore config from backup
+ipcMain.handle('app-restore-config', async (event, installPath, configPath) => {
+  try {
+    const configFullPath = path.join(installPath, configPath);
+    const backupPath = configFullPath + '.bak';
+
+    if (!fs.existsSync(backupPath)) {
+      return { error: 'No backup file found' };
+    }
+
+    // Restore from backup
+    fs.copyFileSync(backupPath, configFullPath);
+    const content = fs.readFileSync(configFullPath, 'utf-8');
+    logApp(`Restored config from backup: ${configFullPath}`, 'CONFIG');
+
+    return { success: true, content };
+  } catch (err) {
+    logApp(`Failed to restore config: ${err.message}`, 'ERROR');
+    return { error: err.message };
+  }
+});
+
+// ========== Service Management ==========
+const runningProcesses = new Map();
+
+// Start service
+ipcMain.handle('app-service-start', async (event, appId, execPath, args) => {
+  try {
+    if (runningProcesses.has(appId)) {
+      return { error: 'Service already running' };
+    }
+
+    const { spawn } = require('child_process');
+    const execDir = path.dirname(execPath);
+
+    // Create logs folder if needed (nginx requires this)
+    const logsDir = path.join(execDir, 'logs');
+    if (!fs.existsSync(logsDir)) {
+      fs.mkdirSync(logsDir, { recursive: true });
+      logApp(`Created logs folder: ${logsDir}`, 'SERVICE');
+    }
+
+    // Create temp folders if needed (nginx requires these)
+    const tempFolders = ['temp/client_body_temp', 'temp/proxy_temp', 'temp/fastcgi_temp', 'temp/uwsgi_temp', 'temp/scgi_temp'];
+    for (const folder of tempFolders) {
+      const folderPath = path.join(execDir, folder);
+      if (!fs.existsSync(folderPath)) {
+        fs.mkdirSync(folderPath, { recursive: true });
+      }
+    }
+    logApp(`Ensured temp folders exist in ${execDir}`, 'SERVICE');
+
+    const cmdArgs = args ? args.split(' ').filter(a => a) : [];
+    logApp(`Starting: ${execPath} ${cmdArgs.join(' ')} in ${execDir}`, 'SERVICE');
+
+    const proc = spawn(execPath, cmdArgs, {
+      cwd: execDir,
+      detached: false,
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+
+    // Capture stderr for debugging
+    let stderrData = '';
+    proc.stderr.on('data', (data) => {
+      stderrData += data.toString();
+    });
+
+    proc.on('error', (err) => {
+      logApp(`Service ${appId} error: ${err.message}`, 'ERROR');
+      runningProcesses.delete(appId);
+    });
+
+    proc.on('exit', (code) => {
+      logApp(`Service ${appId} exited with code ${code}`, 'SERVICE');
+      if (stderrData) {
+        logApp(`Service ${appId} stderr: ${stderrData}`, 'ERROR');
+      }
+      runningProcesses.delete(appId);
+    });
+
+    runningProcesses.set(appId, proc);
+    logApp(`Started service: ${appId} (PID: ${proc.pid})`, 'SERVICE');
+
+    return { success: true, pid: proc.pid };
+  } catch (err) {
+    logApp(`Failed to start service: ${err.message}`, 'ERROR');
+    return { error: err.message };
+  }
+});
+
+// Stop service
+ipcMain.handle('app-service-stop', async (event, appId, execPath, stopArgs) => {
+  try {
+    const { spawn, execSync } = require('child_process');
+
+    // If we have stop args, use them (e.g., nginx -s stop)
+    if (stopArgs) {
+      const execDir = path.dirname(execPath);
+      const cmdArgs = stopArgs.split(' ').filter(a => a);
+
+      return new Promise((resolve) => {
+        const proc = spawn(execPath, cmdArgs, {
+          cwd: execDir,
+          stdio: 'ignore'
+        });
+
+        proc.on('close', (code) => {
+          runningProcesses.delete(appId);
+          logApp(`Stopped service: ${appId}`, 'SERVICE');
+          resolve({ success: true });
+        });
+
+        proc.on('error', (err) => {
+          resolve({ error: err.message });
+        });
+      });
+    }
+
+    // Otherwise try to kill the tracked process
+    const proc = runningProcesses.get(appId);
+    if (proc) {
+      proc.kill();
+      runningProcesses.delete(appId);
+      logApp(`Killed service: ${appId}`, 'SERVICE');
+      return { success: true };
+    }
+
+    // Try to kill by process name
+    try {
+      const exeName = path.basename(execPath);
+      execSync(`taskkill /IM ${exeName} /F`, { stdio: 'ignore' });
+      logApp(`Force killed: ${exeName}`, 'SERVICE');
+      return { success: true };
+    } catch (e) {
+      return { error: 'Process not found' };
+    }
+  } catch (err) {
+    logApp(`Failed to stop service: ${err.message}`, 'ERROR');
+    return { error: err.message };
+  }
+});
+
+// Check service status
+ipcMain.handle('app-service-status', async (event, appId, execPath) => {
+  try {
+    const { execSync } = require('child_process');
+    const exeName = path.basename(execPath);
+
+    try {
+      const result = execSync(`tasklist /FI "IMAGENAME eq ${exeName}" /NH`, { encoding: 'utf-8' });
+      const isRunning = result.toLowerCase().includes(exeName.toLowerCase());
+      return { running: isRunning };
+    } catch (e) {
+      return { running: false };
+    }
+  } catch (err) {
+    return { running: false, error: err.message };
+  }
+});
+
+
+
 ipcMain.handle('apps-update-list', async () => {
   try {
     const https = require('https');

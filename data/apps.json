@@ -11,8 +11,14 @@
       "group": "webserver",
       "icon": "Server",
       "iconColor": "text-green-500",
-      "helpLink": "https://nginx.org/en/",
+      "helpLink": "https://nginx.org/",
       "exec_file": "nginx.exe",
+      "config_file": "conf/nginx.conf",
+      "service_commands": {
+        "start": "",
+        "stop": "-s stop",
+        "restart": "-s reload"
+      },
       "versions": [
         {
           "version": "1.29.4",

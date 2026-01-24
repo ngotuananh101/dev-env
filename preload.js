@@ -23,7 +23,15 @@ const api = {
             const handler = (event, data) => callback(data);
             ipcRenderer.on('app-install-progress', handler);
             return () => ipcRenderer.removeListener('app-install-progress', handler);
-        }
+        },
+        // Config management (uses installPath, not appId)
+        readConfig: (installPath, configPath) => ipcRenderer.invoke('app-read-config', installPath, configPath),
+        saveConfig: (installPath, configPath, content) => ipcRenderer.invoke('app-save-config', installPath, configPath, content),
+        restoreConfig: (installPath, configPath) => ipcRenderer.invoke('app-restore-config', installPath, configPath),
+        // Service management
+        startService: (appId, execPath, args) => ipcRenderer.invoke('app-service-start', appId, execPath, args),
+        stopService: (appId, execPath, stopArgs) => ipcRenderer.invoke('app-service-stop', appId, execPath, stopArgs),
+        getServiceStatus: (appId, execPath) => ipcRenderer.invoke('app-service-status', appId, execPath)
     },
 
     // File System

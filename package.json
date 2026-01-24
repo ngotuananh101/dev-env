@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.18",
+    "ace-builds": "^1.43.6",
     "adm-zip": "^0.5.16",
     "better-sqlite3": "^12.6.2",
     "lucide-vue-next": "^0.563.0",

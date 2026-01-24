@@ -103,7 +103,7 @@
             <td class="px-2 py-2 text-center">
               <div class="flex items-center justify-center space-x-2">
                 <template v-if="app.status === 'installed'">
-                  <button class="text-blue-400 hover:text-blue-300 text-xs">Setting</button>
+                  <button class="text-blue-400 hover:text-blue-300 text-xs" @click="openSettings(app)">Setting</button>
                   <button class="text-red-400 hover:text-red-300 text-xs" @click="uninstallApp(app)">Uninstall</button>
                 </template>
                 <button v-else class="text-green-400 hover:text-green-300 text-xs" @click="installApp(app)">Install</button>
@@ -230,6 +230,13 @@
       </div>
     </div>
   </div>
+
+  <!-- App Settings Modal -->
+  <AppSettingsModal 
+    :show="showSettingsModal" 
+    :app="settingsApp"
+    @close="closeSettings"
+  />
 </template>
 
 <script setup>
@@ -239,6 +246,7 @@ import {
   Folder, Play, Settings, Terminal, HardDrive, Cpu, FileCode,
   ChevronLeft, ChevronRight, RefreshCw
 } from 'lucide-vue-next';
+import AppSettingsModal from '../components/AppSettingsModal.vue';
 
 // Categories
 const categories = [
@@ -291,6 +299,10 @@ const installStatus = ref('');
 const installLogs = ref([]);
 let progressCleanup = null;
 const logsContainer = ref(null); // Reference for auto-scrolling
+
+// Settings Modal State
+const showSettingsModal = ref(false);
+const settingsApp = ref(null);
 
 // Load apps from local JSON file
 const loadApps = async () => {
@@ -414,6 +426,24 @@ const closeInstallModal = () => {
     progressCleanup();
     progressCleanup = null;
   }
+};
+
+// Settings Modal Functions
+const openSettings = (app) => {
+  // Prepare app data with execPath and serviceCommands
+  // execPath already comes from the database
+  settingsApp.value = {
+    ...app,
+    execPath: app.execPath || null,
+    configFile: app.config_file || null,
+    serviceCommands: app.service_commands || null
+  };
+  showSettingsModal.value = true;
+};
+
+const closeSettings = () => {
+  showSettingsModal.value = false;
+  settingsApp.value = null;
 };
 
 const cancelInstall = async () => {
