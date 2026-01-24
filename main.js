@@ -1236,6 +1236,21 @@ app.whenReady().then(() => {
   })
 })
 
+app.on('before-quit', () => {
+  if (runningProcesses.size > 0) {
+    logApp(`Cleaning up ${runningProcesses.size} running processes before exit`, 'SYSTEM');
+    for (const [appId, proc] of runningProcesses) {
+      try {
+        logApp(`Terminating service: ${appId} (PID: ${proc.pid})`, 'SYSTEM');
+        proc.kill();
+      } catch (err) {
+        logApp(`Failed to terminate ${appId}: ${err.message}`, 'ERROR');
+      }
+    }
+    runningProcesses.clear();
+  }
+});
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
