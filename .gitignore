@@ -1,0 +1,54 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Installed applications (downloaded via App Store)
+apps/
+
+# Application logs
+logs/
+
+# Database
+*.db
+*.db-journal
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Editor directories
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Package manager
+*.tgz
+package-lock.json
+
+# Electron
+out/
+release/
+
+# Native module build artifacts
+build/
+*.node
+
+# Tailwind
+tailwind.config.js
+
+# Other
+.agent/

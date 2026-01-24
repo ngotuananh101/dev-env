@@ -1,0 +1,41 @@
+{
+  "name": "dev-env",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "concurrently \"vite\" \"electron .\"",
+    "build:css": "tailwindcss -i ./src/main.css -o ./dist/output.css",
+    "watch:css": "tailwindcss -i ./src/main.css -o ./dist/output.css --watch"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@electron/rebuild": "^4.0.2",
+    "@tailwindcss/cli": "^4.1.18",
+    "@vitejs/plugin-vue": "^6.0.3",
+    "autoprefixer": "^10.4.23",
+    "concurrently": "^9.2.1",
+    "electron": "^40.0.0",
+    "electron-reload": "^2.0.0-alpha.1",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.18",
+    "vite": "^7.3.1"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.1.18",
+    "adm-zip": "^0.5.16",
+    "better-sqlite3": "^12.6.2",
+    "lucide-vue-next": "^0.563.0",
+    "node-pty": "^1.1.0",
+    "pinia": "^3.0.4",
+    "systeminformation": "^5.30.5",
+    "vue": "^3.5.27",
+    "vue-router": "^4.6.4",
+    "xterm": "^5.3.0",
+    "xterm-addon-fit": "^0.8.0"
+  }
+}

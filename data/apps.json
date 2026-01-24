@@ -1,0 +1,298 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2026-01-24T16:56:06.230Z",
+  "apps": [
+    {
+      "id": "nginx",
+      "name": "Nginx",
+      "developer": "official",
+      "description": "Lightweight, less memory, concurrent ability",
+      "category": "deployment",
+      "group": "webserver",
+      "icon": "Server",
+      "iconColor": "text-green-500",
+      "helpLink": "https://nginx.org/en/",
+      "exec_file": "nginx.exe",
+      "versions": [
+        {
+          "version": "1.29.4",
+          "filename": "nginx-1.29.4.zip",
+          "download_url": "https://archive.org/download/dev-env/nginx/nginx-1.29.4.zip",
+          "size": 2754422,
+          "md5": "3158f5532b5696a715bca8df45ff4500",
+          "sha1": "9af178035693fe67463e852eb01220042e23c040"
+        },
+        {
+          "version": "1.28.1",
+          "filename": "nginx-1.28.1.zip",
+          "download_url": "https://archive.org/download/dev-env/nginx/nginx-1.28.1.zip",
+          "size": 2738025,
+          "md5": "0c749bf9ca7793e44dbe282b0297a89d",
+          "sha1": "293865640071981e4383a9b3612ed501c8a13fcf"
+        }
+      ]
+    },
+    {
+      "id": "apache",
+      "name": "Apache Lounge",
+      "developer": "official",
+      "description": "World No. 1, fast, reliable and scalable through simple APIs",
+      "category": "deployment",
+      "group": "webserver",
+      "icon": "Server",
+      "iconColor": "text-orange-400",
+      "helpLink": "https://www.apachelounge.com/",
+      "exec_file": "bin/httpd.exe",
+      "versions": [
+        {
+          "version": "2.4.66",
+          "filename": "httpd-2.4.66-260107-Win64-VS18.zip",
+          "download_url": "https://archive.org/download/dev-env/apache/httpd-2.4.66-260107-Win64-VS18.zip",
+          "size": 12363215,
+          "md5": "4870f836409d98e87fd8153c4617b3f9",
+          "sha1": "76d95b781bd9a1c18fc4b5e8c3697bce3d73a5ab"
+        }
+      ]
+    },
+    {
+      "id": "mysql",
+      "name": "MySQL",
+      "developer": "official",
+      "description": "MySQL is a relational database management system!",
+      "category": "deployment",
+      "icon": "Database",
+      "iconColor": "text-orange-800",
+      "helpLink": "https://www.mysql.com/",
+      "exec_file": "bin/mysqld.exe",
+      "versions": [
+        {
+          "version": "9.6.0",
+          "filename": "mysql-9.6.0-winx64.zip",
+          "download_url": "https://archive.org/download/dev-env/mysql/mysql-9.6.0-winx64.zip",
+          "size": 304538543,
+          "md5": "7a401cf196793b39e5f287c2a2079589",
+          "sha1": "b93a655d38b328ae39e398b5590e21e90f03291c"
+        },
+        {
+          "version": "8.4.8",
+          "filename": "mysql-8.4.8-winx64.zip",
+          "download_url": "https://archive.org/download/dev-env/mysql/mysql-8.4.8-winx64.zip",
+          "size": 260192668,
+          "md5": "0b268cf3d792dad998dca057c386d45c",
+          "sha1": "e2d3ad4961facbc3a3ff24896750a855694a2e68"
+        },
+        {
+          "version": "8.0.45",
+          "filename": "mysql-8.0.45-winx64.zip",
+          "download_url": "https://archive.org/download/dev-env/mysql/mysql-8.0.45-winx64.zip",
+          "size": 244914394,
+          "md5": "b9f487276578ab1d1675b30952a5220f",
+          "sha1": "8eed02a432418c81979e5c90f8d22225c4e7750a"
+        }
+      ]
+    },
+    {
+      "id": "mariadb",
+      "name": "MariaDB",
+      "developer": "official",
+      "description": "MariaDB is a relational database management system!",
+      "category": "deployment",
+      "icon": "Database",
+      "iconColor": "text-cyan-500",
+      "helpLink": "https://mariadb.org/",
+      "exec_file": "bin/mariadbd.exe",
+      "versions": [
+        {
+          "version": "12.1.2",
+          "filename": "mariadb-12.1.2-winx64.zip",
+          "download_url": "https://archive.org/download/dev-env/mariadb/mariadb-12.1.2-winx64.zip",
+          "size": 97415578,
+          "md5": "645d1a66128d39b0aeac5ccac9b27626",
+          "sha1": "9f179dfa966b2390fbefc0e640a25cc522603a7f"
+        },
+        {
+          "version": "11.8.5",
+          "filename": "mariadb-11.8.5-winx64.zip",
+          "download_url": "https://archive.org/download/dev-env/mariadb/mariadb-11.8.5-winx64.zip",
+          "size": 95876446,
+          "md5": "13079bbe82c77714010352ec041991b9",
+          "sha1": "5e91285de2822a87278cbaf270ebbe018a90c906"
+        },
+        {
+          "version": "10.11.15",
+          "filename": "mariadb-10.11.15-winx64.zip",
+          "download_url": "https://archive.org/download/dev-env/mariadb/mariadb-10.11.15-winx64.zip",
+          "size": 93255302,
+          "md5": "271f2cb86c482ff956bcba8592677290",
+          "sha1": "9590bbbc4eb86cfe4fc45ec05ff945c7532062c3"
+        }
+      ]
+    },
+    {
+      "id": "redis",
+      "name": "Redis",
+      "developer": "official",
+      "description": "Redis is an in-memory data structure store, used as a database, cache, and message broker!",
+      "category": "deployment",
+      "icon": "Cpu",
+      "iconColor": "text-red-500",
+      "helpLink": "https://redis.io/",
+      "exec_file": "redis-server.exe",
+      "versions": [
+        {
+          "version": "8.4.0",
+          "filename": "redis-windows-8.4.0.zip",
+          "download_url": "https://archive.org/download/dev-env/redis/redis-windows-8.4.0.zip",
+          "size": 4575884,
+          "md5": "a75710d5e81735283d8e6e9dcc1626a7",
+          "sha1": "3e88f7dbe9e614acabf4e8f6facd3594ddfd364c"
+        }
+      ]
+    },
+    {
+      "id": "postgresql",
+      "name": "PostgreSQL",
+      "developer": "official",
+      "description": "PostgreSQL is a relational database management system!",
+      "category": "deployment",
+      "icon": "Database",
+      "iconColor": "text-blue-600",
+      "helpLink": "https://www.postgresql.org/",
+      "exec_file": "bin/postgres.exe",
+      "versions": [
+        {
+          "version": "18.1",
+          "filename": "postgresql-18.1-2-windows-x64-binaries.zip",
+          "download_url": "https://archive.org/download/dev-env/postgresql/postgresql-18.1-2-windows-x64-binaries.zip",
+          "size": 337451273,
+          "md5": "4aab8c633b9c9e38aa8a990b3d7653a6",
+          "sha1": "beb84e10f9c71e984fa647588733d4e5231853ad"
+        },
+        {
+          "version": "17.7",
+          "filename": "postgresql-17.7-2-windows-x64-binaries.zip",
+          "download_url": "https://archive.org/download/dev-env/postgresql/postgresql-17.7-2-windows-x64-binaries.zip",
+          "size": 333961446,
+          "md5": "d382d8f04f46b37abca03ebcd65b31cc",
+          "sha1": "f57285f89b252b511c05a353837b6a6dbaa4ee19"
+        },
+        {
+          "version": "16.11",
+          "filename": "postgresql-16.11-2-windows-x64-binaries.zip",
+          "download_url": "https://archive.org/download/dev-env/postgresql/postgresql-16.11-2-windows-x64-binaries.zip",
+          "size": 325818924,
+          "md5": "207d16f14a4c4ebcf18c91cb55f0a007",
+          "sha1": "cead964ce03fd6d48dfa766c4b89eb13a2a543e5"
+        },
+        {
+          "version": "15.15",
+          "filename": "postgresql-15.15-2-windows-x64-binaries.zip",
+          "download_url": "https://archive.org/download/dev-env/postgresql/postgresql-15.15-2-windows-x64-binaries.zip",
+          "size": 323749571,
+          "md5": "5d74bdf3de4132eabcdf31d3c2fa7986",
+          "sha1": "b2509791a732b7720727a88ccf4ac7e3542231ea"
+        },
+        {
+          "version": "14.20",
+          "filename": "postgresql-14.20-2-windows-x64-binaries.zip",
+          "download_url": "https://archive.org/download/dev-env/postgresql/postgresql-14.20-2-windows-x64-binaries.zip",
+          "size": 321337681,
+          "md5": "40b98d4be4065bc3e0a815f5d494b327",
+          "sha1": "151c416c3e26352004d7c26dd160978f61316423"
+        },
+        {
+          "version": "13.23",
+          "filename": "postgresql-13.23-1-windows-x64-binaries.zip",
+          "download_url": "https://archive.org/download/dev-env/postgresql/postgresql-13.23-1-windows-x64-binaries.zip",
+          "size": 318646219,
+          "md5": "acbd1b88a2f79d97c4d7502eb711258c",
+          "sha1": "da37b14042f5b6e43ab81df5d36906a3dfe367ef"
+        }
+      ]
+    },
+    {
+      "id": "php8.2",
+      "name": "PHP 8.2",
+      "developer": "official",
+      "description": "PHP is a server scripting language!",
+      "category": "deployment",
+      "icon": "FileCode",
+      "iconColor": "text-indigo-500",
+      "helpLink": "https://www.php.net/",
+      "exec_file": "php.exe",
+      "versions": [
+        {
+          "version": "8.2.30",
+          "filename": "php-8.2.30-nts-Win32-vs16-x64.zip",
+          "download_url": "https://archive.org/download/dev-env/php8.2/php-8.2.30-nts-Win32-vs16-x64.zip",
+          "size": 31854948,
+          "md5": "30a129e6068aac4636e2270bbf5a9b1c",
+          "sha1": "5d9f4e558ab2fe485070c651589476fb8d702042"
+        }
+      ]
+    },
+    {
+      "id": "php8.3",
+      "name": "PHP 8.3",
+      "developer": "official",
+      "description": "PHP is a server scripting language!",
+      "category": "deployment",
+      "icon": "FileCode",
+      "iconColor": "text-indigo-500",
+      "helpLink": "https://www.php.net/",
+      "exec_file": "php.exe",
+      "versions": [
+        {
+          "version": "8.3.29",
+          "filename": "php-8.3.29-nts-Win32-vs16-x64.zip",
+          "download_url": "https://archive.org/download/dev-env/php8.3/php-8.3.29-nts-Win32-vs16-x64.zip",
+          "size": 32253427,
+          "md5": "d118f058bfcca87e3eb3db65da7ab158",
+          "sha1": "a87274bc3d18bde1365841891d50d5794c6cb774"
+        }
+      ]
+    },
+    {
+      "id": "php8.4",
+      "name": "PHP 8.4",
+      "developer": "official",
+      "description": "PHP is a server scripting language!",
+      "category": "deployment",
+      "icon": "FileCode",
+      "iconColor": "text-indigo-500",
+      "helpLink": "https://www.php.net/",
+      "exec_file": "php.exe",
+      "versions": [
+        {
+          "version": "8.4.16",
+          "filename": "php-8.4.16-nts-Win32-vs17-x64.zip",
+          "download_url": "https://archive.org/download/dev-env/php8.4/php-8.4.16-nts-Win32-vs17-x64.zip",
+          "size": 33518157,
+          "md5": "8937c723d7317090f6985a77ab43c412",
+          "sha1": "707c6f12aa317aaed7c96c9f0e4effe0cb10540c"
+        }
+      ]
+    },
+    {
+      "id": "php8.5",
+      "name": "PHP 8.5",
+      "developer": "official",
+      "description": "PHP is a server scripting language!",
+      "category": "deployment",
+      "icon": "FileCode",
+      "iconColor": "text-indigo-500",
+      "helpLink": "https://www.php.net/",
+      "exec_file": "php.exe",
+      "versions": [
+        {
+          "version": "8.5.1",
+          "filename": "php-8.5.1-nts-Win32-vs17-x64.zip",
+          "download_url": "https://archive.org/download/dev-env/php8.5/php-8.5.1-nts-Win32-vs17-x64.zip",
+          "size": 34580983,
+          "md5": "49adb917236ac7edd6e9f8e54f977062",
+          "sha1": "65482d2cc30642e4f8056a6305373abbbb3da852"
+        }
+      ]
+    }
+  ]
+}
