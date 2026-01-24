@@ -49,6 +49,12 @@
       "iconColor": "text-orange-400",
       "helpLink": "https://www.apachelounge.com/",
       "exec_file": "bin/httpd.exe",
+      "config_file": "../conf/httpd.conf",
+      "service_commands": {
+        "start": "",
+        "stop": "-k stop",
+        "restart": "-k restart"
+      },
       "versions": [
         {
           "version": "2.4.66",
@@ -66,6 +72,7 @@
       "developer": "official",
       "description": "MySQL is a relational database management system!",
       "category": "deployment",
+      "group": "mysql",
       "icon": "Database",
       "iconColor": "text-orange-800",
       "helpLink": "https://www.mysql.com/",
@@ -103,6 +110,7 @@
       "developer": "official",
       "description": "MariaDB is a relational database management system!",
       "category": "deployment",
+      "group": "mysql",
       "icon": "Database",
       "iconColor": "text-cyan-500",
       "helpLink": "https://mariadb.org/",
