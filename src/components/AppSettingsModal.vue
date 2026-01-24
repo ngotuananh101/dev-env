@@ -133,7 +133,7 @@ const menuItemAvailable = {
   php: { tip: 'Tips: Ctrl+S Save, PHP.ini' },
   mysql: { tip: 'Tips: Ctrl+S Save, my.ini' },
   redis: { tip: 'Tips: Ctrl+S Save, redis.conf' },
-  postgresql: { tip: 'Tips: Ctrl+S Save, postgresql.conf' }
+  postgresql: { tip: 'Tips: Ctrl+S Save' }
 };
 
 const menuItems = computed(() => {

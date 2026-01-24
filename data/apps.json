@@ -211,6 +211,20 @@
       "iconColor": "text-blue-600",
       "helpLink": "https://www.postgresql.org/",
       "exec_file": "bin/postgres.exe",
+      "configs": [
+        {
+          "id": "pgsql_conf",
+          "name": "postgresql.conf",
+          "file": "../data/postgresql.conf",
+          "type": "postgresql"
+        },
+        {
+          "id": "pgsql_hba",
+          "name": "pg_hba.conf",
+          "file": "../data/pg_hba.conf",
+          "type": "postgresql"
+        }
+      ],
       "versions": [
         {
           "version": "18.1",
