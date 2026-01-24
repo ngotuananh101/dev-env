@@ -215,11 +215,16 @@ const restartService = async () => {
   serviceLoading.value = true;
   serviceLoadingText.value = 'Restarting...';
   
-  const restartArgs = props.app.serviceCommands?.restart || '-s reload';
-  const result = await window.sysapi.apps.startService(
+  // For full restart (stop then start), we must use the START command args, not restart args (which are usually -s reload)
+  const startArgs = props.app.serviceCommands?.start || '';
+  const stopArgs = props.app.serviceCommands?.stop || '';
+
+  // Use dedicated atomic restart handler
+  const result = await window.sysapi.apps.restartService(
     props.app.id,
     props.app.execPath,
-    restartArgs
+    startArgs,
+    stopArgs
   );
   
   if (result.error) {

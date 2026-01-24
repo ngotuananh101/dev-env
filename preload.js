@@ -31,6 +31,7 @@ const api = {
         // Service management
         startService: (appId, execPath, args) => ipcRenderer.invoke('app-service-start', appId, execPath, args),
         stopService: (appId, execPath, stopArgs) => ipcRenderer.invoke('app-service-stop', appId, execPath, stopArgs),
+        restartService: (appId, execPath, startArgs, stopArgs) => ipcRenderer.invoke('app-service-restart', appId, execPath, startArgs, stopArgs),
         getServiceStatus: (appId, execPath) => ipcRenderer.invoke('app-service-status', appId, execPath)
     },
 

@@ -5,6 +5,7 @@ const fsPromises = require('fs').promises;
 const si = require('systeminformation');
 const os = require('os');
 const DatabaseManager = require('./src/backend/database'); // Import DB Manager
+const { spawn, execSync } = require('child_process');
 
 let ptyProcess = null;
 let ptyModule = null;
@@ -40,7 +41,7 @@ function createWindow() {
   const isDev = !app.isPackaged; // Simple check or use process.env.NODE_ENV
   if (isDev) {
     win.loadURL('http://localhost:5173');
-    win.webContents.openDevTools();
+    // win.webContents.openDevTools();
   } else {
     win.loadFile('dist/index.html');
   }
@@ -630,11 +631,21 @@ const runningProcesses = new Map();
 const startAppService = async (appId, execPath, args) => {
   try {
     if (runningProcesses.has(appId)) {
-      return { error: 'Service already running' };
+      const existingProc = runningProcesses.get(appId);
+      // Check if process is actually alive
+      try {
+        // process.kill(pid, 0) returns true if process exists, throws if not
+        process.kill(existingProc.pid, 0);
+        return { error: 'Service already running' };
+      } catch (e) {
+        logApp(`Found stale process for ${appId} (PID: ${existingProc.pid}), cleaning up`, 'WARNING');
+        runningProcesses.delete(appId);
+      }
     }
 
-    const { spawn } = require('child_process');
-    const execDir = path.dirname(execPath);
+    // Normalize paths for Windows compatibility
+    const execPathNormalized = path.normalize(execPath);
+    const execDir = path.dirname(execPathNormalized);
 
     // Create logs folder if needed (nginx requires this)
     const logsDir = path.join(execDir, 'logs');
@@ -646,7 +657,8 @@ const startAppService = async (appId, execPath, args) => {
     // Create temp folders if needed (nginx requires these)
     const tempFolders = ['temp/client_body_temp', 'temp/proxy_temp', 'temp/fastcgi_temp', 'temp/uwsgi_temp', 'temp/scgi_temp'];
     for (const folder of tempFolders) {
-      const folderPath = path.join(execDir, folder);
+      // Use path.join for correct separators
+      const folderPath = path.join(execDir, ...folder.split('/'));
       if (!fs.existsSync(folderPath)) {
         fs.mkdirSync(folderPath, { recursive: true });
       }
@@ -654,9 +666,9 @@ const startAppService = async (appId, execPath, args) => {
     logApp(`Ensured temp folders exist in ${execDir}`, 'SERVICE');
 
     const cmdArgs = args ? args.split(' ').filter(a => a) : [];
-    logApp(`Starting: ${execPath} ${cmdArgs.join(' ')} in ${execDir}`, 'SERVICE');
+    logApp(`Starting: ${execPathNormalized} ${cmdArgs.join(' ')} in ${execDir}`, 'SERVICE');
 
-    const proc = spawn(execPath, cmdArgs, {
+    const proc = spawn(execPathNormalized, cmdArgs, {
       cwd: execDir,
       detached: false,
       stdio: ['ignore', 'pipe', 'pipe']
@@ -706,7 +718,6 @@ ipcMain.handle('app-service-start', async (event, appId, execPath, args) => {
 // Stop service
 ipcMain.handle('app-service-stop', async (event, appId, execPath, stopArgs) => {
   try {
-    const { spawn, execSync } = require('child_process');
 
     // Update auto-start state to 0 (user intentionally stopped)
     dbManager.query('UPDATE installed_apps SET auto_start = 0 WHERE app_id = ?', [appId]);
@@ -722,15 +733,39 @@ ipcMain.handle('app-service-stop', async (event, appId, execPath, stopArgs) => {
           stdio: 'ignore'
         });
 
+        let resolved = false;
+        const cleanup = () => {
+          if (!resolved) {
+            runningProcesses.delete(appId);
+            logApp(`Stopped service: ${appId}`, 'SERVICE');
+            resolved = true;
+            resolve({ success: true });
+          }
+        };
+
         proc.on('close', (code) => {
-          runningProcesses.delete(appId);
-          logApp(`Stopped service: ${appId}`, 'SERVICE');
-          resolve({ success: true });
+          cleanup();
         });
 
         proc.on('error', (err) => {
-          resolve({ error: err.message });
+          if (!resolved) {
+            logApp(`Stop command failed for ${appId}: ${err.message}`, 'ERROR');
+            // Force cleanup anyway
+            runningProcesses.delete(appId);
+            resolved = true;
+            resolve({ error: err.message });
+          }
         });
+
+        // Safety timeout (5 seconds)
+        setTimeout(() => {
+          if (!resolved) {
+            logApp(`Stop command timed out for ${appId}, forcing cleanup`, 'WARNING');
+            runningProcesses.delete(appId);
+            resolved = true;
+            resolve({ success: true }); // Assume stopped or forced
+          }
+        }, 5000);
       });
     }
 
@@ -761,7 +796,6 @@ ipcMain.handle('app-service-stop', async (event, appId, execPath, stopArgs) => {
 // Check service status
 ipcMain.handle('app-service-status', async (event, appId, execPath) => {
   try {
-    const { execSync } = require('child_process');
     const exeName = path.basename(execPath);
 
     try {
@@ -774,6 +808,73 @@ ipcMain.handle('app-service-status', async (event, appId, execPath) => {
   } catch (err) {
     return { running: false, error: err.message };
   }
+});
+
+// Restart service (Atomic Stop + Start)
+ipcMain.handle('app-service-restart', async (event, appId, execPath, startArgs, stopArgs) => {
+  logApp(`Restarting service: ${appId}`, 'SERVICE');
+
+  // Hard stop first
+  if (runningProcesses.has(appId)) {
+    // 1. Try graceful stop/command stop
+    await new Promise(async (resolve) => {
+      // Call the stop logic directly or emulate it
+      // We can reuse the logic from app-service-stop but we need it here to be sure
+      // easier to call the stop handler structure if we extracted it, but for now lets inline call
+      // or just kill it if we want fast restart. 
+      // User uses nginx -s stop usually.
+
+      // Let's manually invoke the stop logic logic roughly:
+      const proc = runningProcesses.get(appId);
+
+      if (stopArgs) {
+        try {
+          const execDir = path.dirname(execPath);
+          const cmdArgs = stopArgs.split(' ').filter(a => a);
+
+          const stopProc = spawn(execPath, cmdArgs, { cwd: execDir, stdio: 'ignore' });
+
+          stopProc.on('close', () => {
+            // Ensure it's removed
+            runningProcesses.delete(appId);
+            resolve();
+          });
+
+          stopProc.on('error', () => {
+            // If stop command fails, force kill
+            if (proc) proc.kill();
+            runningProcesses.delete(appId);
+            resolve();
+          });
+
+          // Timeout for stop command
+          setTimeout(() => {
+            if (runningProcesses.has(appId)) {
+              if (proc) proc.kill();
+              runningProcesses.delete(appId);
+            }
+            resolve();
+          }, 5000);
+
+          return;
+        } catch (e) { }
+      }
+
+      // Fallback or no stop args
+      if (proc) proc.kill();
+      runningProcesses.delete(appId);
+      resolve();
+    });
+
+    // Double check it's gone from map
+    runningProcesses.delete(appId);
+  }
+
+  // Wait a moment for OS to release file locks/ports if needed
+  await new Promise(r => setTimeout(r, 1000));
+
+  // 2. Start
+  return await startAppService(appId, execPath, startArgs);
 });
 
 
@@ -1241,8 +1342,18 @@ app.on('before-quit', () => {
     logApp(`Cleaning up ${runningProcesses.size} running processes before exit`, 'SYSTEM');
     for (const [appId, proc] of runningProcesses) {
       try {
-        logApp(`Terminating service: ${appId} (PID: ${proc.pid})`, 'SYSTEM');
-        proc.kill();
+        logApp(`Terminating service tree: ${appId} (PID: ${proc.pid})`, 'SYSTEM');
+        // Use taskkill /T (tree) /F (force) to kill process and all children (like Nginx workers)
+        if (process.platform === 'win32') {
+          try {
+            execSync(`taskkill /PID ${proc.pid} /T /F`, { stdio: 'ignore' });
+          } catch (e) {
+            // Process might be already dead, fallback to object kill
+            proc.kill();
+          }
+        } else {
+          proc.kill();
+        }
       } catch (err) {
         logApp(`Failed to terminate ${appId}: ${err.message}`, 'ERROR');
       }
