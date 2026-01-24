@@ -738,6 +738,19 @@ const startAppService = async (appId, execPath, args) => {
       const configPath = path.join(dataDir, 'postgresql.conf');
       args = args + ' -D ' + dataDir;
     }
+    // PHP Init
+    else if (appId.startsWith('php')) {
+      const configPath = path.join(execDir, 'php.ini');
+      // Check if php.ini exists
+      if (!fs.existsSync(configPath)) {
+        // Copy php.ini-development to php.ini
+        const devConfigPath = path.join(execDir, 'php.ini-development');
+        if (fs.existsSync(devConfigPath)) {
+          fs.copyFileSync(devConfigPath, configPath);
+          logApp(`Copied php.ini-development to php.ini`, 'SERVICE');
+        }
+      }
+    }
 
     const cmdArgs = args ? args.split(' ').filter(a => a) : [];
     logApp(`Starting: ${execPathNormalized} ${cmdArgs.join(' ')} in ${execDir}`, 'SERVICE');

@@ -110,7 +110,13 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
 import ace from 'ace-builds';
+
+// Import ace modes and themes explicitly for bundling
 import 'ace-builds/src-noconflict/mode-nginx';
+import 'ace-builds/src-noconflict/mode-pgsql';
+import 'ace-builds/src-noconflict/mode-ini';
+import 'ace-builds/src-noconflict/mode-apache_conf';
+import 'ace-builds/src-noconflict/mode-text';
 import 'ace-builds/src-noconflict/theme-monokai';
 import { useToast } from 'vue-toastification';
 
@@ -355,14 +361,44 @@ const restoreConfig = async () => {
   setTimeout(() => configMessage.value = '', 3000);
 };
 
+// Editor mode mapping
+const configModes = {
+  nginx: 'ace/mode/nginx',
+  postgres: 'ace/mode/ini',
+  mysql: 'ace/mode/ini',
+  php: 'ace/mode/ini',
+  redis: 'ace/mode/ini',
+  apache: 'ace/mode/apache_conf',
+  default: 'ace/mode/text'
+};
+
 // Initialize Ace editor
 const initEditor = async () => {
   await nextTick();
   
   if (!editorContainer.value || editor) return;
   
+  // Determine mode based on config type
+  const menuItem = currentMenuItem.value;
+  // If we have a specific type in the menu item (from apps.json), use it. 
+  // Otherwise fall back to text.
+  // Note: apps.json 'type' fields used: nginx, apache, php, mysql, redis, postgresql
+  let mode = configModes.default;
+  
+  if (menuItem && props.app?.configs) {
+    // Find the config entry triggering this
+    const config = props.app.configs.find(c => c.id === menuItem.id);
+    if (config && config.type) {
+       // Handle special case, or map directly if key exists
+       // Our keys in apps.json are: nginx, apache, php, mysql, redis, postgresql
+       // configModes keys: nginx, postgres(pgsql), mysql, php, redis, apache
+       if (config.type === 'postgresql') mode = configModes.postgres;
+       else if (configModes[config.type]) mode = configModes[config.type];
+    }
+  }
+
   editor = ace.edit(editorContainer.value, {
-    mode: 'ace/mode/nginx',
+    mode: mode,
     theme: 'ace/theme/monokai',
     fontSize: 13,
     showPrintMargin: false,
@@ -410,7 +446,10 @@ watch(() => props.show, async (isShow) => {
     activePanel.value = 'service';
     await checkServiceStatus();
   } else {
-    // Cleanup editor
+    // Cleanup editor and content
+    configContent.value = '';
+    configMessage.value = '';
+    configMessageClass.value = '';
     if (editor) {
       editor.destroy();
       editor = null;
