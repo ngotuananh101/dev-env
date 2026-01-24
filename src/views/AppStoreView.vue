@@ -229,14 +229,13 @@
         </div>
       </div>
     </div>
+    <!-- App Settings Modal -->
+    <AppSettingsModal 
+      :show="showSettingsModal" 
+      :app="settingsApp"
+      @close="closeSettings"
+    />
   </div>
-
-  <!-- App Settings Modal -->
-  <AppSettingsModal 
-    :show="showSettingsModal" 
-    :app="settingsApp"
-    @close="closeSettings"
-  />
 </template>
 
 <script setup>

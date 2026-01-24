@@ -5,7 +5,7 @@
 
     <!-- Main Content -->
     <main class="flex-1 flex flex-col overflow-hidden p-4 pb-0">
-      <div class="flex-1 w-full rounded-lg border border-gray-700 overflow-hidden bg-background">
+      <div class="flex-1 w-full rounded-lg border border-gray-700 overflow-hidden bg-background flex flex-col relative">
         <router-view v-slot="{ Component }">
           <transition name="fade" mode="out-in">
             <component :is="Component" />
