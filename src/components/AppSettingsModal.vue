@@ -70,7 +70,7 @@
           </div>
 
           <!-- Config Editor Panel -->
-          <div v-if="activePanel === 'config'" class="h-full flex flex-col">
+          <div v-if="currentMenuItem?.type === 'config'" class="h-full flex flex-col">
             <div ref="editorContainer" class="flex-1 border border-gray-700 rounded overflow-hidden"></div>
             
             <!-- Actions -->
@@ -124,14 +124,40 @@ const props = defineProps({
 const emit = defineEmits(['close']);
 
 // Menu
-const menuItems = [
-  { id: 'service', label: 'Service', tip: 'Start, stop, or restart the service' },
-  { id: 'config', label: 'Web server', tip: 'Tips: Ctrl+F Search, Ctrl+S Save, Ctrl+H Replace' }
-];
+const baseMenuItems = [{ id: 'service', label: 'Service', tip: 'Start, stop, or restart the service' }];
+
+const menuItemAvailable = {
+  config: { tip: 'Tips: Ctrl+S Save' },
+  nginx: { tip: 'Tips: Ctrl+S Save, Nginx Configuration' },
+  apache: { tip: 'Tips: Ctrl+S Save, Apache Configuration' },
+  php: { tip: 'Tips: Ctrl+S Save, PHP.ini' },
+  mysql: { tip: 'Tips: Ctrl+S Save, my.ini' },
+  redis: { tip: 'Tips: Ctrl+S Save, redis.conf' },
+  postgresql: { tip: 'Tips: Ctrl+S Save, postgresql.conf' }
+};
+
+const menuItems = computed(() => {
+  const items = [...baseMenuItems];
+  
+  if (props.app?.configs) {
+    props.app.configs.forEach(conf => {
+      const typeInfo = menuItemAvailable[conf.type] || menuItemAvailable.config;
+      items.push({
+        id: conf.id,
+        label: conf.name,
+        tip: typeInfo.tip,
+        file: conf.file,
+        type: 'config' // Internal type for panel switching
+      });
+    });
+  }
+  
+  return items;
+});
 
 const activePanel = ref('service');
 
-const currentMenuItem = computed(() => menuItems.find(m => m.id === activePanel.value));
+const currentMenuItem = computed(() => menuItems.value.find(m => m.id === activePanel.value));
 
 // Service state
 const serviceRunning = ref(false);
@@ -244,13 +270,14 @@ const restartService = async () => {
 
 // Load config
 const loadConfig = async () => {
-  if (!props.app?.configFile || !props.app?.execPath) return;
+  const menuItem = currentMenuItem.value;
+  if (!menuItem || !menuItem.file || !props.app?.execPath) return;
   
   // Get app directory from execPath (parent directory of executable)
   const appDir = props.app.execPath.substring(0, props.app.execPath.lastIndexOf('\\'));
   
   configLoading.value = true;
-  const result = await window.sysapi.apps.readConfig(appDir, props.app.configFile);
+  const result = await window.sysapi.apps.readConfig(appDir, menuItem.file);
   
   if (result.error) {
     configMessage.value = `Error: ${result.error}`;
@@ -261,6 +288,7 @@ const loadConfig = async () => {
     
     if (editor) {
       editor.setValue(result.content);
+      editor.clearSelection();
     }
   }
   configLoading.value = false;
@@ -268,7 +296,8 @@ const loadConfig = async () => {
 
 // Save config
 const saveConfig = async () => {
-  if (!editor || !props.app?.configFile || !props.app?.execPath) return;
+  const menuItem = currentMenuItem.value;
+  if (!editor || !menuItem || !menuItem.file || !props.app?.execPath) return;
   
   const appDir = props.app.execPath.substring(0, props.app.execPath.lastIndexOf('\\'));
   
@@ -277,7 +306,7 @@ const saveConfig = async () => {
   configMessageClass.value = 'text-gray-400';
   
   const content = editor.getValue();
-  const result = await window.sysapi.apps.saveConfig(appDir, props.app.configFile, content);
+  const result = await window.sysapi.apps.saveConfig(appDir, menuItem.file, content);
   
   if (result.error) {
     configMessage.value = `Error: ${result.error}`;
@@ -296,7 +325,8 @@ const saveConfig = async () => {
 
 // Restore config
 const restoreConfig = async () => {
-  if (!props.app?.configFile || !props.app?.execPath) return;
+  const menuItem = currentMenuItem.value;
+  if (!menuItem || !menuItem.file || !props.app?.execPath) return;
   
   const appDir = props.app.execPath.substring(0, props.app.execPath.lastIndexOf('\\'));
   
@@ -304,7 +334,7 @@ const restoreConfig = async () => {
   configMessage.value = 'Restoring...';
   configMessageClass.value = 'text-gray-400';
   
-  const result = await window.sysapi.apps.restoreConfig(appDir, props.app.configFile);
+  const result = await window.sysapi.apps.restoreConfig(appDir, menuItem.file);
   
   if (result.error) {
     configMessage.value = `Error: ${result.error}`;
@@ -317,6 +347,7 @@ const restoreConfig = async () => {
     
     if (editor && result.content) {
       editor.setValue(result.content);
+      editor.clearSelection();
     }
   }
   
@@ -352,9 +383,24 @@ const initEditor = async () => {
 
 // Watch for panel change to init editor
 watch(activePanel, async (newPanel) => {
-  if (newPanel === 'config') {
+  // Check if the new panel is a config panel
+  const menuItem = menuItems.value.find(m => m.id === newPanel);
+  const isConfigPanel = menuItem && menuItem.type === 'config';
+
+  if (isConfigPanel) {
+    // Ensure we start fresh
+    if (editor) {
+      editor.destroy();
+      editor = null;
+    }
     await loadConfig();
     await initEditor();
+  } else {
+    // Clean up when leaving config panel
+    if (editor) {
+      editor.destroy();
+      editor = null;
+    }
   }
 });
 

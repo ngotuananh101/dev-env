@@ -13,7 +13,14 @@
       "iconColor": "text-green-500",
       "helpLink": "https://nginx.org/",
       "exec_file": "nginx.exe",
-      "config_file": "conf/nginx.conf",
+      "configs": [
+        {
+          "id": "nginx_main",
+          "name": "Nginx Config",
+          "file": "conf/nginx.conf",
+          "type": "nginx"
+        }
+      ],
       "service_commands": {
         "start": "",
         "stop": "-s stop",
@@ -49,7 +56,14 @@
       "iconColor": "text-orange-400",
       "helpLink": "https://www.apachelounge.com/",
       "exec_file": "bin/httpd.exe",
-      "config_file": "../conf/httpd.conf",
+      "configs": [
+        {
+          "id": "apache_httpd",
+          "name": "Apache Config",
+          "file": "../conf/httpd.conf",
+          "type": "apache"
+        }
+      ],
       "service_commands": {
         "start": "",
         "stop": "-k stop",
@@ -77,6 +91,14 @@
       "iconColor": "text-orange-800",
       "helpLink": "https://www.mysql.com/",
       "exec_file": "bin/mysqld.exe",
+      "configs": [
+        {
+          "id": "mysql_main",
+          "name": "MySQL Config",
+          "file": "../my.ini",
+          "type": "mysql"
+        }
+      ],
       "versions": [
         {
           "version": "9.6.0",
@@ -115,6 +137,14 @@
       "iconColor": "text-cyan-500",
       "helpLink": "https://mariadb.org/",
       "exec_file": "bin/mariadbd.exe",
+      "configs": [
+        {
+          "id": "mariadb_main",
+          "name": "MariaDB Config",
+          "file": "../my.ini",
+          "type": "mysql"
+        }
+      ],
       "versions": [
         {
           "version": "12.1.2",
@@ -152,6 +182,14 @@
       "iconColor": "text-red-500",
       "helpLink": "https://redis.io/",
       "exec_file": "redis-server.exe",
+      "configs": [
+        {
+          "id": "redis_conf",
+          "name": "Redis Config",
+          "file": "redis.conf",
+          "type": "redis"
+        }
+      ],
       "versions": [
         {
           "version": "8.4.0",
@@ -234,6 +272,14 @@
       "iconColor": "text-indigo-500",
       "helpLink": "https://www.php.net/",
       "exec_file": "php.exe",
+      "configs": [
+        {
+          "id": "php82_ini",
+          "name": "php.ini",
+          "file": "php.ini",
+          "type": "php"
+        }
+      ],
       "versions": [
         {
           "version": "8.2.30",
@@ -255,6 +301,14 @@
       "iconColor": "text-indigo-500",
       "helpLink": "https://www.php.net/",
       "exec_file": "php.exe",
+      "configs": [
+        {
+          "id": "php83_ini",
+          "name": "php.ini",
+          "file": "php.ini",
+          "type": "php"
+        }
+      ],
       "versions": [
         {
           "version": "8.3.29",
@@ -276,6 +330,14 @@
       "iconColor": "text-indigo-500",
       "helpLink": "https://www.php.net/",
       "exec_file": "php.exe",
+      "configs": [
+        {
+          "id": "php84_ini",
+          "name": "php.ini",
+          "file": "php.ini",
+          "type": "php"
+        }
+      ],
       "versions": [
         {
           "version": "8.4.16",
@@ -297,6 +359,14 @@
       "iconColor": "text-indigo-500",
       "helpLink": "https://www.php.net/",
       "exec_file": "php.exe",
+      "configs": [
+        {
+          "id": "php85_ini",
+          "name": "php.ini",
+          "file": "php.ini",
+          "type": "php"
+        }
+      ],
       "versions": [
         {
           "version": "8.5.1",

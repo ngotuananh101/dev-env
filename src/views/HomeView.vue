@@ -1,21 +1,21 @@
 <template>
   <div class="flex-1 overflow-y-auto p-6">
     <!-- Top Status Row -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <div class="flex flex-col lg:flex-row gap-6 mb-6">
       <!-- CPU Load -->
-      <div class="bg-background-secondary rounded-lg p-6 flex flex-col items-center justify-center relative">
-         <h3 class="absolute top-4 left-4 text-white text-lg font-medium">CPU Load</h3>
+      <div class="flex-1 bg-background-secondary rounded-lg p-6 flex flex-col items-center justify-between min-h-[280px] h-[280px]">
+         <h3 class="text-white text-lg font-medium w-full">CPU Load</h3>
          
          <div class="relative w-32 h-32 flex items-center justify-center">
              <svg class="w-full h-full transform -rotate-90">
                  <circle cx="64" cy="64" r="56" stroke="#374151" stroke-width="8" fill="transparent" />
                  <circle 
                     cx="64" cy="64" r="56" stroke="#3b82f6" stroke-width="8" fill="transparent"
-                    stroke-dasharray="351.8" :stroke-dashoffset="351.8 - (systemStore.cpuLoad / 100 * 351.8)"
+                    stroke-dasharray="351.8" :stroke-dashoffset="351.8 - ((systemStore.cpuLoad || 0) / 100 * 351.8)"
                     stroke-linecap="round" class="transition-all duration-500 ease-out"
                  />
              </svg>
-             <div class="absolute inset-0 flex items-center justify-center text-2xl font-bold text-white">
+             <div class="absolute inset-0 flex items-center justify-center text-xl font-semibold text-white">
                  {{ systemStore.cpuLoad.toFixed(1) }}%
              </div>
          </div>
@@ -23,20 +23,20 @@
       </div>
 
       <!-- RAM Usage -->
-      <div class="bg-background-secondary rounded-lg p-6 flex flex-col items-center justify-center relative">
-         <h3 class="absolute top-4 left-4 text-white text-lg font-medium">RAM Usage</h3>
+      <div class="flex-1 bg-background-secondary rounded-lg p-6 flex flex-col items-center justify-between min-h-[280px] h-[280px]">
+         <h3 class="text-white text-lg font-medium w-full">RAM Usage</h3>
          
          <div class="relative w-32 h-32 flex items-center justify-center">
             <svg class="w-full h-full transform -rotate-90">
                 <circle cx="64" cy="64" r="56" stroke="#374151" stroke-width="8" fill="transparent" />
                 <circle 
                    cx="64" cy="64" r="56" stroke="#8b5cf6" stroke-width="8" fill="transparent"
-                   stroke-dasharray="351.8" :stroke-dashoffset="351.8 - ((systemStore.mem.active / systemStore.mem.total) * 351.8)"
+                   stroke-dasharray="351.8" :stroke-dashoffset="351.8 - (systemStore.mem.total > 0 ? ((systemStore.mem.active / systemStore.mem.total) * 351.8) : 0)"
                    stroke-linecap="round" class="transition-all duration-500 ease-out"
                 />
             </svg>
-            <div class="absolute inset-0 flex items-center justify-center text-2xl font-bold text-white">
-                {{ ((systemStore.mem.active / systemStore.mem.total) * 100).toFixed(1) }}%
+            <div class="absolute inset-0 flex items-center justify-center text-xl font-semibold text-white">
+                {{ systemStore.mem.total > 0 ? (((systemStore.mem.active ?? 0) / systemStore.mem.total) * 100).toFixed(1) : '0' }}%
             </div>
          </div>
          <div class="mt-4 text-gray-400 text-sm">
@@ -45,7 +45,7 @@
       </div>
 
       <!-- Disk Usage -->
-      <div class="bg-background-secondary rounded-lg p-6 flex flex-col h-full">
+      <div class="flex-1 bg-background-secondary rounded-lg p-6 flex flex-col min-h-[280px] h-full">
          <h3 class="text-white text-lg font-medium mb-4">Disk</h3>
          
          <div class="flex items-center justify-between mb-4">

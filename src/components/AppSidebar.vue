@@ -1,5 +1,5 @@
 <template>
-  <aside class="w-64 bg-background-darker flex flex-col">
+  <aside class="w-60 bg-background-darker flex flex-col">
     <!-- IP Header -->
     <div class="p-4 flex items-center space-x-2 border-b border-gray-800">
       <div class="w-2 h-2 rounded-full bg-green-500"></div>

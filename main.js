@@ -665,6 +665,80 @@ const startAppService = async (appId, execPath, args) => {
     }
     logApp(`Ensured temp folders exist in ${execDir}`, 'SERVICE');
 
+    // MySQL/MariaDB Initialization
+    if (appId === 'mysql' || appId === 'mariadb') {
+      const dataDir = path.join(execDir, '..', 'data');
+      if (!fs.existsSync(dataDir)) {
+        logApp(`MySQL data directory not found at ${dataDir}. Initializing...`, 'SERVICE');
+
+        try {
+          // Initialize with empty password
+          const initArgs = ['--initialize-insecure', '--console'];
+          // Ensure we use the correct basedir relative to bin
+          const baseDir = path.resolve(execDir, '..');
+          initArgs.push(`--basedir=${baseDir}`);
+          initArgs.push(`--datadir=${dataDir}`);
+
+          logApp(`Running initialization: ${execPathNormalized} ${initArgs.join(' ')}`, 'SERVICE');
+
+          execSync(`"${execPathNormalized}" ${initArgs.join(' ')}`, {
+            cwd: execDir,
+            stdio: 'inherit' // Pipe output so we can see it in parent console if needed
+          });
+
+          logApp('MySQL initialized successfully.', 'SERVICE');
+        } catch (initErr) {
+          logApp(`MySQL initialization failed: ${initErr.message}`, 'ERROR');
+          return { error: `Failed to initialize database: ${initErr.message}` };
+        }
+      }
+    }
+    // PostgreSQL Initialization
+    else if (appId === 'postgresql') {
+      const dataDir = path.join(execDir, '..', 'data');
+      if (!fs.existsSync(dataDir)) {
+        logApp(`PostgreSQL data directory not found at ${dataDir}. Initializing...`, 'SERVICE');
+
+        try {
+          // Use initdb for initialization
+          const initDbPath = path.join(execDir, 'initdb.exe');
+
+          if (!fs.existsSync(initDbPath)) {
+            throw new Error(`initdb.exe not found at ${initDbPath}`);
+          }
+
+          // Initialize with UTF-8, "postgres" user, and no password (trust)
+          // -D: Data directory
+          // -E: Encoding
+          // -U: Superuser name
+          // --locale: Locale (using C for consistency, or en_US.UTF-8)
+          // -A: Auth method (trust = no password for local)
+          const initArgs = [
+            `-D "${dataDir}"`,
+            '-E UTF8',
+            '-U postgres',
+            '--locale=C',
+            '-A trust'
+          ];
+
+          logApp(`Running initialization: ${initDbPath} ${initArgs.join(' ')}`, 'SERVICE');
+
+          execSync(`"${initDbPath}" ${initArgs.join(' ')}`, {
+            cwd: execDir,
+            stdio: 'inherit'
+          });
+
+          logApp('PostgreSQL initialized successfully.', 'SERVICE');
+        } catch (initErr) {
+          logApp(`PostgreSQL initialization failed: ${initErr.message}`, 'ERROR');
+          return { error: `Failed to initialize database: ${initErr.message}` };
+        }
+      }
+      // Add arg to config file
+      const configPath = path.join(dataDir, 'postgresql.conf');
+      args = args + ' -D ' + dataDir;
+    }
+
     const cmdArgs = args ? args.split(' ').filter(a => a) : [];
     logApp(`Starting: ${execPathNormalized} ${cmdArgs.join(' ')} in ${execDir}`, 'SERVICE');
 
@@ -695,6 +769,14 @@ const startAppService = async (appId, execPath, args) => {
 
     runningProcesses.set(appId, proc);
     logApp(`Started service: ${appId} (PID: ${proc.pid})`, 'SERVICE');
+
+    // Wait 1 second to see if it initially fails
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    if (proc.exitCode !== null) {
+      logApp(`Service ${appId} failed to start (exited with ${proc.exitCode})`, 'ERROR');
+      return { error: `Service exited immediately with code ${proc.exitCode}. Check logs.` };
+    }
 
     return { success: true, pid: proc.pid };
   } catch (err) {
@@ -772,7 +854,17 @@ ipcMain.handle('app-service-stop', async (event, appId, execPath, stopArgs) => {
     // Otherwise try to kill the tracked process
     const proc = runningProcesses.get(appId);
     if (proc) {
-      proc.kill();
+      if (process.platform === 'win32') {
+        try {
+          execSync(`taskkill /PID ${proc.pid} /T /F`, { stdio: 'ignore' });
+          logApp(`Taskkilled service: ${appId} (PID: ${proc.pid})`, 'SERVICE');
+        } catch (e) {
+          // Fallback to regular kill if taskkill fails
+          proc.kill();
+        }
+      } else {
+        proc.kill();
+      }
       runningProcesses.delete(appId);
       logApp(`Killed service: ${appId}`, 'SERVICE');
       return { success: true };
