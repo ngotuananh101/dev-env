@@ -112,6 +112,9 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
 import ace from 'ace-builds';
 import 'ace-builds/src-noconflict/mode-nginx';
 import 'ace-builds/src-noconflict/theme-monokai';
+import { useToast } from 'vue-toastification';
+
+const toast = useToast();
 
 const props = defineProps({
   show: Boolean,
@@ -165,8 +168,10 @@ const startService = async () => {
   
   if (result.error) {
     serviceLoadingText.value = `Error: ${result.error}`;
+    toast.error(`Start failed: ${result.error}`);
   } else {
     serviceLoadingText.value = 'Started successfully';
+    toast.success('Service started successfully');
     await checkServiceStatus();
   }
   
@@ -190,8 +195,10 @@ const stopService = async () => {
   
   if (result.error) {
     serviceLoadingText.value = `Error: ${result.error}`;
+    toast.error(`Stop failed: ${result.error}`);
   } else {
     serviceLoadingText.value = 'Stopped successfully';
+    toast.success('Service stopped successfully');
     // Wait a bit for the process to fully stop before checking status
     await new Promise(resolve => setTimeout(resolve, 500));
     await checkServiceStatus();
@@ -217,8 +224,10 @@ const restartService = async () => {
   
   if (result.error) {
     serviceLoadingText.value = `Error: ${result.error}`;
+    toast.error(`Restart failed: ${result.error}`);
   } else {
     serviceLoadingText.value = 'Restarted successfully';
+    toast.success('Service restarted successfully');
     await checkServiceStatus();
   }
   
@@ -268,10 +277,12 @@ const saveConfig = async () => {
   if (result.error) {
     configMessage.value = `Error: ${result.error}`;
     configMessageClass.value = 'text-red-400';
+    toast.error(`Save failed: ${result.error}`);
   } else {
     configMessage.value = 'Saved successfully!';
     configMessageClass.value = 'text-green-400';
     hasBackup.value = result.hasBackup;
+    toast.success('Config saved successfully');
   }
   
   configLoading.value = false;
@@ -293,9 +304,11 @@ const restoreConfig = async () => {
   if (result.error) {
     configMessage.value = `Error: ${result.error}`;
     configMessageClass.value = 'text-red-400';
+    toast.error(`Restore failed: ${result.error}`);
   } else {
     configMessage.value = 'Restored successfully!';
     configMessageClass.value = 'text-green-400';
+    toast.success('Config restored successfully');
     
     if (editor && result.content) {
       editor.setValue(result.content);

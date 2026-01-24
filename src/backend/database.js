@@ -53,11 +53,16 @@ class DatabaseManager {
                     install_path TEXT,
                     exec_path TEXT,
                     custom_args TEXT,
+                    auto_start INTEGER DEFAULT 0,
                     show_on_dashboard INTEGER DEFAULT 0,
                     installed_at TEXT,
                     updated_at TEXT
                 )
             `).run();
+
+            // Migrations: Try to add columns if they don't exist
+            try { this.db.prepare("ALTER TABLE installed_apps ADD COLUMN custom_args TEXT").run(); } catch (e) { }
+            try { this.db.prepare("ALTER TABLE installed_apps ADD COLUMN auto_start INTEGER DEFAULT 0").run(); } catch (e) { }
 
         } catch (err) {
             console.error("DB Init Tables Error:", err);

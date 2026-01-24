@@ -626,7 +626,8 @@ ipcMain.handle('app-restore-config', async (event, installPath, configPath) => {
 const runningProcesses = new Map();
 
 // Start service
-ipcMain.handle('app-service-start', async (event, appId, execPath, args) => {
+// Helper to start service (used by IPC and auto-start)
+const startAppService = async (appId, execPath, args) => {
   try {
     if (runningProcesses.has(appId)) {
       return { error: 'Service already running' };
@@ -688,12 +689,27 @@ ipcMain.handle('app-service-start', async (event, appId, execPath, args) => {
     logApp(`Failed to start service: ${err.message}`, 'ERROR');
     return { error: err.message };
   }
+};
+
+// Start service
+ipcMain.handle('app-service-start', async (event, appId, execPath, args) => {
+  const result = await startAppService(appId, execPath, args);
+
+  if (result.success) {
+    // Save auto-start state
+    dbManager.query('UPDATE installed_apps SET auto_start = 1 WHERE app_id = ?', [appId]);
+  }
+
+  return result;
 });
 
 // Stop service
 ipcMain.handle('app-service-stop', async (event, appId, execPath, stopArgs) => {
   try {
     const { spawn, execSync } = require('child_process');
+
+    // Update auto-start state to 0 (user intentionally stopped)
+    dbManager.query('UPDATE installed_apps SET auto_start = 0 WHERE app_id = ?', [appId]);
 
     // If we have stop args, use them (e.g., nginx -s stop)
     if (stopArgs) {
@@ -1188,6 +1204,30 @@ ipcMain.on('terminal-resize', (event, { cols, rows }) => {
 app.whenReady().then(() => {
   dbManager = new DatabaseManager(app.getPath('userData'));
   createWindow()
+
+  // Auto-start apps that were running
+  if (dbManager) {
+    try {
+      const autoStartApps = dbManager.query('SELECT * FROM installed_apps WHERE auto_start = 1');
+      if (Array.isArray(autoStartApps) && autoStartApps.length > 0) {
+        console.log(`Found ${autoStartApps.length} apps to auto-start`);
+        // Use a small delay to ensure everything is initialized
+        setTimeout(async () => {
+          for (const app of autoStartApps) {
+            if (app.exec_path) {
+              console.log(`Auto-starting: ${app.app_id}`);
+              const result = await startAppService(app.app_id, app.exec_path, app.custom_args);
+              if (result.error) {
+                console.error(`Failed to auto-start ${app.app_id}: ${result.error}`);
+              }
+            }
+          }
+        }, 1000);
+      }
+    } catch (e) {
+      console.error('Auto-start error:', e);
+    }
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

@@ -248,6 +248,10 @@ import {
 } from 'lucide-vue-next';
 import AppSettingsModal from '../components/AppSettingsModal.vue';
 
+import { useToast } from 'vue-toastification';
+
+const toast = useToast();
+
 // Categories
 const categories = [
   { id: 'all', name: 'ALL' },
@@ -559,6 +563,10 @@ const confirmInstall = async () => {
       console.error('Install result error:', result.error);
       installStatus.value = 'Installation Failed';
       installLogs.value.push(`[${new Date().toLocaleTimeString()}] [ERROR] ${result.error}`);
+      
+      // Show toast error
+      toast.error(result.error);
+      
       isInstalling.value = false;
       // Scroll to bottom
       if (logsContainer.value) {
