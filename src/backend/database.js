@@ -78,6 +78,7 @@ class DatabaseManager {
                     node_script TEXT,
                     proxy_target TEXT,
                     status TEXT DEFAULT 'stopped',
+                    is_auto INTEGER DEFAULT 0,
                     created_at TEXT,
                     updated_at TEXT
                 )

@@ -434,6 +434,17 @@ function register(ipcMain, context) {
             const targetPath = path.join(appPath, 'conf', 'httpd.conf');
             await fsPromises.writeFile(targetPath, configContent, 'utf-8');
 
+            // Auto generate site
+            const defaultSite = dbManager.query('SELECT * FROM settings WHERE key = ?', ['site_auto_create']);
+            if (defaultSite[0].value) {
+                const template = dbManager.query('SELECT * FROM settings WHERE key = ?', ['site_template']);
+
+                // Cleanup old auto sites
+                await cleanupAutoSites(dbManager, context.appDir);
+
+                await scanDirAndAutoCreateConfig(dbManager, htdocsPathSlash, 'apache', template[0].value, context.appDir);
+            }
+
             return { success: true };
         } catch (error) {
             console.error('Update Apache root error:', error);
@@ -483,6 +494,17 @@ function register(ipcMain, context) {
             // Write to nginx.conf
             const targetPath = path.join(appPath, 'conf', 'nginx.conf');
             await fsPromises.writeFile(targetPath, configContent, 'utf-8');
+
+            // Auto generate site
+            const defaultSite = dbManager.query('SELECT * FROM settings WHERE key = ?', ['site_auto_create']);
+            if (defaultSite[0].value) {
+                const template = dbManager.query('SELECT * FROM settings WHERE key = ?', ['site_template']);
+
+                // Cleanup old auto sites
+                await cleanupAutoSites(dbManager, context.appDir);
+
+                await scanDirAndAutoCreateConfig(dbManager, htdocsPathSlash, 'nginx', template[0].value, context.appDir);
+            }
 
             return { success: true };
         } catch (error) {
@@ -535,5 +557,50 @@ async function deleteSiteConfig(site, appDir) {
 }
 
 
+/**
+ * Scan dir and auto create config
+ */
+async function scanDirAndAutoCreateConfig(dbManager, dir, webserver, template, appDir) {
+    try {
+        const files = await fsPromises.readdir(dir);
+        for (const file of files) {
+            const filePath = path.join(dir, file);
+            const stats = await fsPromises.stat(filePath);
+            if (stats.isDirectory()) {
+                const config = {
+                    name: file,
+                    domain: template.replace('[site]', file),
+                    type: 'php',
+                    root_path: filePath,
+                };
+                await saveSiteConfig(config, appDir);
+                // Insert into database
+                dbManager.query('INSERT INTO sites (webserver, name, domain, type, root_path, is_auto) VALUES (?, ?, ?, ?, ?, 1)', [webserver, config.name, config.domain, config.type, config.root_path]);
+            }
+        }
+        return { success: true };
+    } catch (error) {
+        console.error('Scan dir and auto create config error:', error);
+        return { error: error.message };
+    }
+}
+
+
+/**
+ * Cleanup auto created sites
+ */
+async function cleanupAutoSites(dbManager, appDir) {
+    try {
+        const sites = dbManager.query('SELECT * FROM sites WHERE is_auto = 1');
+        if (sites && sites.length > 0) {
+            for (const site of sites) {
+                await deleteSiteConfig(site, appDir);
+            }
+            dbManager.query('DELETE FROM sites WHERE is_auto = 1');
+        }
+    } catch (error) {
+        console.error('Cleanup auto sites error:', error);
+    }
+}
 
 module.exports = { register, runningNodeProcesses };
