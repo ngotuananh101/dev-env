@@ -63,7 +63,7 @@
             <th class="p-2 border-b border-gray-700">Instructions</th>
             <th class="p-2 border-b border-gray-700 w-20">Location</th>
             <th class="p-2 border-b border-gray-700 w-16 text-center">Status</th>
-            <th class="p-2 border-b border-gray-700 w-24 text-center">Display on dashboard</th>
+            <th class="p-2 border-b border-gray-700 w-24 text-center">Add to PATH</th>
             <th class="p-2 border-b border-gray-700 w-32 text-center">Operate</th>
           </tr>
         </thead>
@@ -94,8 +94,8 @@
               <span v-else class="text-gray-500">--</span>
             </td>
             <td class="px-2 py-2 text-center">
-              <label v-if="app.status === 'installed'" class="relative inline-flex items-center cursor-pointer" @click.prevent="toggleDashboard(app)">
-                <input type="checkbox" :checked="app.showOnDashboard" class="sr-only peer">
+              <label v-if="app.status === 'installed' && app.execPath" class="relative inline-flex items-center cursor-pointer" @click.prevent="togglePath(app)">
+                <input type="checkbox" :checked="app.inPath" class="sr-only peer">
                 <div class="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
               </label>
               <span v-else class="text-gray-500">--</span>
@@ -317,10 +317,26 @@ const loadApps = async () => {
     }
     apps.value = result.apps || [];
     appListVersion.value = result.version || '';
+    
+    // Check PATH status for installed apps
+    for (const app of apps.value) {
+      if (app.status === 'installed' && app.execPath) {
+        const execDir = app.execPath.substring(0, app.execPath.lastIndexOf('\\'));
+        try {
+          const pathResult = await window.sysapi.files.checkPath(execDir);
+          app.inPath = pathResult.inPath || false;
+        } catch (e) {
+          app.inPath = false;
+        }
+      } else {
+        app.inPath = false;
+      }
+    }
   } catch (error) {
     console.error('Error loading apps:', error);
   }
 };
+
 
 // Update apps list from remote XML
 const updateAppList = async () => {
@@ -627,19 +643,33 @@ const uninstallApp = async (app) => {
   }
 };
 
-const toggleDashboard = async (app) => {
+const togglePath = async (app) => {
+  if (!app.execPath) return;
+  
   try {
-    const newValue = !app.showOnDashboard;
-    const result = await window.sysapi.apps.setDashboard(app.id, newValue);
+    const execDir = app.execPath.substring(0, app.execPath.lastIndexOf('\\'));
+    const newValue = !app.inPath;
+    
+    // Show info toast immediately
+    toast.info(newValue ? `Adding ${app.name} to PATH...` : `Removing ${app.name} from PATH...`);
+    
+    let result;
+    if (newValue) {
+      result = await window.sysapi.files.addToPath(execDir);
+    } else {
+      result = await window.sysapi.files.removeFromPath(execDir);
+    }
+    
     if (result.error) {
-      alert(`Failed to update setting: ${result.error}`);
-      // Revert the change
-      app.showOnDashboard = !newValue;
+      toast.error(`Failed to update PATH: ${result.error}`);
       return;
     }
-    app.showOnDashboard = newValue;
+    
+    app.inPath = newValue;
+    toast.success(newValue ? `Added ${execDir} to PATH` : `Removed from PATH`);
   } catch (error) {
-    console.error('Toggle dashboard error:', error);
+    console.error('Toggle PATH error:', error);
+    toast.error(`Error: ${error.message}`);
   }
 };
 

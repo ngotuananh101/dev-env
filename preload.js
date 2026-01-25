@@ -52,7 +52,11 @@ const api = {
             ipcRenderer.removeAllListeners('download-progress');
             ipcRenderer.removeAllListeners('download-complete');
             ipcRenderer.removeAllListeners('download-error');
-        }
+        },
+        // System PATH management
+        checkPath: (targetPath) => ipcRenderer.invoke('path-check', targetPath),
+        addToPath: (targetPath) => ipcRenderer.invoke('path-add', targetPath),
+        removeFromPath: (targetPath) => ipcRenderer.invoke('path-remove', targetPath)
     },
 
     // Terminal
