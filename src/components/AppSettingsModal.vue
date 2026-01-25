@@ -419,6 +419,8 @@ const initEditor = async () => {
 
 // Watch for panel change to init editor
 watch(activePanel, async (newPanel) => {
+  configMessage.value = '';
+  configMessageClass.value = '';
   // Check if the new panel is a config panel
   const menuItem = menuItems.value.find(m => m.id === newPanel);
   const isConfigPanel = menuItem && menuItem.type === 'config';
