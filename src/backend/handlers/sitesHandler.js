@@ -390,6 +390,57 @@ function register(ipcMain, context) {
         return { success: true };
     });
 
+    // Update Apache Server Root
+    ipcMain.handle('sites-update-apache-root', async (event, newPath) => {
+        const dbManager = getDbManager();
+        if (!dbManager) return { error: 'Database not initialized' };
+
+        try {
+            const apps = dbManager.query('SELECT * FROM installed_apps WHERE app_id = ?', ['apache']);
+            if (!apps || apps.length === 0) {
+                return { error: 'Apache not installed' };
+            }
+            const app = apps[0];
+            const execPath = path.dirname(app.exec_path); // .../Apache24/bin
+            const appPath = path.dirname(execPath); // .../Apache24
+
+            // Check for template
+            const templatePath = path.join(context.appDir, 'data', 'config', 'apache.conf');
+            if (!fs.existsSync(templatePath)) {
+                return { error: 'Apache config template not found' };
+            }
+
+            let configContent = await fsPromises.readFile(templatePath, 'utf-8');
+
+            // Prepare paths
+            const serverRootSlash = appPath.replace(/\\/g, '/');
+            const htdocsPathSlash = newPath.replace(/\\/g, '/');
+            const cgiBinPathSlash = path.join(appPath, 'cgi-bin').replace(/\\/g, '/');
+
+            // Sites include path
+            const sitesDir = path.join(context.appDir, 'sites');
+            if (!fs.existsSync(sitesDir)) {
+                await fsPromises.mkdir(sitesDir, { recursive: true });
+            }
+            const sitesPathSlash = path.join(sitesDir, '*.conf').replace(/\\/g, '/');
+
+            // Replacements
+            configContent = configContent.replace(/\[execPath\]/g, serverRootSlash);
+            configContent = configContent.replace(/\[htdocsPath\]/g, htdocsPathSlash);
+            configContent = configContent.replace(/\[cgiBinPath\]/g, cgiBinPathSlash);
+            configContent = configContent.replace(/\[siteEnablePath\]/g, `IncludeOptional "${sitesPathSlash}"`);
+
+            // Write to httpd.conf
+            const targetPath = path.join(appPath, 'conf', 'httpd.conf');
+            await fsPromises.writeFile(targetPath, configContent, 'utf-8');
+
+            return { success: true };
+        } catch (error) {
+            console.error('Update Apache root error:', error);
+            return { error: error.message };
+        }
+    });
+
 
 }
 

@@ -586,12 +586,23 @@ function register(ipcMain, context) {
             return { error: result.error };
         }
 
-        try {
-            if (appPath && fs.existsSync(appPath)) {
-                await fsPromises.rm(appPath, { recursive: true, force: true });
+        const appDir = path.join(context.appDir, 'apps', appId);
+        if (fs.existsSync(appDir)) {
+            try {
+                await fsPromises.rm(appDir, { recursive: true, force: true });
+            } catch (err) {
+                console.error(`Failed to remove app dir for ${appId}:`, err);
             }
-        } catch (err) {
-            console.error(`Failed to remove app files for ${appId}:`, err);
+        }
+
+        // Delete vhost dir
+        const sitesDir = path.join(context.appDir, 'sites');
+        if (fs.existsSync(sitesDir)) {
+            try {
+                await fsPromises.rm(sitesDir, { recursive: true, force: true });
+            } catch (err) {
+                console.error(`Failed to remove sites dir for ${appId}:`, err);
+            }
         }
 
         return { success: true };

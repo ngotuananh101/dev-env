@@ -28,8 +28,14 @@
             <span>Add site</span>
           </button>
 
-
-          
+          <button 
+            v-if="activeTab === 'php' && webserver.apache"
+            @click="changeApacheRoot"
+            class="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs border border-gray-600"
+            title="Change Apache Root"
+          >
+            <FolderCog class="w-3 h-3 text-yellow-500" />
+          </button>
           <!-- Webserver indicator -->
           <div class="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 rounded text-xs">
             <Server class="w-3 h-3 text-yellow-400" />
@@ -240,7 +246,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { 
   Plus, RefreshCw, Search, Server, Globe2, Globe, ExternalLink,
-  Folder, Play, Square, FileCode, Terminal, ArrowRightLeft 
+  Folder, Play, Square, FileCode, Terminal, ArrowRightLeft, FolderCog 
 } from 'lucide-vue-next';
 import { useToast } from 'vue-toastification';
 import AddSiteModal from '../components/AddSiteModal.vue';
@@ -415,6 +421,31 @@ const deleteSite = async (site) => {
 };
 
 
+
+// Change Apache Root
+const changeApacheRoot = async () => {
+  try {
+    // Select new folder
+    const result = await window.sysapi.files.selectFolder();
+    if (!result.path) return;
+    
+    if (!confirm(`Change Apache DocumentRoot to:\n${result.path}\n\nThis will rewrite httpd.conf!`)) return;
+
+    isLoading.value = true;
+    const updateResult = await window.sysapi.sites.updateApacheRoot(result.path);
+    
+    if (updateResult.error) {
+      toast.error(`Failed to update: ${updateResult.error}`);
+    } else {
+      toast.success('Apache root updated successfully!');
+    }
+  } catch (error) {
+    console.error('Change Apache root error:', error);
+    toast.error(`Error: ${error.message}`);
+  } finally {
+    isLoading.value = false;
+  }
+};
 
 // Site created callback
 const onSiteCreated = async () => {
