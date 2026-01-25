@@ -80,13 +80,13 @@ const loadConfig = async () => {
     }
     
     configPath.value = result.path;
+    isLoading.value = false;
     
     await nextTick();
     initEditor(result.content);
   } catch (error) {
     toast.error(`Error: ${error.message}`);
     emit('close');
-  } finally {
     isLoading.value = false;
   }
 };

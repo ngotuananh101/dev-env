@@ -533,6 +533,19 @@ function register(ipcMain, context) {
                 return { error: result.error };
             }
 
+            // Auto-set default PHP version if not set
+            if (appId.startsWith('php')) {
+                try {
+                    const currentDefault = dbManager.query('SELECT value FROM settings WHERE key = ?', ['default_php_version']);
+                    if (!currentDefault || currentDefault.length === 0 || !currentDefault[0].value) {
+                        dbManager.query('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['default_php_version', version]);
+                        logApp(`Auto-set default PHP version to ${version}`, 'CONFIG');
+                    }
+                } catch (err) {
+                    console.error('Failed to auto-set default PHP version:', err);
+                }
+            }
+
             sendProgress(100, 'Installed!');
             logApp(`Successfully installed ${appId}`, 'INSTALL');
 

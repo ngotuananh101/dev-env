@@ -11,6 +11,26 @@
             <h2 class="text-lg font-semibold text-white mb-4">Site Configuration</h2>
             
             <div class="space-y-6">
+                <!-- Default PHP Version -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-400">Default PHP Version</label>
+                    <div class="flex items-center space-x-2">
+                        <select 
+                            v-model="settings.default_php_version" 
+                            class="flex-1 bg-gray-900 border border-gray-700 rounded-md px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all placeholder-gray-600 appearance-none"
+                            @change="saveSetting('default_php_version', settings.default_php_version)"
+                        >
+                            <option value="" disabled>Select PHP Version</option>
+                            <option v-for="php in phpVersions" :key="php.id" :value="php.installedVersion">
+                                PHP {{ php.installedVersion }}
+                            </option>
+                        </select>
+                    </div>
+                    <p v-if="phpVersions.length === 0" class="text-xs text-yellow-500">
+                        No PHP versions installed. Please install PHP from the dashboard.
+                    </p>
+                </div>
+
                 <!-- Site Template -->
                 <div class="space-y-2">
                     <label class="block text-sm font-medium text-gray-400">Default Site Template</label>
@@ -60,14 +80,30 @@ const toast = useToast();
 
 const settings = ref({
     site_template: '',
-    site_auto_create: false
+    site_auto_create: false,
+    default_php_version: ''
 });
+
+const phpVersions = ref([]);
 
 onMounted(async () => {
     await dbStore.loadSettings();
     settings.value.site_template = dbStore.settings.site_template || '[site].local';
+    settings.value.default_php_version = dbStore.settings.default_php_version || '';
     // Convert string 'true'/'false' to boolean for checkbox
     settings.value.site_auto_create = dbStore.settings.site_auto_create === 'true' || dbStore.settings.site_auto_create === true;
+
+    // Load installed PHP versions
+    try {
+        const result = await window.sysapi.apps.getList();
+        if (result.apps) {
+            phpVersions.value = result.apps.filter(app => app.id.startsWith('php') && app.status === 'installed');
+            // Sort by version desc
+            phpVersions.value.sort((a, b) => b.installedVersion.localeCompare(a.installedVersion, undefined, { numeric: true }));
+        }
+    } catch (error) {
+        console.error('Failed to load apps:', error);
+    }
 });
 
 const saveSetting = async (key, value) => {

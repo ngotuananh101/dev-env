@@ -66,6 +66,22 @@
               </button>
             </div>
           </div>
+
+          <div>
+            <label class="block text-gray-400 text-sm mb-1">PHP Version</label>
+            <select 
+              v-model="form.php_version"
+              class="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white text-sm"
+            >
+                <option value="" disabled>Select PHP Version</option>
+                <option v-for="php in phpVersions" :key="php.id" :value="php.installedVersion">
+                    PHP {{ php.installedVersion }}
+                </option>
+            </select>
+            <p v-if="phpVersions.length === 0" class="text-xs text-yellow-500 mt-1">
+                No PHP versions installed.
+            </p>
+          </div>
         </template>
 
         <!-- Node Project: Root Path + Script + Port -->
@@ -164,7 +180,42 @@ const form = ref({
   root_path: '',
   port: 3000,
   node_script: 'index.js',
-  proxy_target: ''
+  proxy_target: '',
+  php_version: ''
+});
+
+// Load default PHP version
+import { onMounted } from 'vue';
+import { useDatabaseStore } from '../stores/database';
+const dbStore = useDatabaseStore();
+const phpVersions = ref([]);
+
+onMounted(async () => {
+    // Load installed PHP versions
+    try {
+        const result = await window.sysapi.apps.getList();
+        if (result.apps) {
+            phpVersions.value = result.apps.filter(app => app.id.startsWith('php') && app.status === 'installed');
+            // Sort by version desc
+            phpVersions.value.sort((a, b) => b.installedVersion.localeCompare(a.installedVersion, undefined, { numeric: true }));
+        }
+    } catch (error) {
+        console.error('Failed to load apps:', error);
+    }
+
+    if (props.type === 'php') {
+        await dbStore.loadSettings();
+        const defaultVer = dbStore.settings.default_php_version;
+        // Check if default version is installed
+        const isInstalled = phpVersions.value.some(p => p.installedVersion === defaultVer);
+        
+        if (isInstalled) {
+            form.value.php_version = defaultVer;
+        } else if (phpVersions.value.length > 0) {
+            // Fallback to first available
+            form.value.php_version = phpVersions.value[0].installedVersion;
+        }
+    }
 });
 
 const isCreating = ref(false);
@@ -211,6 +262,7 @@ const createSite = async () => {
       webserver: form.value.webserver,
       root_path: form.value.root_path,
       port: form.value.port,
+      php_version: form.value.php_version,
       node_script: form.value.node_script,
       proxy_target: form.value.proxy_target
     };

@@ -8,6 +8,7 @@ const fs = require('fs');
 const fsPromises = require('fs').promises;
 const path = require('path');
 const { spawn, exec } = require('child_process');
+const { addHosts, removeHosts } = require('./hostsHandler');
 
 // Store running Node processes
 const runningNodeProcesses = new Map();
@@ -196,6 +197,9 @@ function register(ipcMain, context) {
             // Generate and save webserver config
             await saveSiteConfig(site, appDir);
 
+            // Add to hosts file
+            await addHosts([domain]);
+
             return { success: true, id: siteId };
         } catch (error) {
             console.error('Failed to create site:', error);
@@ -225,6 +229,9 @@ function register(ipcMain, context) {
 
             // Delete config file
             await deleteSiteConfig(site, appDir);
+
+            // Remove from hosts file
+            await removeHosts([site.domain]);
 
             // Delete from database
             const result = dbManager.query('DELETE FROM sites WHERE id = ?', [siteId]);
@@ -563,6 +570,11 @@ async function deleteSiteConfig(site, appDir) {
 async function scanDirAndAutoCreateConfig(dbManager, dir, webserver, template, appDir) {
     try {
         const files = await fsPromises.readdir(dir);
+        // Get default PHP version
+        const defaultPhp = dbManager.query('SELECT * FROM settings WHERE key = ?', ['default_php_version']);
+        const phpVersion = (defaultPhp && defaultPhp.length > 0) ? defaultPhp[0].value : '8.2';
+
+        const newDomains = [];
         for (const file of files) {
             const filePath = path.join(dir, file);
             const stats = await fsPromises.stat(filePath);
@@ -572,12 +584,21 @@ async function scanDirAndAutoCreateConfig(dbManager, dir, webserver, template, a
                     domain: template.replace('[site]', file),
                     type: 'php',
                     root_path: filePath,
+                    php_version: phpVersion
                 };
                 await saveSiteConfig(config, appDir);
                 // Insert into database
-                dbManager.query('INSERT INTO sites (webserver, name, domain, type, root_path, is_auto) VALUES (?, ?, ?, ?, ?, 1)', [webserver, config.name, config.domain, config.type, config.root_path]);
+                dbManager.query('INSERT INTO sites (webserver, name, domain, type, root_path, is_auto, php_version) VALUES (?, ?, ?, ?, ?, 1, ?)',
+                    [webserver, config.name, config.domain, config.type, config.root_path, config.php_version]);
+                newDomains.push(config.domain);
             }
         }
+
+        // Add all new domains to hosts file
+        if (newDomains.length > 0) {
+            await addHosts(newDomains);
+        }
+
         return { success: true };
     } catch (error) {
         console.error('Scan dir and auto create config error:', error);
@@ -593,9 +614,17 @@ async function cleanupAutoSites(dbManager, appDir) {
     try {
         const sites = dbManager.query('SELECT * FROM sites WHERE is_auto = 1');
         if (sites && sites.length > 0) {
+            const domainsToRemove = [];
             for (const site of sites) {
                 await deleteSiteConfig(site, appDir);
+                domainsToRemove.push(site.domain);
             }
+
+            // Remove from hosts file
+            if (domainsToRemove.length > 0) {
+                await removeHosts(domainsToRemove);
+            }
+
             dbManager.query('DELETE FROM sites WHERE is_auto = 1');
         }
     } catch (error) {
