@@ -45,6 +45,10 @@ class DatabaseManager {
                 )
             `).run();
 
+            // Seed default settings
+            this.db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('site_template', '[site].local')").run();
+            this.db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('site_auto_create', 'true')").run();
+
             // Installed Apps Table
             this.db.prepare(`
                 CREATE TABLE IF NOT EXISTS installed_apps (

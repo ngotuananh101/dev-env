@@ -51,6 +51,12 @@
             <Globe class="w-5 h-5" />
             <span>Hosts</span>
         </router-link>
+
+        <router-link to="/settings" class="flex items-center space-x-3 px-3 py-2 rounded-md transition-colors"
+            :class="$route.path === '/settings' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
+            <Settings class="w-5 h-5" />
+            <span>Settings</span>
+        </router-link>
       </div>
     </nav>
 
@@ -67,7 +73,7 @@
 <script setup>
 import { useSystemStore } from '../stores/system';
 import { 
-    Home, TerminalSquare, Folder, Power, Package, FileText, Globe, Globe2 
+    Home, TerminalSquare, Folder, Power, Package, FileText, Globe, Globe2, Settings 
 } from 'lucide-vue-next';
 
 const systemStore = useSystemStore();

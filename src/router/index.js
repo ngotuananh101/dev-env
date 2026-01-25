@@ -6,6 +6,7 @@ import AppStoreView from '../views/AppStoreView.vue';
 import LogsView from '../views/LogsView.vue';
 import HostsView from '../views/HostsView.vue';
 import SitesView from '../views/SitesView.vue';
+import SettingsView from '../views/SettingsView.vue';
 
 const routes = [
     {
@@ -42,6 +43,11 @@ const routes = [
         path: '/sites',
         name: 'sites',
         component: SitesView
+    },
+    {
+        path: '/settings',
+        name: 'settings',
+        component: SettingsView
     }
 ];
 
