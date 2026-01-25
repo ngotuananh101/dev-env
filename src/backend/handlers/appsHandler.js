@@ -438,12 +438,51 @@ function register(ipcMain, context) {
                 const foundPath = await findFile(appInstallDir, execFile);
                 if (foundPath) {
                     execPath = foundPath;
-                    // If app is php, copy php.ini-development to php.ini
+
+                    // Post-install configuration
                     if (appId.startsWith('php')) {
                         const configPath = path.join(appInstallDir, 'php.ini');
                         const devConfigPath = path.join(appInstallDir, 'php.ini-development');
                         if (fs.existsSync(devConfigPath)) {
                             fs.copyFileSync(devConfigPath, configPath);
+                        }
+                    } else if (appId === 'apache') {
+                        logApp('Configuring Apache...', 'CONFIG');
+                        try {
+                            const serverRoot = path.dirname(path.dirname(execPath));
+                            const templatePath = path.join(context.appDir, 'data', 'config', 'apache.conf');
+                            const targetPath = path.join(serverRoot, 'conf', 'httpd.conf');
+
+                            if (fs.existsSync(templatePath)) {
+                                let configContent = await fsPromises.readFile(templatePath, 'utf-8');
+
+                                // Prepare paths (convert to forward slashes for Apache config)
+                                const serverRootSlash = serverRoot.replace(/\\/g, '/');
+                                const htdocsPathSlash = path.join(context.appDir, 'htdocs').replace(/\\/g, '/');
+                                const cgiBinPathSlash = path.join(serverRoot, 'cgi-bin').replace(/\\/g, '/');
+
+                                // Ensure sites directory exists
+                                const sitesDir = path.join(context.appDir, 'sites');
+                                if (!fs.existsSync(sitesDir)) {
+                                    await fsPromises.mkdir(sitesDir, { recursive: true });
+                                }
+                                const sitesPathSlash = path.join(sitesDir, '*.conf').replace(/\\/g, '/');
+
+                                // Perform replacements
+                                configContent = configContent.replace(/\[execPath\]/g, serverRootSlash);
+                                configContent = configContent.replace(/\[htdocsPath\]/g, htdocsPathSlash);
+                                configContent = configContent.replace(/\[cgiBinPath\]/g, cgiBinPathSlash);
+                                configContent = configContent.replace(/\[siteEnablePath\]/g, `IncludeOptional "${sitesPathSlash}"`);
+
+                                // Write config
+                                await fsPromises.writeFile(targetPath, configContent, 'utf-8');
+                                logApp(`Apache configuration updated at ${targetPath}`, 'CONFIG');
+                            } else {
+                                logApp(`Apache template config not found at ${templatePath}`, 'WARNING');
+                            }
+                        } catch (configErr) {
+                            logApp(`Failed to configure Apache: ${configErr.message}`, 'ERROR');
+                            console.error('Apache config error:', configErr);
                         }
                     }
                 }
@@ -497,6 +536,16 @@ function register(ipcMain, context) {
 
         if (ctx.request) {
             ctx.request.destroy();
+        }
+
+        // Clean up app directory immediately
+        if (ctx.appDir && fs.existsSync(ctx.appDir)) {
+            try {
+                await fsPromises.rm(ctx.appDir, { recursive: true, force: true });
+                logApp(`Removed partial installation directory for ${appId}`, 'INSTALL');
+            } catch (err) {
+                logApp(`Failed to remove directory for ${appId}: ${err.message}`, 'WARNING');
+            }
         }
 
         return { success: true };
