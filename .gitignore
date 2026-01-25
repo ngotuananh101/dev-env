@@ -52,3 +52,4 @@ tailwind.config.js
 
 # Other
 .agent/
+sites/
