@@ -484,6 +484,36 @@ function register(ipcMain, context) {
                             logApp(`Failed to configure Apache: ${configErr.message}`, 'ERROR');
                             console.error('Apache config error:', configErr);
                         }
+                    } else if (appId === 'nginx') {
+                        logApp('Configuring Nginx...', 'CONFIG');
+                        try {
+                            const serverRoot = path.dirname(execPath);
+                            const templatePath = path.join(context.appDir, 'data', 'config', 'nginx.conf');
+                            const targetPath = path.join(serverRoot, 'conf', 'nginx.conf');
+
+                            if (fs.existsSync(templatePath)) {
+                                let configContent = await fsPromises.readFile(templatePath, 'utf-8');
+
+                                // Ensure sites directory exists
+                                const sitesDir = path.join(context.appDir, 'sites');
+                                if (!fs.existsSync(sitesDir)) {
+                                    await fsPromises.mkdir(sitesDir, { recursive: true });
+                                }
+                                const sitesPathSlash = path.join(sitesDir, '*.conf').replace(/\\/g, '/');
+
+                                // Perform replacement
+                                configContent = configContent.replace(/\[siteEnablePath\]/g, `include "${sitesPathSlash}";`);
+
+                                // Write config
+                                await fsPromises.writeFile(targetPath, configContent, 'utf-8');
+                                logApp(`Nginx configuration updated at ${targetPath}`, 'CONFIG');
+                            } else {
+                                logApp(`Nginx template config not found at ${templatePath}`, 'WARNING');
+                            }
+                        } catch (configErr) {
+                            logApp(`Failed to configure Nginx: ${configErr.message}`, 'ERROR');
+                            console.error('Nginx config error:', configErr);
+                        }
                     }
                 }
             }
@@ -595,13 +625,15 @@ function register(ipcMain, context) {
             }
         }
 
-        // Delete vhost dir
-        const sitesDir = path.join(context.appDir, 'sites');
-        if (fs.existsSync(sitesDir)) {
-            try {
-                await fsPromises.rm(sitesDir, { recursive: true, force: true });
-            } catch (err) {
-                console.error(`Failed to remove sites dir for ${appId}:`, err);
+        // Delete vhost dir if app is nginx or apache
+        if (appId === 'nginx' || appId === 'apache') {
+            const sitesDir = path.join(context.appDir, 'sites');
+            if (fs.existsSync(sitesDir)) {
+                try {
+                    await fsPromises.rm(sitesDir, { recursive: true, force: true });
+                } catch (err) {
+                    console.error(`Failed to remove sites dir for ${appId}:`, err);
+                }
             }
         }
 
