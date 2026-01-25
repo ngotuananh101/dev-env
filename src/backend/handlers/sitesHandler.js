@@ -441,6 +441,56 @@ function register(ipcMain, context) {
         }
     });
 
+    // Update Nginx Server Root
+    ipcMain.handle('sites-update-nginx-root', async (event, newPath) => {
+        const dbManager = getDbManager();
+        if (!dbManager) return { error: 'Database not initialized' };
+
+        try {
+            const apps = dbManager.query('SELECT * FROM installed_apps WHERE app_id = ?', ['nginx']);
+            if (!apps || apps.length === 0) {
+                return { error: 'Nginx not installed' };
+            }
+            const app = apps[0];
+            const appPath = path.dirname(app.exec_path); // .../nginx-1.x.x
+
+            // Check for template
+            const templatePath = path.join(context.appDir, 'data', 'config', 'nginx.conf');
+            if (!fs.existsSync(templatePath)) {
+                return { error: 'Nginx config template not found' };
+            }
+
+            let configContent = await fsPromises.readFile(templatePath, 'utf-8');
+
+            // Prepare paths
+            const htdocsPathSlash = newPath.replace(/\\/g, '/');
+
+            // Sites include path
+            const sitesDir = path.join(context.appDir, 'sites');
+            if (!fs.existsSync(sitesDir)) {
+                await fsPromises.mkdir(sitesDir, { recursive: true });
+            }
+            const sitesPathSlash = path.join(sitesDir, '*.conf').replace(/\\/g, '/');
+
+            // Replacements
+            // Update [siteEnablePath]
+            configContent = configContent.replace(/\[siteEnablePath\]/g, `include "${sitesPathSlash}";`);
+
+            // Update default root "root html;" -> "root newPath;"
+            // We use a regex to ensure we match the 'root' directive inside location / or server block
+            configContent = configContent.replace(/root\s+html;/g, `root "${htdocsPathSlash}";`);
+
+            // Write to nginx.conf
+            const targetPath = path.join(appPath, 'conf', 'nginx.conf');
+            await fsPromises.writeFile(targetPath, configContent, 'utf-8');
+
+            return { success: true };
+        } catch (error) {
+            console.error('Update Nginx root error:', error);
+            return { error: error.message };
+        }
+    });
+
 
 }
 

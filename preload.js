@@ -97,6 +97,7 @@ const api = {
 
         // Server root management
         updateApacheRoot: (newPath) => ipcRenderer.invoke('sites-update-apache-root', newPath),
+        updateNginxRoot: (newPath) => ipcRenderer.invoke('sites-update-nginx-root', newPath),
 
 
 

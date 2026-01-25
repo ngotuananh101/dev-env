@@ -36,6 +36,15 @@
           >
             <FolderCog class="w-3 h-3 text-yellow-500" />
           </button>
+          
+          <button 
+            v-if="activeTab === 'php' && webserver.nginx && !webserver.apache"
+            @click="changeNginxRoot"
+            class="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs border border-gray-600"
+            title="Change Nginx Root"
+          >
+            <FolderCog class="w-3 h-3 text-yellow-500" />
+          </button>
           <!-- Webserver indicator -->
           <div class="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 rounded text-xs">
             <Server class="w-3 h-3 text-yellow-400" />
@@ -441,6 +450,30 @@ const changeApacheRoot = async () => {
     }
   } catch (error) {
     console.error('Change Apache root error:', error);
+    toast.error(`Error: ${error.message}`);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+// Change Nginx Root
+const changeNginxRoot = async () => {
+  try {
+    const result = await window.sysapi.files.selectFolder();
+    if (!result.path) return;
+    
+    if (!confirm(`Change Nginx root to:\n${result.path}\n\nThis will rewrite nginx.conf!`)) return;
+
+    isLoading.value = true;
+    const updateResult = await window.sysapi.sites.updateNginxRoot(result.path);
+    
+    if (updateResult.error) {
+      toast.error(`Failed to update: ${updateResult.error}`);
+    } else {
+      toast.success('Nginx root updated successfully!');
+    }
+  } catch (error) {
+    console.error('Change Nginx root error:', error);
     toast.error(`Error: ${error.message}`);
   } finally {
     isLoading.value = false;

@@ -493,7 +493,7 @@ function register(ipcMain, context) {
 
                             if (fs.existsSync(templatePath)) {
                                 let configContent = await fsPromises.readFile(templatePath, 'utf-8');
-
+                                const htdocsPathSlash = path.join(context.appDir, 'htdocs').replace(/\\/g, '/');
                                 // Ensure sites directory exists
                                 const sitesDir = path.join(context.appDir, 'sites');
                                 if (!fs.existsSync(sitesDir)) {
@@ -503,6 +503,9 @@ function register(ipcMain, context) {
 
                                 // Perform replacement
                                 configContent = configContent.replace(/\[siteEnablePath\]/g, `include "${sitesPathSlash}";`);
+                                // Update default root "root html;" -> "root newPath;"
+                                // We use a regex to ensure we match the 'root' directive inside location / or server block
+                                configContent = configContent.replace(/root\s+html;/g, `root "${htdocsPathSlash}";`);
 
                                 // Write config
                                 await fsPromises.writeFile(targetPath, configContent, 'utf-8');
