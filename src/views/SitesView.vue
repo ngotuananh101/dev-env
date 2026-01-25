@@ -28,14 +28,7 @@
             <span>Add site</span>
           </button>
 
-          <button 
-            v-if="activeTab === 'php' && (webserver.nginx || webserver.apache)"
-            @click="changeServerRoot"
-            class="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs border border-gray-600"
-            title="Change Web Server Root"
-          >
-            <FolderCog class="w-3 h-3 text-yellow-500" />
-          </button>
+
           
           <!-- Webserver indicator -->
           <div class="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 rounded text-xs">
@@ -247,7 +240,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { 
   Plus, RefreshCw, Search, Server, Globe2, Globe, ExternalLink,
-  Folder, Play, Square, FileCode, Terminal, ArrowRightLeft, FolderCog 
+  Folder, Play, Square, FileCode, Terminal, ArrowRightLeft 
 } from 'lucide-vue-next';
 import { useToast } from 'vue-toastification';
 import AddSiteModal from '../components/AddSiteModal.vue';
@@ -421,46 +414,7 @@ const deleteSite = async (site) => {
   }
 };
 
-// Change Server Root
-const changeServerRoot = async () => {
-  const type = webserver.value.nginx ? 'nginx' : 'apache';
-  
-  try {
-    // Get current root
-    const current = await window.sysapi.sites.getServerRoot(type);
-    if (current.error) {
-       toast.error(`Failed to get current root: ${current.error}`);
-       return;
-    }
 
-    // Select new folder
-    const result = await window.sysapi.files.selectFolder();
-    if (!result.path) return;
-    
-    // Confirm
-    if (result.path === current.path) return;
-    
-    const msg = `Change ${type === 'nginx' ? 'Nginx Site Root' : 'Apache ServerRoot'} from:\n${current.path}\nto:\n${result.path}\n\nThis will update config file!`;
-    if (!confirm(msg)) return;
-
-    // Update
-    isLoading.value = true;
-    const updateResult = await window.sysapi.sites.updateServerRoot(type, result.path);
-    
-    if (updateResult.error) {
-      toast.error(`Failed to update: ${updateResult.error}`);
-    } else {
-      toast.success(`${type === 'nginx' ? 'Nginx' : 'Apache'} root updated!`);
-      // You might want to reload webserver here, but we don't have that API yet for graceful reload
-      // toast.info('Please reload webserver to apply changes.');
-    }
-  } catch (error) {
-    console.error('Change server root error:', error);
-    toast.error(`Error: ${error.message}`);
-  } finally {
-    isLoading.value = false;
-  }
-};
 
 // Site created callback
 const onSiteCreated = async () => {

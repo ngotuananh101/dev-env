@@ -95,9 +95,7 @@ const api = {
         saveConfig: (siteId, content) => ipcRenderer.invoke('sites-save-config', siteId, content),
         updateRoot: (siteId, newPath) => ipcRenderer.invoke('sites-update-root', siteId, newPath),
 
-        // Server root management
-        getServerRoot: (webserverType) => ipcRenderer.invoke('sites-get-server-root', webserverType),
-        updateServerRoot: (webserverType, newPath) => ipcRenderer.invoke('sites-update-server-root', webserverType, newPath),
+
 
         getWebserver: () => ipcRenderer.invoke('sites-get-webserver'),
         openBrowser: (domain) => ipcRenderer.invoke('sites-open-browser', domain)
