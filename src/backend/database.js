@@ -60,6 +60,25 @@ class DatabaseManager {
                 )
             `).run();
 
+            // Sites Table (Website/Project Management)
+            this.db.prepare(`
+                CREATE TABLE IF NOT EXISTS sites (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    domain TEXT NOT NULL UNIQUE,
+                    type TEXT NOT NULL,
+                    webserver TEXT DEFAULT 'nginx',
+                    root_path TEXT,
+                    port INTEGER,
+                    php_version TEXT,
+                    node_script TEXT,
+                    proxy_target TEXT,
+                    status TEXT DEFAULT 'stopped',
+                    created_at TEXT,
+                    updated_at TEXT
+                )
+            `).run();
+
             // Migrations: Try to add columns if they don't exist
             try { this.db.prepare("ALTER TABLE installed_apps ADD COLUMN custom_args TEXT").run(); } catch (e) { }
             try { this.db.prepare("ALTER TABLE installed_apps ADD COLUMN auto_start INTEGER DEFAULT 0").run(); } catch (e) { }

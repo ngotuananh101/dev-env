@@ -5,6 +5,7 @@ import FilesView from '../views/FilesView.vue';
 import AppStoreView from '../views/AppStoreView.vue';
 import LogsView from '../views/LogsView.vue';
 import HostsView from '../views/HostsView.vue';
+import SitesView from '../views/SitesView.vue';
 
 const routes = [
     {
@@ -36,6 +37,11 @@ const routes = [
         path: '/hosts',
         name: 'hosts',
         component: HostsView
+    },
+    {
+        path: '/sites',
+        name: 'sites',
+        component: SitesView
     }
 ];
 

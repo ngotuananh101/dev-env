@@ -179,11 +179,19 @@ const configLoading = ref(false);
 const configMessage = ref('');
 const configMessageClass = ref('text-gray-400');
 
+// Import service control composable
+import { useServiceControl } from '../composables/useServiceControl';
+const { 
+  startService: startServiceApi, 
+  stopService: stopServiceApi, 
+  restartService: restartServiceApi, 
+  checkServiceStatus: checkServiceStatusApi 
+} = useServiceControl();
+
 // Check service status
 const checkServiceStatus = async () => {
   if (!props.app?.execPath) return;
-  const result = await window.sysapi.apps.getServiceStatus(props.app.id, props.app.execPath);
-  serviceRunning.value = result.running;
+  serviceRunning.value = await checkServiceStatusApi(props.app);
 };
 
 // Start service
@@ -192,19 +200,13 @@ const startService = async () => {
   serviceLoadingText.value = 'Starting...';
   
   const startArgs = props.app.serviceCommands?.start || '';
-  const result = await window.sysapi.apps.startService(
-    props.app.id,
-    props.app.execPath,
-    startArgs
-  );
+  const success = await startServiceApi(props.app, startArgs);
   
-  if (result.error) {
-    serviceLoadingText.value = `Error: ${result.error}`;
-    toast.error(`Start failed: ${result.error}`);
-  } else {
+  if (success) {
     serviceLoadingText.value = 'Started successfully';
-    toast.success('Service started successfully');
     await checkServiceStatus();
+  } else {
+    serviceLoadingText.value = 'Start failed';
   }
   
   setTimeout(() => {
@@ -219,21 +221,15 @@ const stopService = async () => {
   serviceLoadingText.value = 'Stopping...';
   
   const stopArgs = props.app.serviceCommands?.stop || '';
-  const result = await window.sysapi.apps.stopService(
-    props.app.id,
-    props.app.execPath,
-    stopArgs
-  );
+  const success = await stopServiceApi(props.app, stopArgs);
   
-  if (result.error) {
-    serviceLoadingText.value = `Error: ${result.error}`;
-    toast.error(`Stop failed: ${result.error}`);
-  } else {
+  if (success) {
     serviceLoadingText.value = 'Stopped successfully';
-    toast.success('Service stopped successfully');
     // Wait a bit for the process to fully stop before checking status
     await new Promise(resolve => setTimeout(resolve, 500));
     await checkServiceStatus();
+  } else {
+    serviceLoadingText.value = 'Stop failed';
   }
   
   setTimeout(() => {
@@ -247,25 +243,16 @@ const restartService = async () => {
   serviceLoading.value = true;
   serviceLoadingText.value = 'Restarting...';
   
-  // For full restart (stop then start), we must use the START command args, not restart args (which are usually -s reload)
   const startArgs = props.app.serviceCommands?.start || '';
   const stopArgs = props.app.serviceCommands?.stop || '';
 
-  // Use dedicated atomic restart handler
-  const result = await window.sysapi.apps.restartService(
-    props.app.id,
-    props.app.execPath,
-    startArgs,
-    stopArgs
-  );
+  const success = await restartServiceApi(props.app, startArgs, stopArgs);
   
-  if (result.error) {
-    serviceLoadingText.value = `Error: ${result.error}`;
-    toast.error(`Restart failed: ${result.error}`);
-  } else {
+  if (success) {
     serviceLoadingText.value = 'Restarted successfully';
-    toast.success('Service restarted successfully');
     await checkServiceStatus();
+  } else {
+    serviceLoadingText.value = 'Restart failed';
   }
   
   setTimeout(() => {

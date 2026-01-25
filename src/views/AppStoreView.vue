@@ -88,8 +88,38 @@
               <span v-else class="text-gray-500">--</span>
             </td>
             <td class="px-2 py-2 text-center">
-              <div v-if="app.status === 'installed'" class="flex items-center justify-center space-x-1">
-                <Play class="w-4 h-4 text-green-500" />
+              <div v-if="app.status === 'installed' && app.execPath" class="flex items-center justify-center space-x-1">
+                <!-- Service is running -->
+                <template v-if="app.serviceRunning">
+                  <button 
+                    @click="stopService(app)" 
+                    :disabled="app.serviceLoading"
+                    class="p-1 hover:bg-red-500/20 rounded transition-colors" 
+                    title="Stop Service"
+                  >
+                    <Square class="w-4 h-4 text-red-500" />
+                  </button>
+                  <button 
+                    @click="restartService(app)" 
+                    :disabled="app.serviceLoading"
+                    class="p-1 hover:bg-yellow-500/20 rounded transition-colors" 
+                    title="Restart Service"
+                  >
+                    <RotateCw class="w-4 h-4 text-yellow-500" :class="{ 'animate-spin': app.serviceLoading }" />
+                  </button>
+                </template>
+                <!-- Service is not running -->
+                <template v-else>
+                  <button 
+                    @click="startService(app)" 
+                    :disabled="app.serviceLoading"
+                    class="p-1 hover:bg-green-500/20 rounded transition-colors" 
+                    title="Start Service"
+                  >
+                    <Play v-if="!app.serviceLoading" class="w-4 h-4 text-green-500" />
+                    <RotateCw v-else class="w-4 h-4 text-green-500 animate-spin" />
+                  </button>
+                </template>
               </div>
               <span v-else class="text-gray-500">--</span>
             </td>
@@ -239,11 +269,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { 
   Search, Shield, Database, Server, Globe, Box, Activity,
   Folder, Play, Settings, Terminal, HardDrive, Cpu, FileCode,
-  ChevronLeft, ChevronRight, RefreshCw
+  ChevronLeft, ChevronRight, RefreshCw, Square, RotateCw
 } from 'lucide-vue-next';
 import AppSettingsModal from '../components/AppSettingsModal.vue';
 
@@ -694,4 +724,95 @@ const addToRecentlyUsed = (app) => {
     localStorage.setItem('recentlyUsedApps', JSON.stringify(recentlyUsed.value));
   }
 };
+
+// ========== Service Controls ==========
+import { useServiceControl } from '../composables/useServiceControl';
+
+const { 
+  startService: startServiceApi, 
+  stopService: stopServiceApi, 
+  restartService: restartServiceApi, 
+  checkServiceStatus 
+} = useServiceControl();
+
+let statusCheckInterval = null;
+
+// Check service status for all installed apps
+const checkServiceStatuses = async () => {
+  for (const app of apps.value) {
+    if (app.status === 'installed' && app.execPath) {
+      app.serviceRunning = await checkServiceStatus(app);
+    }
+  }
+};
+
+// Start service (wrapper to handle loading state)
+const startService = async (app) => {
+  if (!app.execPath) return;
+  app.serviceLoading = true;
+  
+  const startArgs = app.serviceCommands?.start || app.customArgs || '';
+  const success = await startServiceApi(app, startArgs);
+  if (success) {
+    app.serviceRunning = true;
+  }
+  
+  app.serviceLoading = false;
+};
+
+// Stop service (wrapper to handle loading state)
+const stopService = async (app) => {
+  if (!app.execPath) return;
+  app.serviceLoading = true;
+  
+  const stopArgs = app.serviceCommands?.stop || '';
+  const success = await stopServiceApi(app, stopArgs);
+  if (success) {
+    app.serviceRunning = false;
+  }
+  
+  app.serviceLoading = false;
+};
+
+// Restart service (wrapper to handle loading state)
+const restartService = async (app) => {
+  if (!app.execPath) return;
+  app.serviceLoading = true;
+  
+  const startArgs = app.serviceCommands?.start || app.customArgs || '';
+  const stopArgs = app.serviceCommands?.stop || '';
+  const success = await restartServiceApi(app, startArgs, stopArgs);
+  if (success) {
+    app.serviceRunning = true;
+  }
+  
+  app.serviceLoading = false;
+};
+
+// Start periodic status check
+onMounted(async () => {
+  const saved = localStorage.getItem('recentlyUsedApps');
+  if (saved) {
+    recentlyUsed.value = JSON.parse(saved);
+  } else {
+    // Demo data
+    recentlyUsed.value = [];
+  }
+  
+  // Load apps from JSON file
+  await loadApps();
+  
+  // Initial service status check
+  await checkServiceStatuses();
+  
+  // Check service status every 5 seconds
+  statusCheckInterval = setInterval(checkServiceStatuses, 5000);
+});
+
+// Cleanup interval on unmount
+onUnmounted(() => {
+  if (statusCheckInterval) {
+    clearInterval(statusCheckInterval);
+  }
+});
 </script>

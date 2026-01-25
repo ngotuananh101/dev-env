@@ -8,6 +8,7 @@ const fsPromises = require('fs').promises;
 const path = require('path');
 const https = require('https');
 const http = require('http');
+const serviceHandler = require('./serviceHandler');
 
 // Constants
 const APP_FILES_XML_URL = 'https://archive.org/download/dev-env/dev-env_files.xml';
@@ -516,6 +517,19 @@ function register(ipcMain, context) {
         const app = apps[0];
         const appPath = app.install_path;
         logApp(`Uninstalling ${appId} from ${appPath}`, 'UNINSTALL');
+
+        // Check if service is running and stop it if necessary
+        if (app.exec_path) {
+            try {
+                const status = serviceHandler.getAppServiceStatus(appId, app.exec_path);
+                if (status.running) {
+                    logApp(`Service ${appId} is running, stopping before uninstall...`, 'UNINSTALL');
+                    await serviceHandler.stopAppService(appId, app.exec_path, null);
+                }
+            } catch (err) {
+                logApp(`Failed to stop service before uninstall: ${err.message}`, 'WARNING');
+            }
+        }
 
         const result = dbManager.query('DELETE FROM installed_apps WHERE app_id = ?', [appId]);
 

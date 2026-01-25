@@ -18,6 +18,7 @@ const filesystemHandler = require('./src/backend/handlers/filesystemHandler');
 const terminalHandler = require('./src/backend/handlers/terminalHandler');
 const logsHandler = require('./src/backend/handlers/logsHandler');
 const hostsHandler = require('./src/backend/handlers/hostsHandler');
+const sitesHandler = require('./src/backend/handlers/sitesHandler');
 
 // Global variables
 let dbManager = null;
@@ -83,6 +84,7 @@ function registerAllHandlers() {
   terminalHandler.register(ipcMain, context);
   logsHandler.register(ipcMain, context);
   hostsHandler.register(ipcMain, context);
+  sitesHandler.register(ipcMain, context);
 }
 
 // Register handlers immediately (before app.whenReady)

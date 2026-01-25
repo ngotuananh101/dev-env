@@ -31,7 +31,13 @@
         <router-link to="/apps" class="flex items-center space-x-3 px-3 py-2 rounded-md transition-colors"
             :class="$route.path === '/apps' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
             <Package class="w-5 h-5" />
-            <span>App Store</span>
+            <span>Apps</span>
+        </router-link>
+
+        <router-link to="/sites" class="flex items-center space-x-3 px-3 py-2 rounded-md transition-colors"
+            :class="$route.path === '/sites' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
+            <Globe2 class="w-5 h-5" />
+            <span>Sites</span>
         </router-link>
 
         <router-link to="/logs" class="flex items-center space-x-3 px-3 py-2 rounded-md transition-colors"
@@ -61,7 +67,7 @@
 <script setup>
 import { useSystemStore } from '../stores/system';
 import { 
-    Home, TerminalSquare, Folder, Power, Package, FileText, Globe 
+    Home, TerminalSquare, Folder, Power, Package, FileText, Globe, Globe2 
 } from 'lucide-vue-next';
 
 const systemStore = useSystemStore();

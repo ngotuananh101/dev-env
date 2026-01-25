@@ -45,6 +45,7 @@ const api = {
         createDir: (params) => ipcRenderer.invoke('fs-create-dir', params),
         deletePath: (path) => ipcRenderer.invoke('fs-delete-path', path),
         renamePath: (params) => ipcRenderer.invoke('fs-rename-path', params),
+        selectFolder: () => ipcRenderer.invoke('fs-select-folder'),
         onDownloadProgress: (cb) => ipcRenderer.on('download-progress', (e, v) => cb(v)),
         onDownloadComplete: (cb) => ipcRenderer.on('download-complete', (e, v) => cb(v)),
         onDownloadError: (cb) => ipcRenderer.on('download-error', (e, v) => cb(v)),
@@ -81,6 +82,25 @@ const api = {
         read: () => ipcRenderer.invoke('hosts-read'),
         write: (content) => ipcRenderer.invoke('hosts-write', content),
         backup: () => ipcRenderer.invoke('hosts-backup')
+    },
+
+    // Sites/Projects management
+    sites: {
+        list: () => ipcRenderer.invoke('sites-list'),
+        create: (siteData) => ipcRenderer.invoke('sites-create', siteData),
+        delete: (siteId) => ipcRenderer.invoke('sites-delete', siteId),
+        startNode: (siteId) => ipcRenderer.invoke('sites-start-node', siteId),
+        stopNode: (siteId) => ipcRenderer.invoke('sites-stop-node', siteId),
+        getConfig: (siteId) => ipcRenderer.invoke('sites-get-config', siteId),
+        saveConfig: (siteId, content) => ipcRenderer.invoke('sites-save-config', siteId, content),
+        updateRoot: (siteId, newPath) => ipcRenderer.invoke('sites-update-root', siteId, newPath),
+
+        // Server root management
+        getServerRoot: (webserverType) => ipcRenderer.invoke('sites-get-server-root', webserverType),
+        updateServerRoot: (webserverType, newPath) => ipcRenderer.invoke('sites-update-server-root', webserverType, newPath),
+
+        getWebserver: () => ipcRenderer.invoke('sites-get-webserver'),
+        openBrowser: (domain) => ipcRenderer.invoke('sites-open-browser', domain)
     }
 };
 

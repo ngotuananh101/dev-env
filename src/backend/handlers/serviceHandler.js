@@ -198,102 +198,17 @@ function register(ipcMain, context) {
 
     // Stop service
     ipcMain.handle('app-service-stop', async (event, appId, execPath, stopArgs) => {
-        try {
-            const dbManager = getDbManager();
-            if (dbManager) {
-                dbManager.query('UPDATE installed_apps SET auto_start = 0 WHERE app_id = ?', [appId]);
-            }
-
-            if (stopArgs) {
-                const execDir = path.dirname(execPath);
-                const cmdArgs = stopArgs.split(' ').filter(a => a);
-
-                return new Promise((resolve) => {
-                    const proc = spawn(execPath, cmdArgs, {
-                        cwd: execDir,
-                        stdio: 'ignore'
-                    });
-
-                    let resolved = false;
-                    const cleanup = () => {
-                        if (!resolved) {
-                            runningProcesses.delete(appId);
-                            logApp(`Stopped service: ${appId}`, 'SERVICE');
-                            resolved = true;
-                            resolve({ success: true });
-                        }
-                    };
-
-                    proc.on('close', (code) => {
-                        cleanup();
-                    });
-
-                    proc.on('error', (err) => {
-                        if (!resolved) {
-                            logApp(`Stop command failed for ${appId}: ${err.message}`, 'ERROR');
-                            runningProcesses.delete(appId);
-                            resolved = true;
-                            resolve({ error: err.message });
-                        }
-                    });
-
-                    setTimeout(() => {
-                        if (!resolved) {
-                            logApp(`Stop command timed out for ${appId}, forcing cleanup`, 'WARNING');
-                            runningProcesses.delete(appId);
-                            resolved = true;
-                            resolve({ success: true });
-                        }
-                    }, 5000);
-                });
-            }
-
-            const proc = runningProcesses.get(appId);
-            if (proc) {
-                if (process.platform === 'win32') {
-                    try {
-                        execSync(`taskkill /PID ${proc.pid} /T /F`, { stdio: 'ignore' });
-                        logApp(`Taskkilled service: ${appId} (PID: ${proc.pid})`, 'SERVICE');
-                    } catch (e) {
-                        proc.kill();
-                    }
-                } else {
-                    proc.kill();
-                }
-                runningProcesses.delete(appId);
-                logApp(`Killed service: ${appId}`, 'SERVICE');
-                return { success: true };
-            }
-
-            try {
-                const exeName = path.basename(execPath);
-                execSync(`taskkill /IM ${exeName} /F`, { stdio: 'ignore' });
-                logApp(`Force killed: ${exeName}`, 'SERVICE');
-                return { success: true };
-            } catch (e) {
-                return { error: 'Process not found' };
-            }
-        } catch (err) {
-            logApp(`Failed to stop service: ${err.message}`, 'ERROR');
-            return { error: err.message };
+        const dbManager = getDbManager();
+        if (dbManager) {
+            dbManager.query('UPDATE installed_apps SET auto_start = 0 WHERE app_id = ?', [appId]);
         }
+
+        return await stopAppService(appId, execPath, stopArgs);
     });
 
     // Check service status
     ipcMain.handle('app-service-status', async (event, appId, execPath) => {
-        try {
-            const exeName = path.basename(execPath);
-
-            try {
-                const result = execSync(`tasklist /FI "IMAGENAME eq ${exeName}" /NH`, { encoding: 'utf-8' });
-                const isRunning = result.toLowerCase().includes(exeName.toLowerCase());
-                return { running: isRunning };
-            } catch (e) {
-                return { running: false };
-            }
-        } catch (err) {
-            return { running: false, error: err.message };
-        }
+        return getAppServiceStatus(appId, execPath);
     });
 
     // Restart service
@@ -301,56 +216,127 @@ function register(ipcMain, context) {
         logApp(`Restarting service: ${appId}`, 'SERVICE');
 
         if (runningProcesses.has(appId)) {
-            await new Promise(async (resolve) => {
-                const proc = runningProcesses.get(appId);
-
-                if (stopArgs) {
-                    try {
-                        const execDir = path.dirname(execPath);
-                        const cmdArgs = stopArgs.split(' ').filter(a => a);
-
-                        const stopProc = spawn(execPath, cmdArgs, { cwd: execDir, stdio: 'ignore' });
-
-                        stopProc.on('close', () => {
-                            runningProcesses.delete(appId);
-                            resolve();
-                        });
-
-                        stopProc.on('error', () => {
-                            if (proc) proc.kill();
-                            runningProcesses.delete(appId);
-                            resolve();
-                        });
-
-                        setTimeout(() => {
-                            if (runningProcesses.has(appId)) {
-                                if (proc) proc.kill();
-                                runningProcesses.delete(appId);
-                            }
-                            resolve();
-                        }, 5000);
-
-                        return;
-                    } catch (e) { }
-                }
-
-                if (proc) proc.kill();
-                runningProcesses.delete(appId);
-                resolve();
-            });
-
-            runningProcesses.delete(appId);
+            await stopAppService(appId, execPath, stopArgs);
+            // Wait a bit to ensure port is released
+            await new Promise(r => setTimeout(r, 1000));
         }
-
-        await new Promise(r => setTimeout(r, 1000));
 
         return await startAppService(appId, execPath, startArgs);
     });
 }
 
+/**
+ * Stop a service
+ * @param {string} appId - App identifier
+ * @param {string} execPath - Path to executable
+ * @param {string} stopArgs - Arguments for stop command
+ * @returns {Promise<Object>} Result object
+ */
+async function stopAppService(appId, execPath, stopArgs) {
+    try {
+        if (stopArgs) {
+            const execDir = path.dirname(execPath);
+            const cmdArgs = stopArgs.split(' ').filter(a => a);
+
+            return new Promise((resolve) => {
+                const proc = spawn(execPath, cmdArgs, {
+                    cwd: execDir,
+                    stdio: 'ignore'
+                });
+
+                let resolved = false;
+                const cleanup = () => {
+                    if (!resolved) {
+                        runningProcesses.delete(appId);
+                        logApp(`Stopped service: ${appId}`, 'SERVICE');
+                        resolved = true;
+                        resolve({ success: true });
+                    }
+                };
+
+                proc.on('close', (code) => {
+                    cleanup();
+                });
+
+                proc.on('error', (err) => {
+                    if (!resolved) {
+                        logApp(`Stop command failed for ${appId}: ${err.message}`, 'ERROR');
+                        runningProcesses.delete(appId);
+                        resolved = true;
+                        resolve({ error: err.message });
+                    }
+                });
+
+                setTimeout(() => {
+                    if (!resolved) {
+                        logApp(`Stop command timed out for ${appId}, forcing cleanup`, 'WARNING');
+                        runningProcesses.delete(appId);
+                        resolved = true;
+                        resolve({ success: true });
+                    }
+                }, 5000);
+            });
+        }
+
+        const proc = runningProcesses.get(appId);
+        if (proc) {
+            if (process.platform === 'win32') {
+                try {
+                    execSync(`taskkill /PID ${proc.pid} /T /F`, { stdio: 'ignore' });
+                    logApp(`Taskkilled service: ${appId} (PID: ${proc.pid})`, 'SERVICE');
+                } catch (e) {
+                    proc.kill();
+                }
+            } else {
+                proc.kill();
+            }
+            runningProcesses.delete(appId);
+            logApp(`Killed service: ${appId}`, 'SERVICE');
+            return { success: true };
+        }
+
+        try {
+            const exeName = path.basename(execPath);
+            execSync(`taskkill /IM ${exeName} /F`, { stdio: 'ignore' });
+            logApp(`Force killed: ${exeName}`, 'SERVICE');
+            return { success: true };
+        } catch (e) {
+            return { error: 'Process not found' };
+        }
+    } catch (err) {
+        logApp(`Failed to stop service: ${err.message}`, 'ERROR');
+        return { error: err.message };
+    }
+}
+
+/**
+ * Check service status
+ * @param {string} appId - App identifier
+ * @param {string} execPath - Path to executable
+ * @returns {Object} Status object { running: boolean }
+ */
+function getAppServiceStatus(appId, execPath) {
+    try {
+        const exeName = path.basename(execPath);
+
+        try {
+            const result = execSync(`tasklist /FI "IMAGENAME eq ${exeName}" /NH`, { encoding: 'utf-8' });
+            const isRunning = result.toLowerCase().includes(exeName.toLowerCase());
+            return { running: isRunning };
+        } catch (e) {
+            return { running: false };
+        }
+    } catch (err) {
+        return { running: false, error: err.message };
+    }
+}
+
+// Export functions and state for use by main.js
 // Export functions and state for use by main.js
 module.exports = {
     register,
     startAppService,
+    stopAppService,
+    getAppServiceStatus,
     runningProcesses
 };

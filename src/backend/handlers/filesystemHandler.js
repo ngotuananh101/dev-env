@@ -189,6 +189,23 @@ function register(ipcMain, context) {
         }
     });
 
+    // Select folder using system dialog
+    ipcMain.handle('fs-select-folder', async (event) => {
+        const { dialog } = require('electron');
+        const { BrowserWindow } = require('electron');
+        const win = BrowserWindow.getFocusedWindow();
+
+        const result = await dialog.showOpenDialog(win, {
+            properties: ['openDirectory']
+        });
+
+        if (result.canceled) {
+            return { canceled: true };
+        } else {
+            return { path: result.filePaths[0] };
+        }
+    });
+
     // ========== System PATH Management (using PowerShell) ==========
 
     // Check if a path is in User PATH
