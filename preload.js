@@ -67,6 +67,20 @@ const api = {
         const handler = (event, data) => callback(data);
         ipcRenderer.on('terminal-data', handler);
         return () => ipcRenderer.removeListener('terminal-data', handler);
+    },
+
+    // Logs
+    logs: {
+        read: (date) => ipcRenderer.invoke('logs-read', date),
+        clear: (date) => ipcRenderer.invoke('logs-clear', date),
+        list: () => ipcRenderer.invoke('logs-list')
+    },
+
+    // Hosts file management
+    hosts: {
+        read: () => ipcRenderer.invoke('hosts-read'),
+        write: (content) => ipcRenderer.invoke('hosts-write', content),
+        backup: () => ipcRenderer.invoke('hosts-backup')
     }
 };
 

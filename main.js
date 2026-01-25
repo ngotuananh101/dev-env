@@ -16,6 +16,8 @@ const configHandler = require('./src/backend/handlers/configHandler');
 const serviceHandler = require('./src/backend/handlers/serviceHandler');
 const filesystemHandler = require('./src/backend/handlers/filesystemHandler');
 const terminalHandler = require('./src/backend/handlers/terminalHandler');
+const logsHandler = require('./src/backend/handlers/logsHandler');
+const hostsHandler = require('./src/backend/handlers/hostsHandler');
 
 // Global variables
 let dbManager = null;
@@ -79,15 +81,20 @@ function registerAllHandlers() {
   serviceHandler.register(ipcMain, context);
   filesystemHandler.register(ipcMain, context);
   terminalHandler.register(ipcMain, context);
+  logsHandler.register(ipcMain, context);
+  hostsHandler.register(ipcMain, context);
 }
 
 // Register handlers immediately (before app.whenReady)
 registerAllHandlers();
 
 // Application ready
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Initialize database
   dbManager = new DatabaseManager(app.getPath('userData'));
+
+  // Log startup info with system details
+  await logStartupInfo();
 
   // Create main window
   createWindow();
@@ -123,6 +130,79 @@ app.whenReady().then(() => {
     }
   });
 });
+
+/**
+ * Log startup info with system details
+ */
+async function logStartupInfo() {
+  const os = require('os');
+  const si = require('systeminformation');
+  const logApp = appsHandler.logApp;
+
+  try {
+    // Get system info
+    const [cpu, mem, osInfo, graphics, network] = await Promise.all([
+      si.cpu(),
+      si.mem(),
+      si.osInfo(),
+      si.graphics(),
+      si.networkInterfaces()
+    ]);
+
+    const separator = '='.repeat(60);
+
+    logApp(separator, 'STARTUP');
+    logApp(`Dev-Env Application Started`, 'STARTUP');
+    logApp(separator, 'STARTUP');
+
+    // OS Info
+    logApp(`OS: ${osInfo.distro} ${osInfo.release} (${osInfo.arch})`, 'SYSTEM');
+    logApp(`Hostname: ${os.hostname()}`, 'SYSTEM');
+    logApp(`Platform: ${osInfo.platform}`, 'SYSTEM');
+
+    // CPU Info
+    logApp(`CPU: ${cpu.manufacturer} ${cpu.brand}`, 'SYSTEM');
+    logApp(`CPU Cores: ${cpu.physicalCores} physical, ${cpu.cores} logical`, 'SYSTEM');
+    logApp(`CPU Speed: ${cpu.speed} GHz`, 'SYSTEM');
+
+    // Memory Info
+    const totalGB = (mem.total / (1024 ** 3)).toFixed(2);
+    const usedGB = (mem.used / (1024 ** 3)).toFixed(2);
+    const freeGB = (mem.free / (1024 ** 3)).toFixed(2);
+    logApp(`Memory: ${usedGB} GB used / ${totalGB} GB total (${freeGB} GB free)`, 'SYSTEM');
+
+    // Graphics Info
+    if (graphics.controllers && graphics.controllers.length > 0) {
+      const gpu = graphics.controllers[0];
+      logApp(`GPU: ${gpu.vendor} ${gpu.model}`, 'SYSTEM');
+      if (gpu.vram) {
+        logApp(`GPU VRAM: ${gpu.vram} MB`, 'SYSTEM');
+      }
+    }
+
+    // Network Info
+    const mainNetwork = network.find(n => !n.internal && n.ip4);
+    if (mainNetwork) {
+      logApp(`Network: ${mainNetwork.iface} - ${mainNetwork.ip4}`, 'SYSTEM');
+    }
+
+    // App Info
+    logApp(`App Version: ${app.getVersion()}`, 'APP');
+    logApp(`Electron: ${process.versions.electron}`, 'APP');
+    logApp(`Node.js: ${process.versions.node}`, 'APP');
+    logApp(`Chrome: ${process.versions.chrome}`, 'APP');
+    logApp(`App Path: ${__dirname}`, 'APP');
+    logApp(`User Data: ${app.getPath('userData')}`, 'APP');
+
+    logApp(separator, 'STARTUP');
+    logApp(`Ready to serve!`, 'STARTUP');
+    logApp(separator, 'STARTUP');
+
+  } catch (error) {
+    console.error('Failed to log startup info:', error);
+    logApp(`Startup logging failed: ${error.message}`, 'ERROR');
+  }
+}
 
 // Cleanup before quit
 app.on('before-quit', () => {

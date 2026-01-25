@@ -3,6 +3,8 @@ import HomeView from '../views/HomeView.vue';
 import TerminalView from '../views/TerminalView.vue';
 import FilesView from '../views/FilesView.vue';
 import AppStoreView from '../views/AppStoreView.vue';
+import LogsView from '../views/LogsView.vue';
+import HostsView from '../views/HostsView.vue';
 
 const routes = [
     {
@@ -24,6 +26,16 @@ const routes = [
         path: '/apps',
         name: 'apps',
         component: AppStoreView
+    },
+    {
+        path: '/logs',
+        name: 'logs',
+        component: LogsView
+    },
+    {
+        path: '/hosts',
+        name: 'hosts',
+        component: HostsView
     }
 ];
 
