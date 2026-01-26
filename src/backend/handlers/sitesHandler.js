@@ -15,8 +15,11 @@ const runningNodeProcesses = new Map();
 
 /**
  * Generate Nginx config for a site
+ * @param {Object} site - Site configuration
+ * @param {string} fastcgiAddress - FastCGI address (e.g., 127.0.0.1:9000)
+ * @param {string} rewriteRules - Nginx rewrite rules content
  */
-function generateNginxConfig(site, phpPath = null) {
+function generateNginxConfig(site, fastcgiAddress = '127.0.0.1:9000', rewriteRules = '') {
     const { domain, type, root_path, port, php_version, proxy_target } = site;
 
     let config = `# Site: ${site.name}
@@ -34,12 +37,12 @@ server {
     root "${root_path.replace(/\\/g, '/')}";
     index index.php index.html index.htm;
 
-    location / {
-        try_files $uri $uri/ /index.php?$query_string;
-    }
-
+    # Rewrite Rules
+    ${rewriteRules || ''}
+    # End Rewrite Rules
+    
     location ~ \\.php$ {
-        fastcgi_pass 127.0.0.1:9000;
+        fastcgi_pass ${fastcgiAddress};
         fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
         include fastcgi_params;
@@ -86,8 +89,10 @@ server {
 
 /**
  * Generate Apache VirtualHost config
+ * @param {Object} site - Site configuration
+ * @param {string} fastcgiAddress - FastCGI address (e.g., 127.0.0.1:9000)
  */
-function generateApacheConfig(site) {
+function generateApacheConfig(site, fastcgiAddress = '127.0.0.1:9000') {
     const { domain, type, root_path, port, proxy_target } = site;
 
     let config = `# Site: ${site.name}
@@ -109,7 +114,7 @@ function generateApacheConfig(site) {
     </Directory>
 
     <FilesMatch \\.php$>
-        SetHandler "proxy:fcgi://127.0.0.1:9000"
+        SetHandler "proxy:fcgi://${fastcgiAddress}"
     </FilesMatch>
 `;
     } else if (type === 'node' || type === 'proxy') {
@@ -135,6 +140,17 @@ function register(ipcMain, context) {
     ipcMain.handle('sites-list', async () => {
         const dbManager = getDbManager();
         if (!dbManager) return { error: 'Database not initialized' };
+
+        // Ensure rewrite_template column exists
+        try {
+            const columns = dbManager.query('PRAGMA table_info(sites)');
+            const hasRewrite = columns.some(col => col.name === 'rewrite_template');
+            if (!hasRewrite) {
+                dbManager.query('ALTER TABLE sites ADD COLUMN rewrite_template TEXT');
+            }
+        } catch (e) {
+            console.error('Migration error:', e);
+        }
 
         try {
             const sites = dbManager.query('SELECT * FROM sites ORDER BY created_at DESC');
@@ -180,11 +196,21 @@ function register(ipcMain, context) {
                 }
             }
 
+            // Default PHP version if not provided
+            let finalPhpVersion = php_version;
+            if (type === 'php') {
+                if (!finalPhpVersion) {
+                    const defaultPhp = dbManager.query('SELECT * FROM settings WHERE key = ?', ['default_php_version']);
+                    finalPhpVersion = (defaultPhp && defaultPhp.length > 0) ? defaultPhp[0].value : '8.2';
+                }
+                finalPhpVersion = sanitizePhpVersion(finalPhpVersion);
+            }
+
             // Insert into database
             const result = dbManager.query(
                 `INSERT INTO sites (name, domain, type, webserver, root_path, port, php_version, node_script, proxy_target, status, created_at, updated_at)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'stopped', ?, ?)`,
-                [name, domain, type, webserver, root_path || '', port || 0, php_version || '', node_script || '', proxy_target || '', now, now]
+                [name, domain, type, webserver, root_path || '', port || 0, finalPhpVersion || '', node_script || '', proxy_target || '', now, now]
             );
 
             if (result.error) {
@@ -195,7 +221,7 @@ function register(ipcMain, context) {
             const site = { id: siteId, name, domain, type, webserver, root_path, port, php_version, node_script, proxy_target };
 
             // Generate and save webserver config
-            await saveSiteConfig(site, appDir);
+            await saveSiteConfig(site, appDir, dbManager);
 
             // Add to hosts file
             await addHosts([domain]);
@@ -390,6 +416,134 @@ function register(ipcMain, context) {
         }
     });
 
+    // Get installed PHP versions
+    ipcMain.handle('sites-get-php-versions', async () => {
+        const dbManager = getDbManager();
+        if (!dbManager) return { error: 'Database not initialized' };
+
+        try {
+            const phpApps = dbManager.query('SELECT installed_version FROM installed_apps WHERE app_id LIKE ?', [`php%`]);
+            const versions = phpApps.map(app => {
+                // Extract major.minor from version string (e.g., 8.2.10 -> 8.2)
+                const match = app.installed_version.match(/^(\d+\.\d+)/);
+                return match ? match[1] : app.installed_version;
+            });
+            // Unique versions
+            const uniqueVersions = [...new Set(versions)].sort().reverse();
+            return { versions: uniqueVersions };
+        } catch (error) {
+            console.error('Failed to get PHP versions:', error);
+            return { error: error.message };
+        }
+    });
+
+    // Update site PHP version
+    ipcMain.handle('sites-update-php', async (event, siteId, phpVersion) => {
+        const dbManager = getDbManager();
+        if (!dbManager) return { error: 'Database not initialized' };
+
+        try {
+            const sites = dbManager.query('SELECT * FROM sites WHERE id = ?', [siteId]);
+            if (!sites || sites.length === 0) {
+                return { error: 'Site not found' };
+            }
+            const site = sites[0];
+
+            if (site.type !== 'php') {
+                return { error: 'Not a PHP site' };
+            }
+
+            phpVersion = sanitizePhpVersion(phpVersion);
+
+            // Update database
+            dbManager.query('UPDATE sites SET php_version = ?, updated_at = ? WHERE id = ?', [phpVersion, new Date().toISOString(), siteId]);
+
+            // Update site object
+            site.php_version = phpVersion;
+
+            // Regenerate config
+            await saveSiteConfig(site, appDir, dbManager);
+
+            return { success: true };
+        } catch (error) {
+            console.error('Failed to update PHP version:', error);
+            return { error: error.message };
+        }
+    });
+
+    // Get rewrite templates
+    ipcMain.handle('sites-get-rewrite-templates', async () => {
+        const rewriteDir = path.join(appDir, 'data', 'rewrite');
+        if (!fs.existsSync(rewriteDir)) return { templates: {} };
+
+        try {
+            const files = await fsPromises.readdir(rewriteDir);
+            const templates = {};
+            for (const file of files) {
+                if (file.endsWith('.conf')) {
+                    const name = file.replace('.conf', '');
+                    templates[name] = { name: name };
+                }
+            }
+            return { templates };
+        } catch (e) {
+            console.error('Get rewrite templates error', e);
+            return { templates: {} };
+        }
+    });
+
+    // Update site rewrite template
+    ipcMain.handle('sites-update-rewrite', async (event, siteId, templateName, onlyDb = false) => {
+        const dbManager = getDbManager();
+        if (!dbManager) return { error: 'Database not initialized' };
+
+        try {
+            const sites = dbManager.query('SELECT * FROM sites WHERE id = ?', [siteId]);
+            if (!sites || sites.length === 0) {
+                return { error: 'Site not found' };
+            }
+            const site = sites[0];
+
+            if (site.type !== 'php') {
+                return { error: 'Not a PHP site' };
+            }
+
+            const templatePath = path.join(appDir, 'data', 'rewrite', `${templateName}.conf`);
+            if (!fs.existsSync(templatePath)) {
+                return { error: 'Invalid template' };
+            }
+
+            // Update database
+            dbManager.query('UPDATE sites SET rewrite_template = ?, updated_at = ? WHERE id = ?', [templateName, new Date().toISOString(), siteId]);
+
+            // Update site object
+            site.rewrite_template = templateName;
+
+            // Regenerate config
+            if (!onlyDb) {
+                await saveSiteConfig(site, appDir, dbManager);
+            }
+
+            return { success: true };
+        } catch (error) {
+            console.error('Failed to update rewrite template:', error);
+            return { error: error.message };
+        }
+    });
+
+    // Get rewrite template content
+    ipcMain.handle('sites-get-template-content', async (event, templateName) => {
+        const templatePath = path.join(appDir, 'data', 'rewrite', `${templateName}.conf`);
+        if (!fs.existsSync(templatePath)) return { error: 'Template not found' };
+        try {
+            const content = await fsPromises.readFile(templatePath, 'utf-8');
+            return { content };
+        } catch (e) {
+            console.error('Get template content error:', e);
+            return { error: e.message };
+        }
+    });
+
     // Open site in browser
     ipcMain.handle('sites-open-browser', async (event, domain) => {
         const { shell } = require('electron');
@@ -537,16 +691,93 @@ function getConfigPath(site, appDir) {
 }
 
 /**
- * Save site config file
+ * Parse FastCGI address from custom_args (e.g., "-b 127.0.0.1:9084" -> "127.0.0.1:9084")
  */
-async function saveSiteConfig(site, appDir) {
+function parseFastcgiAddress(customArgs) {
+    if (!customArgs) return '127.0.0.1:9000';
+
+    // Match -b followed by an address like 127.0.0.1:9084
+    const match = customArgs.match(/-b\s+([\d.]+:\d+)/);
+    return match ? match[1] : '127.0.0.1:9000';
+}
+
+/**
+ * Sanitize PHP version (e.g., "8.2.10" -> "8.2")
+ */
+function sanitizePhpVersion(version) {
+    if (!version) return version;
+    const match = version.toString().match(/^(\d+\.\d+)/);
+    return match ? match[1] : version;
+}
+
+/**
+ * Save site config file
+ * @param {Object} site - Site configuration
+ * @param {string} appDir - Application directory
+ * @param {Object} dbManager - Database manager (optional, needed for PHP sites)
+ */
+async function saveSiteConfig(site, appDir, dbManager = null) {
     const configPath = getConfigPath(site, appDir);
+
+    // Get FastCGI address for PHP sites
+    let fastcgiAddress = '127.0.0.1:9000';
+    if (site.type === 'php' && dbManager && site.php_version) {
+        // Find PHP app by version and get custom_args
+        const phpApps = dbManager.query('SELECT * FROM installed_apps WHERE app_id LIKE ?', [`php%`]);
+        if (phpApps && phpApps.length > 0) {
+            // Try to match by version
+            const matchedPhp = phpApps.find(app => {
+                const appVersion = app.installed_version || '';
+                return appVersion.startsWith(site.php_version) || app.app_id.includes(site.php_version.replace('.', ''));
+            });
+
+            if (matchedPhp) {
+                if (matchedPhp.custom_args) {
+                    fastcgiAddress = parseFastcgiAddress(matchedPhp.custom_args);
+                } else {
+                    // Fallback to apps.json if custom_args is missing in DB
+                    try {
+                        const appsJsonPath = path.join(appDir, 'data', 'apps.json');
+                        if (fs.existsSync(appsJsonPath)) {
+                            const appsData = JSON.parse(fs.readFileSync(appsJsonPath, 'utf-8'));
+                            const jsonApp = appsData.apps.find(a => a.id === matchedPhp.app_id);
+                            if (jsonApp && jsonApp.default_args) {
+                                fastcgiAddress = parseFastcgiAddress(jsonApp.default_args);
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Failed to read apps.json fallback:', e);
+                    }
+                }
+            } else if (phpApps[0] && phpApps[0].custom_args) {
+                // Fallback to first PHP if no match
+                fastcgiAddress = parseFastcgiAddress(phpApps[0].custom_args);
+            }
+        }
+    }
 
     let config;
     if (site.webserver === 'apache') {
-        config = generateApacheConfig(site);
+        config = generateApacheConfig(site, fastcgiAddress);
     } else {
-        config = generateNginxConfig(site);
+        let rewriteRules = '';
+        if (site.type === 'php') {
+            const templateName = site.rewrite_template || 'default';
+            const templatePath = path.join(appDir, 'data', 'rewrite', `${templateName}.conf`);
+            try {
+                if (fs.existsSync(templatePath)) {
+                    rewriteRules = await fsPromises.readFile(templatePath, 'utf-8');
+                } else {
+                    const defaultPath = path.join(appDir, 'data', 'rewrite', 'default.conf');
+                    if (fs.existsSync(defaultPath)) {
+                        rewriteRules = await fsPromises.readFile(defaultPath, 'utf-8');
+                    }
+                }
+            } catch (e) {
+                console.error('Read rewrite template error', e);
+            }
+        }
+        config = generateNginxConfig(site, fastcgiAddress, rewriteRules);
     }
 
     await fsPromises.writeFile(configPath, config, 'utf-8');
@@ -572,7 +803,8 @@ async function scanDirAndAutoCreateConfig(dbManager, dir, webserver, template, a
         const files = await fsPromises.readdir(dir);
         // Get default PHP version
         const defaultPhp = dbManager.query('SELECT * FROM settings WHERE key = ?', ['default_php_version']);
-        const phpVersion = (defaultPhp && defaultPhp.length > 0) ? defaultPhp[0].value : '8.2';
+        let phpVersion = (defaultPhp && defaultPhp.length > 0) ? defaultPhp[0].value : '8.2';
+        phpVersion = sanitizePhpVersion(phpVersion);
 
         const newDomains = [];
         for (const file of files) {
@@ -586,7 +818,7 @@ async function scanDirAndAutoCreateConfig(dbManager, dir, webserver, template, a
                     root_path: filePath,
                     php_version: phpVersion
                 };
-                await saveSiteConfig(config, appDir);
+                await saveSiteConfig(config, appDir, dbManager);
                 // Insert into database
                 dbManager.query('INSERT INTO sites (webserver, name, domain, type, root_path, is_auto, php_version) VALUES (?, ?, ?, ?, ?, 1, ?)',
                     [webserver, config.name, config.domain, config.type, config.root_path, config.php_version]);

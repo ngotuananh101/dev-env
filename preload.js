@@ -14,7 +14,7 @@ const api = {
     apps: {
         getList: () => ipcRenderer.invoke('apps-get-list'),
         updateList: () => ipcRenderer.invoke('apps-update-list'),
-        install: (appId, version, downloadUrl, filename, execFile, group) => ipcRenderer.invoke('apps-install', appId, version, downloadUrl, filename, execFile, group),
+        install: (appId, version, downloadUrl, filename, execFile, group, defaultArgs) => ipcRenderer.invoke('apps-install', appId, version, downloadUrl, filename, execFile, group, defaultArgs),
         cancelInstall: (appId) => ipcRenderer.invoke('apps-cancel-install', appId),
         uninstall: (appId) => ipcRenderer.invoke('apps-uninstall', appId),
         setArgs: (appId, args) => ipcRenderer.invoke('apps-set-args', appId, args),
@@ -99,7 +99,14 @@ const api = {
         updateApacheRoot: (newPath) => ipcRenderer.invoke('sites-update-apache-root', newPath),
         updateNginxRoot: (newPath) => ipcRenderer.invoke('sites-update-nginx-root', newPath),
 
+        // PHP Version Management
+        getPhpVersions: () => ipcRenderer.invoke('sites-get-php-versions'),
+        updatePhpVersion: (siteId, version) => ipcRenderer.invoke('sites-update-php', siteId, version),
 
+        // Rewrite Templates
+        getRewriteTemplates: () => ipcRenderer.invoke('sites-get-rewrite-templates'),
+        updateRewrite: (siteId, templateName, onlyDb = false) => ipcRenderer.invoke('sites-update-rewrite', siteId, templateName, onlyDb),
+        getTemplateContent: (templateName) => ipcRenderer.invoke('sites-get-template-content', templateName),
 
         getWebserver: () => ipcRenderer.invoke('sites-get-webserver'),
         openBrowser: (domain) => ipcRenderer.invoke('sites-open-browser', domain)

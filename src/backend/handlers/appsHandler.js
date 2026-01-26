@@ -192,6 +192,22 @@ function register(ipcMain, context) {
                 const result = dbManager.query('SELECT * FROM installed_apps');
                 if (!result.error) {
                     installedApps = result;
+
+                    // Auto-fix missing custom_args for PHP apps
+                    for (const app of installedApps) {
+                        if (app.app_id.startsWith('php') && !app.custom_args) {
+                            const jsonApp = jsonData.apps.find(a => a.id === app.app_id);
+                            if (jsonApp && jsonApp.default_args) {
+                                try {
+                                    dbManager.query('UPDATE installed_apps SET custom_args = ? WHERE app_id = ?', [jsonApp.default_args, app.app_id]);
+                                    app.custom_args = jsonApp.default_args;
+                                    console.log(`Auto-fixed custom_args for ${app.app_id}`);
+                                } catch (err) {
+                                    console.error(`Failed to auto-fix custom_args for ${app.app_id}`, err);
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -224,7 +240,7 @@ function register(ipcMain, context) {
     });
 
     // Install app
-    ipcMain.handle('apps-install', async (event, appId, version, downloadUrl, filename, execFile, group) => {
+    ipcMain.handle('apps-install', async (event, appId, version, downloadUrl, filename, execFile, group, defaultArgs) => {
         const dbManager = getDbManager();
         if (!dbManager) {
             return { error: 'Database not initialized' };
@@ -526,7 +542,7 @@ function register(ipcMain, context) {
             const result = dbManager.query(
                 `INSERT OR REPLACE INTO installed_apps (app_id, installed_version, install_path, exec_path, custom_args, show_on_dashboard, installed_at, updated_at)
          VALUES (?, ?, ?, ?, ?, 0, ?, ?)`,
-                [appId, version, appInstallDir, execPath, '', now, now]
+                [appId, version, appInstallDir, execPath, defaultArgs || '', now, now]
             );
 
             if (result.error) {

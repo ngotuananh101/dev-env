@@ -285,7 +285,8 @@
       "icon": "FileCode",
       "iconColor": "text-indigo-500",
       "helpLink": "https://www.php.net/",
-      "exec_file": "php.exe",
+      "exec_file": "php-cgi.exe",
+      "default_args": "-b 127.0.0.1:9082",
       "configs": [
         {
           "id": "php82_ini",
@@ -314,7 +315,8 @@
       "icon": "FileCode",
       "iconColor": "text-indigo-500",
       "helpLink": "https://www.php.net/",
-      "exec_file": "php.exe",
+      "exec_file": "php-cgi.exe",
+      "default_args": "-b 127.0.0.1:9083",
       "configs": [
         {
           "id": "php83_ini",
@@ -343,7 +345,8 @@
       "icon": "FileCode",
       "iconColor": "text-indigo-500",
       "helpLink": "https://www.php.net/",
-      "exec_file": "php.exe",
+      "exec_file": "php-cgi.exe",
+      "default_args": "-b 127.0.0.1:9084",
       "configs": [
         {
           "id": "php84_ini",
@@ -372,7 +375,8 @@
       "icon": "FileCode",
       "iconColor": "text-indigo-500",
       "helpLink": "https://www.php.net/",
-      "exec_file": "php.exe",
+      "exec_file": "php-cgi.exe",
+      "default_args": "-b 127.0.0.1:9085",
       "configs": [
         {
           "id": "php85_ini",

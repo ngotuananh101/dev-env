@@ -7,9 +7,23 @@
           <h2 class="text-white font-medium">{{ site.domain }} - Configuration</h2>
           <p class="text-gray-500 text-xs">{{ configPath }}</p>
         </div>
-        <button @click="$emit('close')" class="text-gray-400 hover:text-white">
-          <X class="w-5 h-5" />
-        </button>
+        <div class="flex items-center space-x-3">
+          <!-- Rewrite Template Dropdown -->
+          <div v-if="site.webserver !== 'apache' && site.type === 'php'" class="flex items-center space-x-2">
+            <span class="text-xs text-gray-400">Rewrite:</span>
+            <select 
+              :value="currentTemplate" 
+              @change="changeTemplate($event.target.value)"
+              class="bg-gray-700 text-white text-xs rounded px-2 py-1 border border-gray-600 focus:outline-none focus:border-blue-500"
+            >
+              <option v-for="(tpl, key) in rewriteTemplates" :key="key" :value="key">{{ tpl.name }}</option>
+            </select>
+          </div>
+
+          <button @click="$emit('close')" class="text-gray-400 hover:text-white">
+            <X class="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       <!-- Editor -->
@@ -66,6 +80,9 @@ const editorContainer = ref(null);
 const configPath = ref('');
 const isLoading = ref(true);
 const isSaving = ref(false);
+
+const rewriteTemplates = ref({});
+const currentTemplate = ref(props.site.rewrite_template || 'default');
 let editor = null;
 
 // Load config
@@ -88,6 +105,66 @@ const loadConfig = async () => {
     toast.error(`Error: ${error.message}`);
     emit('close');
     isLoading.value = false;
+  }
+
+};
+
+// Load rewrite templates
+const loadRewriteTemplates = async () => {
+  if (props.site.webserver === 'apache' || props.site.type !== 'php') return;
+  
+  try {
+    const result = await window.sysapi.sites.getRewriteTemplates();
+    if (result.templates) {
+      rewriteTemplates.value = result.templates;
+    }
+  } catch (error) {
+    console.error('Load rewrite templates error:', error);
+  }
+};
+
+// Change template
+const changeTemplate = async (newTemplate) => {
+  if (currentTemplate.value === newTemplate) return;
+
+  try {
+    const result = await window.sysapi.sites.getTemplateContent(newTemplate);
+    if (result.error) {
+      toast.error(`Failed to get template content: ${result.error}`);
+      return;
+    }
+    
+    // Update editor content using regex
+    if (editor) {
+      const currentContent = editor.getValue();
+      const content = result.content || '';
+      const REWRITE_BLOCK_REGEX = /(# Rewrite Rules[\r\n]+)([\s\S]*?)([\r\n]+\s*# End Rewrite Rules)/;
+      
+      let newContent;
+      if (REWRITE_BLOCK_REGEX.test(currentContent)) {
+        newContent = currentContent.replace(REWRITE_BLOCK_REGEX, `$1${content}$3`);
+      } else {
+        // If block not found, append before end (fallback, unlikely if using standard template)
+        // Or cleaner: insert before 'location ~ \.php$' check?
+        // Simple fallback: append to end of server block?
+        // Let's try to find index index.php... line
+        if (currentContent.includes('index index.php index.html index.htm;')) {
+             newContent = currentContent.replace('index index.php index.html index.htm;', `index index.php index.html index.htm;\n\n    # Rewrite Rules\n    ${content}\n    # End Rewrite Rules`);
+        } else {
+             newContent = currentContent; // No change if structure unknown
+             toast.warning('Could not find location to insert rewrite rules automatically.');
+        }
+      }
+      
+      if (newContent !== currentContent) {
+          editor.setValue(newContent, -1); // -1 moves cursor to start
+          currentTemplate.value = newTemplate;
+          toast.info(`Applied ${rewriteTemplates.value[newTemplate]?.name} rules. Click Save to persist.`);
+      }
+    }
+  } catch (error) {
+    console.error('Update rewrite rule error:', error);
+    toast.error(`Error: ${error.message}`);
   }
 };
 
@@ -130,11 +207,21 @@ const saveConfig = async () => {
   isSaving.value = true;
   try {
     const content = editor.getValue();
+    
+    // 1. Save file content
     const result = await window.sysapi.sites.saveConfig(props.site.id, content);
     
     if (result.error) {
-      toast.error(`Failed to save: ${result.error}`);
+      toast.error(`Failed to save config: ${result.error}`);
     } else {
+      // 2. Save rewrite template setting if changed
+      if (currentTemplate.value !== props.site.rewrite_template) {
+         const dbResult = await window.sysapi.sites.updateRewrite(props.site.id, currentTemplate.value, true);
+         if (!dbResult.error) {
+             props.site.rewrite_template = currentTemplate.value;
+         }
+      }
+    
       toast.success('Config saved!');
       emit('saved');
     }
@@ -147,6 +234,7 @@ const saveConfig = async () => {
 
 onMounted(() => {
   loadConfig();
+  loadRewriteTemplates();
 });
 
 onBeforeUnmount(() => {

@@ -587,7 +587,8 @@ const confirmInstall = async () => {
       ver.download_url,
       ver.filename,
       app.exec_file,
-      app.group || null
+      app.group || null,
+      app.default_args || null
     );
     
     if (result.error) {

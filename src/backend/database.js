@@ -98,7 +98,7 @@ class DatabaseManager {
         if (!this.db) return { error: "Database not initialized" };
         try {
             const stmt = this.db.prepare(sql);
-            if (sql.trim().toUpperCase().startsWith('SELECT')) {
+            if (stmt.reader) {
                 return stmt.all(params);
             } else {
                 return stmt.run(params);
