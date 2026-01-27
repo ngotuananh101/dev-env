@@ -15,10 +15,10 @@ let logsDir = null;
  * @param {Object} context - Shared context
  */
 function register(ipcMain, context) {
-    const { appDir } = context;
+    const { appDir, userDataPath } = context;
 
     // Initialize logs directory
-    logsDir = path.join(appDir, 'logs');
+    logsDir = path.join(userDataPath, 'logs');
 
     // Ensure logs directory exists
     if (!fs.existsSync(logsDir)) {

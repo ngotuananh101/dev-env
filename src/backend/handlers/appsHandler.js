@@ -168,15 +168,32 @@ function compareVersions(a, b) {
  * @param {Object} context - Shared context
  */
 function register(ipcMain, context) {
-    const { getDbManager, appDir } = context;
+    const { getDbManager, appDir, userDataPath } = context;
 
     // Initialize paths
-    appsJsonPath = path.join(appDir, 'data', 'apps.json');
-    logsDir = path.join(appDir, 'logs');
+    // Define writable paths in userData
+    const dataDir = path.join(userDataPath, 'data');
+    appsJsonPath = path.join(dataDir, 'apps.json');
+    logsDir = path.join(userDataPath, 'logs');
 
-    // Ensure logs directory exists
+    // Ensure directories exist
     if (!fs.existsSync(logsDir)) {
         fs.mkdirSync(logsDir, { recursive: true });
+    }
+    if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+    }
+
+    // Copy default apps.json if it doesn't exist in userData
+    if (!fs.existsSync(appsJsonPath)) {
+        const defaultAppsJson = path.join(appDir, 'data', 'apps.json');
+        if (fs.existsSync(defaultAppsJson)) {
+            try {
+                fs.copyFileSync(defaultAppsJson, appsJsonPath);
+            } catch (e) {
+                console.error('Failed to copy default apps.json:', e);
+            }
+        }
     }
 
     // Get apps list
@@ -300,7 +317,7 @@ function register(ipcMain, context) {
 
                 logApp(`Starting installation for ${appId} version ${version}`, 'INSTALL');
 
-                const appsDir = path.join(context.appDir, 'apps');
+                const appsDir = path.join(context.userDataPath, 'apps');
                 if (!fs.existsSync(appsDir)) {
                     await fsPromises.mkdir(appsDir, { recursive: true });
                 }
@@ -668,7 +685,7 @@ function register(ipcMain, context) {
             return { error: result.error };
         }
 
-        const appDir = path.join(context.appDir, 'apps', appId);
+        const appDir = path.join(context.userDataPath, 'apps', appId);
         if (fs.existsSync(appDir)) {
             try {
                 await fsPromises.rm(appDir, { recursive: true, force: true });
@@ -708,7 +725,7 @@ function register(ipcMain, context) {
             }
 
             // 4. Delete sites directory
-            const sitesDir = path.join(context.appDir, 'sites');
+            const sitesDir = path.join(context.userDataPath, 'sites');
             if (fs.existsSync(sitesDir)) {
                 try {
                     await fsPromises.rm(sitesDir, { recursive: true, force: true });

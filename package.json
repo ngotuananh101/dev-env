@@ -7,12 +7,46 @@
     "start": "electron .",
     "dev": "concurrently \"vite\" \"electron .\"",
     "build:css": "tailwindcss -i ./src/main.css -o ./dist/output.css",
-    "watch:css": "tailwindcss -i ./src/main.css -o ./dist/output.css --watch"
+    "watch:css": "tailwindcss -i ./src/main.css -o ./dist/output.css --watch",
+    "build": "vite build && electron-builder"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "build": {
+    "appId": "com.ponta.devenv",
+    "productName": "Dev Env",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "src/backend/**/*",
+      "main.js",
+      "preload.js",
+      "package.json",
+      "data/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "data",
+        "to": "data",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "asar": true,
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": true
+    }
+  },
   "devDependencies": {
     "@electron/rebuild": "^4.0.2",
     "@tailwindcss/cli": "^4.1.18",
@@ -20,6 +54,7 @@
     "autoprefixer": "^10.4.23",
     "concurrently": "^9.2.1",
     "electron": "^40.0.0",
+    "electron-builder": "^26.4.0",
     "electron-reload": "^2.0.0-alpha.1",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.18",

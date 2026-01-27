@@ -23,6 +23,7 @@ function logApp(message, type = 'INFO') {
  * @param {Object} context - Shared context
  */
 function register(ipcMain, context) {
+    // Context not currently used (beyond logApp) but kept for consistency
     // Use shared logApp if provided
     if (context.logApp) {
         logAppFn = context.logApp;

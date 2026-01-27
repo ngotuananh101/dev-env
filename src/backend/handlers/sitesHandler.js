@@ -228,7 +228,7 @@ function register(ipcMain, context) {
             const site = { id: siteId, name, domain, type, webserver, root_path, port, php_version, node_script, proxy_target };
 
             // Generate and save webserver config
-            await saveSiteConfig(site, appDir, dbManager);
+            await saveSiteConfig(site, context.userDataPath, dbManager, context.appDir);
 
             // Add to hosts file
             await addHosts([domain]);
@@ -264,7 +264,7 @@ function register(ipcMain, context) {
             }
 
             // Delete config file
-            await deleteSiteConfig(site, appDir);
+            await deleteSiteConfig(site, context.userDataPath);
 
             // Remove from hosts file
             await removeHosts([site.domain]);
@@ -723,11 +723,11 @@ function sanitizePhpVersion(version) {
 /**
  * Save site config file
  * @param {Object} site - Site configuration
- * @param {string} appDir - Application directory
+ * @param {string} appDir - Application directory (for templates)
  * @param {Object} dbManager - Database manager (optional, needed for PHP sites)
  */
-async function saveSiteConfig(site, appDir, dbManager = null) {
-    const configPath = getConfigPath(site, appDir);
+async function saveSiteConfig(site, userDataPath, dbManager = null, appDir = null) {
+    const configPath = getConfigPath(site, userDataPath);
 
     // Get FastCGI address for PHP sites
     let fastcgiAddress = '127.0.0.1:9000';
@@ -747,7 +747,8 @@ async function saveSiteConfig(site, appDir, dbManager = null) {
                 } else {
                     // Fallback to apps.json if custom_args is missing in DB
                     try {
-                        const appsJsonPath = path.join(appDir, 'data', 'apps.json');
+                        // Use userDataPath for apps.json as it is the active one
+                        const appsJsonPath = path.join(userDataPath, 'data', 'apps.json');
                         if (fs.existsSync(appsJsonPath)) {
                             const appsData = JSON.parse(fs.readFileSync(appsJsonPath, 'utf-8'));
                             const jsonApp = appsData.apps.find(a => a.id === matchedPhp.app_id);
@@ -773,12 +774,13 @@ async function saveSiteConfig(site, appDir, dbManager = null) {
         let rewriteRules = '';
         if (site.type === 'php') {
             const templateName = site.rewrite_template || 'default';
-            const templatePath = path.join(appDir, 'data', 'rewrite', `${templateName}.conf`);
+            // Templates are in resource path (appDir)
+            const templatePath = path.join(appDir || userDataPath, 'data', 'rewrite', `${templateName}.conf`);
             try {
                 if (fs.existsSync(templatePath)) {
                     rewriteRules = await fsPromises.readFile(templatePath, 'utf-8');
                 } else {
-                    const defaultPath = path.join(appDir, 'data', 'rewrite', 'default.conf');
+                    const defaultPath = path.join(appDir || userDataPath, 'data', 'rewrite', 'default.conf');
                     if (fs.existsSync(defaultPath)) {
                         rewriteRules = await fsPromises.readFile(defaultPath, 'utf-8');
                     }
@@ -797,8 +799,8 @@ async function saveSiteConfig(site, appDir, dbManager = null) {
 /**
  * Delete site config file
  */
-async function deleteSiteConfig(site, appDir) {
-    const configPath = getConfigPath(site, appDir);
+async function deleteSiteConfig(site, userDataPath) {
+    const configPath = getConfigPath(site, userDataPath);
     if (fs.existsSync(configPath)) {
         await fsPromises.unlink(configPath);
     }
@@ -808,7 +810,7 @@ async function deleteSiteConfig(site, appDir) {
 /**
  * Scan dir and auto create config
  */
-async function scanDirAndAutoCreateConfig(dbManager, dir, webserver, template, appDir) {
+async function scanDirAndAutoCreateConfig(dbManager, dir, webserver, template, userDataPath, appDir) {
     try {
         const files = await fsPromises.readdir(dir);
         // Get default PHP version
@@ -834,7 +836,7 @@ async function scanDirAndAutoCreateConfig(dbManager, dir, webserver, template, a
                     root_path: rootPath,
                     php_version: phpVersion
                 };
-                await saveSiteConfig(config, appDir, dbManager);
+                await saveSiteConfig(config, userDataPath, dbManager, appDir);
                 // Insert into database
                 dbManager.query('INSERT INTO sites (webserver, name, domain, type, root_path, is_auto, php_version) VALUES (?, ?, ?, ?, ?, 1, ?)',
                     [webserver, config.name, config.domain, config.type, config.root_path, config.php_version]);
@@ -861,13 +863,13 @@ async function scanDirAndAutoCreateConfig(dbManager, dir, webserver, template, a
 /**
  * Cleanup auto created sites
  */
-async function cleanupAutoSites(dbManager, appDir) {
+async function cleanupAutoSites(dbManager, userDataPath) {
     try {
         const sites = dbManager.query('SELECT * FROM sites WHERE is_auto = 1');
         if (sites && sites.length > 0) {
             const domainsToRemove = [];
             for (const site of sites) {
-                await deleteSiteConfig(site, appDir);
+                await deleteSiteConfig(site, userDataPath);
                 domainsToRemove.push(site.domain);
             }
 

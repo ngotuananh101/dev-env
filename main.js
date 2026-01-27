@@ -64,6 +64,7 @@ function createHandlerContext() {
     app,
     shell,
     appDir: __dirname,
+    userDataPath: app.getPath('userData'),
     getDbManager: () => dbManager,
     logApp: appsHandler.logApp
   };

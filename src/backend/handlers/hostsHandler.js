@@ -163,11 +163,14 @@ function register(ipcMain, context) {
     ipcMain.handle('hosts-backup', async () => {
         try {
             const content = await fsPromises.readFile(HOSTS_PATH, 'utf-8');
-            const backupPath = HOSTS_PATH + '.backup_' + Date.now();
 
-            // Try to write backup to same location
+            // Try to write backup to userData first (safe writable location)
+            const { userDataPath } = context;
+            const backupPath = path.join(userDataPath, 'hosts_backup_' + Date.now());
+
             try {
                 await fsPromises.writeFile(backupPath, content, 'utf-8');
+                return { success: true, path: backupPath };
             } catch (e) {
                 // If fails, save to user's temp folder
                 const userBackup = path.join(process.env.TEMP || 'C:\\Temp', 'hosts_backup_' + Date.now());
