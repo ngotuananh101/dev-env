@@ -78,6 +78,49 @@ function register(ipcMain, context) {
             return { error: error.message };
         }
     });
+
+    // Read specific log file (e.g. domain.access.log)
+    ipcMain.handle('logs-read-file', async (event, filename) => {
+        try {
+            // Security check: ensure filename is just a filename, not a path
+            const baseName = path.basename(filename);
+            if (baseName !== filename) {
+                return { error: 'Invalid filename' };
+            }
+
+            const logFile = path.join(logsDir, filename);
+            if (!fs.existsSync(logFile)) {
+                return { content: '', error: null };
+            }
+
+            const content = await fsPromises.readFile(logFile, 'utf-8');
+            return { content };
+        } catch (error) {
+            console.error('Failed to read log file:', error);
+            return { error: error.message };
+        }
+    });
+
+    // Clear specific log file
+    ipcMain.handle('logs-clear-file', async (event, filename) => {
+        try {
+            const baseName = path.basename(filename);
+            if (baseName !== filename) {
+                return { error: 'Invalid filename' };
+            }
+
+            const logFile = path.join(logsDir, filename);
+            // Truncate file instead of deleting to keep permissions/existence
+            if (fs.existsSync(logFile)) {
+                await fsPromises.writeFile(logFile, '', 'utf-8');
+            }
+
+            return { success: true };
+        } catch (error) {
+            console.error('Failed to clear log file:', error);
+            return { error: error.message };
+        }
+    });
 }
 
 module.exports = { register };

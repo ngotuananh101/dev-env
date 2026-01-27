@@ -9,6 +9,8 @@ const path = require('path');
 const https = require('https');
 const http = require('http');
 const serviceHandler = require('./serviceHandler');
+const { removeHosts } = require('./hostsHandler');
+const { runningNodeProcesses } = require('./sitesHandler');
 
 // Constants
 const APP_FILES_XML_URL = 'https://archive.org/download/dev-env/dev-env_files.xml';
@@ -677,6 +679,35 @@ function register(ipcMain, context) {
 
         // Delete vhost dir if app is nginx or apache
         if (appId === 'nginx' || appId === 'apache') {
+            try {
+                // 1. Stop all running Node processes
+                if (runningNodeProcesses && runningNodeProcesses.size > 0) {
+                    for (const [id, proc] of runningNodeProcesses) {
+                        try {
+                            proc.kill();
+                        } catch (e) {
+                            console.error(`Failed to kill process for site ${id}`, e);
+                        }
+                    }
+                    runningNodeProcesses.clear();
+                }
+
+                // 2. Remove all hosts entries
+                const sites = dbManager.query('SELECT domain FROM sites');
+                if (sites && sites.length > 0) {
+                    const domains = sites.map(s => s.domain);
+                    await removeHosts(domains);
+                }
+
+                // 3. Clear sites database
+                dbManager.query('DELETE FROM sites');
+
+            } catch (err) {
+                console.error('Failed to clean up sites data:', err);
+                logApp(`Failed to clean up sites data: ${err.message}`, 'WARNING');
+            }
+
+            // 4. Delete sites directory
             const sitesDir = path.join(context.appDir, 'sites');
             if (fs.existsSync(sitesDir)) {
                 try {

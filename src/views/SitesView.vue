@@ -225,6 +225,12 @@
                   Conf
                 </button>
                 <button 
+                  @click="showLogs(site)"
+                  class="text-green-400 hover:text-green-300 text-xs"
+                >
+                  Logs
+                </button>
+                <button 
                   @click="deleteSite(site)"
                   class="text-red-400 hover:text-red-300 text-xs"
                 >
@@ -263,6 +269,13 @@
       @close="showConfigModal = false"
       @saved="loadSites"
     />
+
+    <!-- Site Logs Modal -->
+    <SiteLogsModal 
+      v-if="showLogsModal" 
+      :site="selectedSite"
+      @close="showLogsModal = false"
+    />
   </div>
 </template>
 
@@ -276,6 +289,7 @@ import {
 import { useToast } from 'vue-toastification';
 import AddSiteModal from '../components/AddSiteModal.vue';
 import SiteConfigModal from '../components/SiteConfigModal.vue';
+import SiteLogsModal from '../components/SiteLogsModal.vue';
 
 const toast = useToast();
 
@@ -296,6 +310,7 @@ const isLoading = ref(false);
 const searchQuery = ref('');
 const showAddModal = ref(false);
 const showConfigModal = ref(false);
+const showLogsModal = ref(false);
 const selectedSite = ref(null);
 const phpVersions = ref([]);
 
@@ -460,6 +475,12 @@ const stopNodeSite = async (site) => {
 const openConfig = (site) => {
   selectedSite.value = site;
   showConfigModal.value = true;
+};
+
+// Show logs modal
+const showLogs = (site) => {
+  selectedSite.value = site;
+  showLogsModal.value = true;
 };
 
 // Delete site
