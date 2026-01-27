@@ -145,18 +145,17 @@
                 </div>
               </template>
               <template v-else-if="site.type === 'php'">
-                <div class="relative inline-block text-left">
+                <div class="inline-block text-left">
                   <select 
                     :value="site.php_version" 
                     @change="changePhpVersion(site, $event.target.value)"
                     :disabled="site.updatingPhp"
-                    class="bg-gray-700 text-white text-xs rounded px-2 py-1 border border-gray-600 focus:outline-none focus:border-blue-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed appearance-none pr-6"
+                    class="bg-gray-700 text-white text-xs rounded px-2 py-1 border border-gray-600 focus:outline-none focus:border-blue-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed appearance-none pr-4"
                   >
                     <option v-for="ver in phpVersions" :key="ver" :value="ver">{{ ver }}</option>
                   </select>
-                  <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-1.5 text-gray-400">
+                  <div class="pointer-events-none inset-y-0 right-0 flex items-center px-1.5 text-gray-400">
                     <RotateCw v-if="site.updatingPhp" class="h-3 w-3 animate-spin" />
-                    <ChevronDown v-else class="h-3 w-3" />
                   </div>
                 </div>
               </template>

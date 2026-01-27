@@ -811,11 +811,17 @@ async function scanDirAndAutoCreateConfig(dbManager, dir, webserver, template, a
             const filePath = path.join(dir, file);
             const stats = await fsPromises.stat(filePath);
             if (stats.isDirectory()) {
+                let rootPath = filePath;
+                // Auto-detect public folder
+                if (fs.existsSync(path.join(filePath, 'public', 'index.php'))) {
+                    rootPath = path.join(filePath, 'public');
+                }
+
                 const config = {
                     name: file,
                     domain: template.replace('[site]', file),
                     type: 'php',
-                    root_path: filePath,
+                    root_path: rootPath,
                     php_version: phpVersion
                 };
                 await saveSiteConfig(config, appDir, dbManager);
