@@ -9,6 +9,7 @@ const fsPromises = require('fs').promises;
 const path = require('path');
 const { spawn, exec } = require('child_process');
 const { addHosts, removeHosts } = require('./hostsHandler');
+const { getAppServiceStatus, stopAppService, startAppService } = require('./serviceHandler');
 
 // Store running Node processes
 const runningNodeProcesses = new Map();
@@ -36,6 +37,9 @@ server {
         config += `
     root "${root_path.replace(/\\/g, '/')}";
     index index.php index.html index.htm;
+
+    access_log logs/${domain}.access.log;
+    error_log logs/${domain}.error.log;
 
     # Rewrite Rules
     ${rewriteRules || ''}
@@ -106,6 +110,9 @@ function generateApacheConfig(site, fastcgiAddress = '127.0.0.1:9000') {
 
     if (type === 'php') {
         config += `    DocumentRoot "${root_path.replace(/\\/g, '/')}"
+
+        ErrorLog  "logs/${domain}.error.log"
+        CustomLog "logs/${domain}.access.log" common
     
     <Directory "${root_path.replace(/\\/g, '/')}">
         Options Indexes FollowSymLinks
@@ -225,6 +232,9 @@ function register(ipcMain, context) {
 
             // Add to hosts file
             await addHosts([domain]);
+
+            // Restart web services
+            await restartWebServices(dbManager);
 
             return { success: true, id: siteId };
         } catch (error) {
@@ -837,6 +847,9 @@ async function scanDirAndAutoCreateConfig(dbManager, dir, webserver, template, a
             await addHosts(newDomains);
         }
 
+        // Restart web services
+        await restartWebServices(dbManager);
+
         return { success: true };
     } catch (error) {
         console.error('Scan dir and auto create config error:', error);
@@ -867,6 +880,31 @@ async function cleanupAutoSites(dbManager, appDir) {
         }
     } catch (error) {
         console.error('Cleanup auto sites error:', error);
+    }
+}
+
+/**
+ * Restart running web services (nginx/apache)
+ */
+async function restartWebServices(dbManager) {
+    try {
+        const webServices = ['nginx', 'apache'];
+        for (const service of webServices) {
+            const app = dbManager.query('SELECT * FROM installed_apps WHERE app_id = ?', [service]);
+            if (app && app.length > 0) {
+                const appData = app[0];
+                const status = getAppServiceStatus(service, appData.exec_path);
+                if (status.running) {
+                    console.log(`Restarting ${service} to apply changes...`);
+                    await stopAppService(service, appData.exec_path);
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    await startAppService(service, appData.exec_path);
+                }
+                break;
+            }
+        }
+    } catch (error) {
+        console.error('Failed to restart web services:', error);
     }
 }
 
