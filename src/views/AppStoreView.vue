@@ -628,6 +628,7 @@ const confirmInstall = async () => {
     app.installedVersion = ver.version;
     app.installPath = result.installPath;
     app.execPath = result.execPath;
+    app.customArgs = app.default_args || '';
     addToRecentlyUsed(app);
     
     // Close modal after short delay to show 100%

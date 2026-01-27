@@ -27,16 +27,22 @@ let appsJsonPath = null;
 function logApp(message, type = 'INFO') {
     const now = new Date();
     const dateStr = now.toISOString().split('T')[0];
-    const logFile = path.join(logsDir, `${dateStr}.log`);
-    const timeStr = now.toLocaleTimeString();
-    const logLine = `[${timeStr}] [${type}] ${message}\n`;
 
-    console.log(`${type}: ${message}`);
 
-    try {
-        fs.appendFileSync(logFile, logLine);
-    } catch (err) {
-        console.error('Failed to write log:', err);
+    if (logsDir) {
+        const logFile = path.join(logsDir, `${dateStr}.log`);
+        const timeStr = now.toLocaleTimeString();
+        const logLine = `[${timeStr}] [${type}] ${message}\n`;
+
+        console.log(`${type}: ${message}`);
+
+        try {
+            fs.appendFileSync(logFile, logLine);
+        } catch (err) {
+            console.error('Failed to write log:', err);
+        }
+    } else {
+        console.log(`${type}: ${message} (No logsDir)`);
     }
 }
 
@@ -241,348 +247,360 @@ function register(ipcMain, context) {
 
     // Install app
     ipcMain.handle('apps-install', async (event, appId, version, downloadUrl, filename, execFile, group, defaultArgs) => {
-        const dbManager = getDbManager();
-        if (!dbManager) {
-            return { error: 'Database not initialized' };
-        }
-
-        if (activeInstalls.has(appId)) {
-            return { error: 'Installation already in progress' };
-        }
-
-        // Check exclusive group restriction
-        if (group) {
-            try {
-                const appsData = JSON.parse(fs.readFileSync(appsJsonPath, 'utf-8'));
-                const sameGroupApps = appsData.apps.filter(a => a.group === group && a.id !== appId);
-
-                if (sameGroupApps.length > 0) {
-                    const installedApps = dbManager.query('SELECT app_id FROM installed_apps');
-                    const installedIds = installedApps.map(a => a.app_id);
-
-                    const conflictApp = sameGroupApps.find(a => installedIds.includes(a.id));
-                    if (conflictApp) {
-                        return { error: `Cannot install: ${conflictApp.name} is already installed. Only one ${group} can be installed at a time.` };
-                    }
-                }
-            } catch (err) {
-                logApp(`Failed to check group restriction: ${err.message}`, 'WARNING');
-            }
-        }
-
-        const installContext = {
-            appId,
-            cancelled: false,
-            request: null,
-            zipPath: null,
-            appDir: null
-        };
-        activeInstalls.set(appId, installContext);
-
         try {
-            const AdmZip = require('adm-zip');
-
-            logApp(`Starting installation for ${appId} version ${version}`, 'INSTALL');
-
-            const appsDir = path.join(context.appDir, 'apps');
-            if (!fs.existsSync(appsDir)) {
-                await fsPromises.mkdir(appsDir, { recursive: true });
+            const dbManager = getDbManager();
+            if (!dbManager) {
+                return { error: 'Database not initialized' };
             }
 
-            const appInstallDir = path.join(appsDir, appId);
-            installContext.appDir = appInstallDir;
-            if (!fs.existsSync(appInstallDir)) {
-                await fsPromises.mkdir(appInstallDir, { recursive: true });
-            }
-
-            const zipPath = path.join(appInstallDir, filename);
-            installContext.zipPath = zipPath;
-
-            let lastProgressTime = 0;
-            let lastStatus = '';
-            const sendProgress = (progress, status, logDetail = null) => {
-                if (!installContext.cancelled) {
-                    const now = Date.now();
-                    if (status !== lastStatus || progress === 100 || now - lastProgressTime >= 1000) {
-                        event.sender.send('app-install-progress', { appId, progress, status, logDetail });
-                        lastProgressTime = now;
-                        lastStatus = status;
-                    }
-                }
-            };
-
-            sendProgress(0, 'Downloading...');
-
-            // Download file with progress
-            await new Promise((resolve, reject) => {
-                const protocol = downloadUrl.startsWith('https') ? https : http;
-
-                const request = protocol.get(downloadUrl, (response) => {
-                    if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
-                        const redirectUrl = response.headers.location;
-                        const redirectProtocol = redirectUrl.startsWith('https') ? https : http;
-                        const redirectRequest = redirectProtocol.get(redirectUrl, handleResponse);
-                        redirectRequest.on('error', reject);
-                        installContext.request = redirectRequest;
-                        return;
-                    }
-                    handleResponse(response);
-
-                    function handleResponse(res) {
-                        if (installContext.cancelled) {
-                            res.destroy();
-                            reject(new Error('Installation cancelled'));
-                            return;
-                        }
-
-                        if (res.statusCode !== 200) {
-                            reject(new Error(`HTTP Error: ${res.statusCode}`));
-                            return;
-                        }
-
-                        const totalSize = parseInt(res.headers['content-length'], 10) || 0;
-                        let downloadedSize = 0;
-
-                        const fileStream = fs.createWriteStream(zipPath);
-
-                        res.on('data', (chunk) => {
-                            if (installContext.cancelled) {
-                                res.destroy();
-                                fileStream.close();
-                                return;
-                            }
-                            downloadedSize += chunk.length;
-                            if (totalSize > 0) {
-                                const percent = Math.round((downloadedSize / totalSize) * 50);
-                                const downloadedMB = (downloadedSize / (1024 * 1024)).toFixed(2);
-                                const totalMB = (totalSize / (1024 * 1024)).toFixed(2);
-                                sendProgress(percent, 'Downloading...', `Downloaded ${downloadedMB} MB / ${totalMB} MB`);
-                            } else {
-                                const downloadedMB = (downloadedSize / (1024 * 1024)).toFixed(2);
-                                sendProgress(25, 'Downloading...', `Downloaded ${downloadedMB} MB`);
-                            }
-                        });
-
-                        res.pipe(fileStream);
-
-                        fileStream.on('finish', () => {
-                            fileStream.close();
-                            if (installContext.cancelled) {
-                                reject(new Error('Installation cancelled'));
-                            } else {
-                                resolve();
-                            }
-                        });
-
-                        fileStream.on('error', (err) => {
-                            if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
-                            reject(err);
-                        });
-                    }
-                });
-
-                installContext.request = request;
-                request.on('error', reject);
-                request.setTimeout(1800000, () => {
-                    request.destroy();
-                    reject(new Error('Download timeout'));
-                });
-            });
-
-            if (installContext.cancelled) {
-                throw new Error('Installation cancelled');
-            }
-
-            sendProgress(50, 'Extracting...');
-
-            // Extract ZIP file
-            try {
-                const zip = new AdmZip(zipPath);
-                const zipEntries = zip.getEntries();
-                const totalEntries = zipEntries.length;
-                let extractedCount = 0;
-
-                sendProgress(50, 'Extracting...', `Starting extraction of ${totalEntries} files`);
-
-                for (const entry of zipEntries) {
-                    if (installContext.cancelled) {
-                        throw new Error('Installation cancelled');
-                    }
-
-                    try {
-                        zip.extractEntryTo(entry, appInstallDir, true, true);
-                    } catch (err) {
-                        logApp(`Failed to extract ${entry.entryName}: ${err.message}`, 'WARNING');
-                    }
-
-                    extractedCount++;
-                    if (extractedCount % Math.ceil(totalEntries / 20) === 0 || extractedCount === totalEntries) {
-                        const extractPercent = 50 + Math.round((extractedCount / totalEntries) * 40);
-                        sendProgress(extractPercent, 'Extracting...', `Extracted ${extractedCount} / ${totalEntries} files`);
-                    }
-                }
-
-                sendProgress(90, 'Finishing...');
-            } catch (extractError) {
-                if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
-                throw new Error(`Failed to extract: ${extractError.message}`);
-            }
-
-            if (fs.existsSync(zipPath)) {
-                fs.unlinkSync(zipPath);
-            }
-
-            // Find executable path
-            let execPath = '';
-            if (execFile) {
-                sendProgress(95, `Locating ${execFile}...`);
-
-                const findFile = async (dir, target) => {
-                    const entries = await fsPromises.readdir(dir, { withFileTypes: true });
-                    for (const entry of entries) {
-                        const fullPath = path.join(dir, entry.name);
-                        if (entry.isDirectory()) {
-                            const found = await findFile(fullPath, target);
-                            if (found) return found;
-                        } else if (fullPath.endsWith(target.replace('/', '\\')) || fullPath.endsWith(target.replace('\\', '/'))) {
-                            return fullPath;
-                        }
-                    }
-                    return null;
-                };
-
-                const foundPath = await findFile(appInstallDir, execFile);
-                if (foundPath) {
-                    execPath = foundPath;
-
-                    // Post-install configuration
-                    if (appId.startsWith('php')) {
-                        const configPath = path.join(appInstallDir, 'php.ini');
-                        const devConfigPath = path.join(appInstallDir, 'php.ini-development');
-                        if (fs.existsSync(devConfigPath)) {
-                            fs.copyFileSync(devConfigPath, configPath);
-                        }
-                    } else if (appId === 'apache') {
-                        logApp('Configuring Apache...', 'CONFIG');
-                        try {
-                            const serverRoot = path.dirname(path.dirname(execPath));
-                            const templatePath = path.join(context.appDir, 'data', 'config', 'apache.conf');
-                            const targetPath = path.join(serverRoot, 'conf', 'httpd.conf');
-
-                            if (fs.existsSync(templatePath)) {
-                                let configContent = await fsPromises.readFile(templatePath, 'utf-8');
-
-                                // Prepare paths (convert to forward slashes for Apache config)
-                                const serverRootSlash = serverRoot.replace(/\\/g, '/');
-                                const htdocsPathSlash = path.join(context.appDir, 'htdocs').replace(/\\/g, '/');
-                                const cgiBinPathSlash = path.join(serverRoot, 'cgi-bin').replace(/\\/g, '/');
-
-                                // Ensure sites directory exists
-                                const sitesDir = path.join(context.appDir, 'sites');
-                                if (!fs.existsSync(sitesDir)) {
-                                    await fsPromises.mkdir(sitesDir, { recursive: true });
-                                }
-                                const sitesPathSlash = path.join(sitesDir, '*.conf').replace(/\\/g, '/');
-
-                                // Perform replacements
-                                configContent = configContent.replace(/\[execPath\]/g, serverRootSlash);
-                                configContent = configContent.replace(/\[htdocsPath\]/g, htdocsPathSlash);
-                                configContent = configContent.replace(/\[cgiBinPath\]/g, cgiBinPathSlash);
-                                configContent = configContent.replace(/\[siteEnablePath\]/g, `IncludeOptional "${sitesPathSlash}"`);
-
-                                // Write config
-                                await fsPromises.writeFile(targetPath, configContent, 'utf-8');
-                                logApp(`Apache configuration updated at ${targetPath}`, 'CONFIG');
-                            } else {
-                                logApp(`Apache template config not found at ${templatePath}`, 'WARNING');
-                            }
-                        } catch (configErr) {
-                            logApp(`Failed to configure Apache: ${configErr.message}`, 'ERROR');
-                            console.error('Apache config error:', configErr);
-                        }
-                    } else if (appId === 'nginx') {
-                        logApp('Configuring Nginx...', 'CONFIG');
-                        try {
-                            const serverRoot = path.dirname(execPath);
-                            const templatePath = path.join(context.appDir, 'data', 'config', 'nginx.conf');
-                            const targetPath = path.join(serverRoot, 'conf', 'nginx.conf');
-
-                            if (fs.existsSync(templatePath)) {
-                                let configContent = await fsPromises.readFile(templatePath, 'utf-8');
-                                const htdocsPathSlash = path.join(context.appDir, 'htdocs').replace(/\\/g, '/');
-                                // Ensure sites directory exists
-                                const sitesDir = path.join(context.appDir, 'sites');
-                                if (!fs.existsSync(sitesDir)) {
-                                    await fsPromises.mkdir(sitesDir, { recursive: true });
-                                }
-                                const sitesPathSlash = path.join(sitesDir, '*.conf').replace(/\\/g, '/');
-
-                                // Perform replacement
-                                configContent = configContent.replace(/\[siteEnablePath\]/g, `include "${sitesPathSlash}";`);
-                                // Update default root "root html;" -> "root newPath;"
-                                // We use a regex to ensure we match the 'root' directive inside location / or server block
-                                configContent = configContent.replace(/root\s+html;/g, `root "${htdocsPathSlash}";`);
-
-                                // Write config
-                                await fsPromises.writeFile(targetPath, configContent, 'utf-8');
-                                logApp(`Nginx configuration updated at ${targetPath}`, 'CONFIG');
-                            } else {
-                                logApp(`Nginx template config not found at ${templatePath}`, 'WARNING');
-                            }
-                        } catch (configErr) {
-                            logApp(`Failed to configure Nginx: ${configErr.message}`, 'ERROR');
-                            console.error('Nginx config error:', configErr);
-                        }
-                    }
+            if (activeInstalls.has(appId)) {
+                const ctx = activeInstalls.get(appId);
+                if (ctx && ctx.cancelled) {
+                    // If it was cancelled but still in map, assume it's safe to retry/force clean
+                    activeInstalls.delete(appId);
+                    logApp(`Force cleaning cancelled installation for ${appId}`, 'WARNING');
+                } else {
+                    return { error: 'Installation already in progress' };
                 }
             }
 
-            // Save to database
-            const now = new Date().toISOString();
-            const result = dbManager.query(
-                `INSERT OR REPLACE INTO installed_apps (app_id, installed_version, install_path, exec_path, custom_args, show_on_dashboard, installed_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, 0, ?, ?)`,
-                [appId, version, appInstallDir, execPath, defaultArgs || '', now, now]
-            );
-
-            if (result.error) {
-                return { error: result.error };
-            }
-
-            // Auto-set default PHP version if not set
-            if (appId.startsWith('php')) {
+            // Check exclusive group restriction
+            if (group) {
                 try {
-                    const currentDefault = dbManager.query('SELECT value FROM settings WHERE key = ?', ['default_php_version']);
-                    if (!currentDefault || currentDefault.length === 0 || !currentDefault[0].value) {
-                        dbManager.query('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['default_php_version', version]);
-                        logApp(`Auto-set default PHP version to ${version}`, 'CONFIG');
+                    const appsData = JSON.parse(fs.readFileSync(appsJsonPath, 'utf-8'));
+                    const sameGroupApps = appsData.apps.filter(a => a.group === group && a.id !== appId);
+
+                    if (sameGroupApps.length > 0) {
+                        const installedApps = dbManager.query('SELECT app_id FROM installed_apps');
+                        const installedIds = installedApps.map(a => a.app_id);
+
+                        const conflictApp = sameGroupApps.find(a => installedIds.includes(a.id));
+                        if (conflictApp) {
+                            return { error: `Cannot install: ${conflictApp.name} is already installed. Only one ${group} can be installed at a time.` };
+                        }
                     }
                 } catch (err) {
-                    console.error('Failed to auto-set default PHP version:', err);
+                    logApp(`Failed to check group restriction: ${err.message}`, 'WARNING');
                 }
             }
 
-            sendProgress(100, 'Installed!');
-            logApp(`Successfully installed ${appId}`, 'INSTALL');
+            const installContext = {
+                appId,
+                cancelled: false,
+                request: null,
+                zipPath: null,
+                appDir: null
+            };
+            activeInstalls.set(appId, installContext);
 
-            return { success: true, installPath: appInstallDir, execPath };
-        } catch (error) {
-            console.error('Failed to install app:', error);
-            logApp(`Installation failed for ${appId}: ${error.message}`, 'ERROR');
+            try {
+                const AdmZip = require('adm-zip');
 
-            const ctx = activeInstalls.get(appId);
-            if (ctx && ctx.zipPath && fs.existsSync(ctx.zipPath)) {
-                fs.unlinkSync(ctx.zipPath);
-            }
-            if (ctx && ctx.appDir && ctx.cancelled && fs.existsSync(ctx.appDir)) {
+                logApp(`Starting installation for ${appId} version ${version}`, 'INSTALL');
+
+                const appsDir = path.join(context.appDir, 'apps');
+                if (!fs.existsSync(appsDir)) {
+                    await fsPromises.mkdir(appsDir, { recursive: true });
+                }
+
+                const appInstallDir = path.join(appsDir, appId);
+                installContext.appDir = appInstallDir;
+                if (!fs.existsSync(appInstallDir)) {
+                    await fsPromises.mkdir(appInstallDir, { recursive: true });
+                }
+
+                const zipPath = path.join(appInstallDir, filename);
+                installContext.zipPath = zipPath;
+
+                let lastProgressTime = 0;
+                let lastStatus = '';
+                const sendProgress = (progress, status, logDetail = null) => {
+                    if (!installContext.cancelled) {
+                        const now = Date.now();
+                        if (status !== lastStatus || progress === 100 || now - lastProgressTime >= 1000) {
+                            event.sender.send('app-install-progress', { appId, progress, status, logDetail });
+                            lastProgressTime = now;
+                            lastStatus = status;
+                        }
+                    }
+                };
+
+                sendProgress(0, 'Downloading...');
+
+                // Download file with progress
+                await new Promise((resolve, reject) => {
+                    const protocol = downloadUrl.startsWith('https') ? https : http;
+
+                    const request = protocol.get(downloadUrl, (response) => {
+                        if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+                            const redirectUrl = response.headers.location;
+                            const redirectProtocol = redirectUrl.startsWith('https') ? https : http;
+                            const redirectRequest = redirectProtocol.get(redirectUrl, handleResponse);
+                            redirectRequest.on('error', reject);
+                            installContext.request = redirectRequest;
+                            return;
+                        }
+                        handleResponse(response);
+
+                        function handleResponse(res) {
+                            if (installContext.cancelled) {
+                                res.destroy();
+                                reject(new Error('Installation cancelled'));
+                                return;
+                            }
+
+                            if (res.statusCode !== 200) {
+                                reject(new Error(`HTTP Error: ${res.statusCode}`));
+                                return;
+                            }
+
+                            const totalSize = parseInt(res.headers['content-length'], 10) || 0;
+                            let downloadedSize = 0;
+
+                            const fileStream = fs.createWriteStream(zipPath);
+
+                            res.on('data', (chunk) => {
+                                if (installContext.cancelled) {
+                                    res.destroy();
+                                    fileStream.close();
+                                    return;
+                                }
+                                downloadedSize += chunk.length;
+                                if (totalSize > 0) {
+                                    const percent = Math.round((downloadedSize / totalSize) * 50);
+                                    const downloadedMB = (downloadedSize / (1024 * 1024)).toFixed(2);
+                                    const totalMB = (totalSize / (1024 * 1024)).toFixed(2);
+                                    sendProgress(percent, 'Downloading...', `Downloaded ${downloadedMB} MB / ${totalMB} MB`);
+                                } else {
+                                    const downloadedMB = (downloadedSize / (1024 * 1024)).toFixed(2);
+                                    sendProgress(25, 'Downloading...', `Downloaded ${downloadedMB} MB`);
+                                }
+                            });
+
+                            res.pipe(fileStream);
+
+                            fileStream.on('finish', () => {
+                                fileStream.close();
+                                if (installContext.cancelled) {
+                                    reject(new Error('Installation cancelled'));
+                                } else {
+                                    resolve();
+                                }
+                            });
+
+                            fileStream.on('error', (err) => {
+                                if (fs.existsSync(zipPath)) try { fs.unlinkSync(zipPath); } catch (e) { }
+                                reject(err);
+                            });
+                        }
+                    });
+
+                    installContext.request = request;
+                    request.on('error', reject);
+                    request.setTimeout(1800000, () => {
+                        request.destroy();
+                        reject(new Error('Download timeout'));
+                    });
+                });
+
+                if (installContext.cancelled) {
+                    throw new Error('Installation cancelled');
+                }
+
+                sendProgress(50, 'Extracting...');
+
+                // Extract ZIP file
                 try {
-                    await fsPromises.rm(ctx.appDir, { recursive: true, force: true });
-                } catch (e) { /* ignore */ }
-            }
+                    const zip = new AdmZip(zipPath);
+                    const zipEntries = zip.getEntries();
+                    const totalEntries = zipEntries.length;
+                    let extractedCount = 0;
 
-            return { error: error.message, cancelled: ctx?.cancelled };
-        } finally {
-            activeInstalls.delete(appId);
+                    sendProgress(50, 'Extracting...', `Starting extraction of ${totalEntries} files`);
+
+                    for (const entry of zipEntries) {
+                        if (installContext.cancelled) {
+                            throw new Error('Installation cancelled');
+                        }
+
+                        try {
+                            zip.extractEntryTo(entry, appInstallDir, true, true);
+                        } catch (err) {
+                            logApp(`Failed to extract ${entry.entryName}: ${err.message}`, 'WARNING');
+                        }
+
+                        extractedCount++;
+                        if (extractedCount % Math.ceil(totalEntries / 20) === 0 || extractedCount === totalEntries) {
+                            const extractPercent = 50 + Math.round((extractedCount / totalEntries) * 40);
+                            sendProgress(extractPercent, 'Extracting...', `Extracted ${extractedCount} / ${totalEntries} files`);
+                        }
+                    }
+
+                    sendProgress(90, 'Finishing...');
+                } catch (extractError) {
+                    if (fs.existsSync(zipPath)) try { fs.unlinkSync(zipPath); } catch (e) { }
+                    throw new Error(`Failed to extract: ${extractError.message}`);
+                }
+
+                if (fs.existsSync(zipPath)) {
+                    try { fs.unlinkSync(zipPath); } catch (e) { }
+                }
+
+                // Find executable path
+                let execPath = '';
+                if (execFile) {
+                    sendProgress(95, `Locating ${execFile}...`);
+
+                    const findFile = async (dir, target) => {
+                        const entries = await fsPromises.readdir(dir, { withFileTypes: true });
+                        for (const entry of entries) {
+                            const fullPath = path.join(dir, entry.name);
+                            if (entry.isDirectory()) {
+                                const found = await findFile(fullPath, target);
+                                if (found) return found;
+                            } else if (fullPath.endsWith(target.replace('/', '\\')) || fullPath.endsWith(target.replace('\\', '/'))) {
+                                return fullPath;
+                            }
+                        }
+                        return null;
+                    };
+
+                    const foundPath = await findFile(appInstallDir, execFile);
+                    if (foundPath) {
+                        execPath = foundPath;
+
+                        // Post-install configuration
+                        if (appId.startsWith('php')) {
+                            const configPath = path.join(appInstallDir, 'php.ini');
+                            const devConfigPath = path.join(appInstallDir, 'php.ini-development');
+                            if (fs.existsSync(devConfigPath)) {
+                                fs.copyFileSync(devConfigPath, configPath);
+                            }
+                        } else if (appId === 'apache') {
+                            logApp('Configuring Apache...', 'CONFIG');
+                            try {
+                                const serverRoot = path.dirname(path.dirname(execPath));
+                                const templatePath = path.join(context.appDir, 'data', 'config', 'apache.conf');
+                                const targetPath = path.join(serverRoot, 'conf', 'httpd.conf');
+
+                                if (fs.existsSync(templatePath)) {
+                                    let configContent = await fsPromises.readFile(templatePath, 'utf-8');
+
+                                    // Prepare paths (convert to forward slashes for Apache config)
+                                    const serverRootSlash = serverRoot.replace(/\\/g, '/');
+                                    const htdocsPathSlash = path.join(context.appDir, 'htdocs').replace(/\\/g, '/');
+                                    const cgiBinPathSlash = path.join(serverRoot, 'cgi-bin').replace(/\\/g, '/');
+
+                                    // Ensure sites directory exists
+                                    const sitesDir = path.join(context.appDir, 'sites');
+                                    if (!fs.existsSync(sitesDir)) {
+                                        await fsPromises.mkdir(sitesDir, { recursive: true });
+                                    }
+                                    const sitesPathSlash = path.join(sitesDir, '*.conf').replace(/\\/g, '/');
+
+                                    // Perform replacements
+                                    configContent = configContent.replace(/\[execPath\]/g, serverRootSlash);
+                                    configContent = configContent.replace(/\[htdocsPath\]/g, htdocsPathSlash);
+                                    configContent = configContent.replace(/\[cgiBinPath\]/g, cgiBinPathSlash);
+                                    configContent = configContent.replace(/\[siteEnablePath\]/g, `IncludeOptional "${sitesPathSlash}"`);
+
+                                    // Write config
+                                    await fsPromises.writeFile(targetPath, configContent, 'utf-8');
+                                    logApp(`Apache configuration updated at ${targetPath}`, 'CONFIG');
+                                } else {
+                                    logApp(`Apache template config not found at ${templatePath}`, 'WARNING');
+                                }
+                            } catch (configErr) {
+                                logApp(`Failed to configure Apache: ${configErr.message}`, 'ERROR');
+                                console.error('Apache config error:', configErr);
+                            }
+                        } else if (appId === 'nginx') {
+                            logApp('Configuring Nginx...', 'CONFIG');
+                            try {
+                                const serverRoot = path.dirname(execPath);
+                                const templatePath = path.join(context.appDir, 'data', 'config', 'nginx.conf');
+                                const targetPath = path.join(serverRoot, 'conf', 'nginx.conf');
+
+                                if (fs.existsSync(templatePath)) {
+                                    let configContent = await fsPromises.readFile(templatePath, 'utf-8');
+                                    const htdocsPathSlash = path.join(context.appDir, 'htdocs').replace(/\\/g, '/');
+                                    // Ensure sites directory exists
+                                    const sitesDir = path.join(context.appDir, 'sites');
+                                    if (!fs.existsSync(sitesDir)) {
+                                        await fsPromises.mkdir(sitesDir, { recursive: true });
+                                    }
+                                    const sitesPathSlash = path.join(sitesDir, '*.conf').replace(/\\/g, '/');
+
+                                    // Perform replacement
+                                    configContent = configContent.replace(/\[siteEnablePath\]/g, `include "${sitesPathSlash}";`);
+                                    // Update default root "root html;" -> "root newPath;"
+                                    // We use a regex to ensure we match the 'root' directive inside location / or server block
+                                    configContent = configContent.replace(/root\s+html;/g, `root "${htdocsPathSlash}";`);
+
+                                    // Write config
+                                    await fsPromises.writeFile(targetPath, configContent, 'utf-8');
+                                    logApp(`Nginx configuration updated at ${targetPath}`, 'CONFIG');
+                                } else {
+                                    logApp(`Nginx template config not found at ${templatePath}`, 'WARNING');
+                                }
+                            } catch (configErr) {
+                                logApp(`Failed to configure Nginx: ${configErr.message}`, 'ERROR');
+                                console.error('Nginx config error:', configErr);
+                            }
+                        }
+                    }
+                }
+
+                // Save to database
+                const now = new Date().toISOString();
+                const result = dbManager.query(
+                    `INSERT OR REPLACE INTO installed_apps (app_id, installed_version, install_path, exec_path, custom_args, show_on_dashboard, installed_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, 0, ?, ?)`,
+                    [appId, version, appInstallDir, execPath, defaultArgs || '', now, now]
+                );
+
+                if (result.error) {
+                    return { error: result.error };
+                }
+
+                // Auto-set default PHP version if not set
+                if (appId.startsWith('php')) {
+                    try {
+                        const currentDefault = dbManager.query('SELECT value FROM settings WHERE key = ?', ['default_php_version']);
+                        if (!currentDefault || currentDefault.length === 0 || !currentDefault[0].value) {
+                            dbManager.query('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['default_php_version', version]);
+                            logApp(`Auto-set default PHP version to ${version}`, 'CONFIG');
+                        }
+                    } catch (err) {
+                        console.error('Failed to auto-set default PHP version:', err);
+                    }
+                }
+
+                sendProgress(100, 'Installed!');
+                logApp(`Successfully installed ${appId}`, 'INSTALL');
+
+                return { success: true, installPath: appInstallDir, execPath };
+            } catch (error) {
+                console.error('Failed to install app:', error);
+                logApp(`Installation failed for ${appId}: ${error.message}`, 'ERROR');
+
+                const ctx = activeInstalls.get(appId);
+                if (ctx && ctx.zipPath && fs.existsSync(ctx.zipPath)) {
+                    try { fs.unlinkSync(ctx.zipPath); } catch (e) { }
+                }
+                if (ctx && ctx.appDir && ctx.cancelled && fs.existsSync(ctx.appDir)) {
+                    try {
+                        await fsPromises.rm(ctx.appDir, { recursive: true, force: true });
+                    } catch (e) { /* ignore */ }
+                }
+
+                return { error: error.message, cancelled: ctx?.cancelled };
+            } finally {
+                activeInstalls.delete(appId);
+            }
+        } catch (fatalError) {
+            console.error('Fatal install error:', fatalError);
+            return { error: `Fatal Error: ${fatalError.message}` };
         }
     });
 
