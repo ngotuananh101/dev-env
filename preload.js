@@ -37,7 +37,8 @@ const api = {
 
         // Extension management
         getExtensions: (appId) => ipcRenderer.invoke('apps-get-extensions', appId),
-        toggleExtension: (appId, extension, enable) => ipcRenderer.invoke('apps-toggle-extension', appId, extension, enable)
+        toggleExtension: (appId, extension, enable) => ipcRenderer.invoke('apps-toggle-extension', appId, extension, enable),
+        getPhpInfo: (appId) => ipcRenderer.invoke('apps-get-phpinfo', appId)
     },
 
     // File System

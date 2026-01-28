@@ -141,6 +141,26 @@
                </div>
              </div>
           </div>
+
+          <!-- PHP Info Panel -->
+          <div v-if="activePanel === 'phpinfo'" class="h-full flex flex-col">
+             <div class="h-full bg-white rounded overflow-hidden">
+               <div v-if="phpInfoLoading" class="h-full flex items-center justify-center text-gray-500 bg-[#1e1e1e]">
+                 <div class="flex flex-col items-center space-y-2">
+                   <svg class="w-6 h-6 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
+                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                   </svg>
+                   <span>Loading PHP Info...</span>
+                 </div>
+               </div>
+               <div v-else-if="phpInfoError" class="h-full flex items-center justify-center text-red-400 bg-[#1e1e1e] p-4 text-center">
+                 {{ phpInfoError }}
+               </div>
+               <iframe v-else-if="phpInfoIsHtml" :srcdoc="phpInfoContent" class="w-full h-full border-none bg-white"></iframe>
+               <pre v-else class="w-full h-full overflow-auto p-4 text-xs font-mono bg-[#1e1e1e] text-gray-300 select-text">{{ phpInfoContent }}</pre>
+             </div>
+          </div>
         </div>
       </div>
     </div>
@@ -206,6 +226,12 @@ const menuItems = computed(() => {
       tip: 'Enable or disable PHP extensions',
       type: 'extensions'
     });
+    items.push({
+      id: 'phpinfo',
+      label: 'PHP Info',
+      tip: 'View PHP Configuration (phpinfo)',
+      type: 'phpinfo'
+    });
   }
   
   return items;
@@ -232,6 +258,34 @@ const configMessageClass = ref('text-gray-400');
 // Extension state
 const extensions = ref([]);
 const extensionsLoading = ref(false);
+
+// PHP Info state
+const phpInfoContent = ref('');
+const phpInfoIsHtml = ref(false);
+const phpInfoLoading = ref(false);
+const phpInfoError = ref('');
+
+const loadPhpInfo = async () => {
+    if (!props.app?.id) return;
+    
+    phpInfoLoading.value = true;
+    phpInfoError.value = '';
+    
+    try {
+        const result = await window.sysapi.apps.getPhpInfo(props.app.id);
+        if (result.error) {
+            phpInfoError.value = `Failed to load PHP Info: ${result.error}`;
+        } else {
+            phpInfoContent.value = result.content;
+            phpInfoIsHtml.value = result.isHtml;
+        }
+    } catch (err) {
+        console.error('PHP Info error:', err);
+        phpInfoError.value = err.message;
+    } finally {
+        phpInfoLoading.value = false;
+    }
+};
 
 const loadExtensions = async () => {
   if (!props.app?.id) return;
@@ -524,6 +578,12 @@ watch(activePanel, async (newPanel) => {
       editor = null;
     }
     await loadExtensions();
+  } else if (newPanel === 'phpinfo') {
+    if (editor) {
+      editor.destroy();
+      editor = null;
+    }
+    await loadPhpInfo();
   } else {
     // Clean up when leaving config panel
     if (editor) {

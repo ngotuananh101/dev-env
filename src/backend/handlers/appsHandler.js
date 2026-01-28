@@ -944,6 +944,69 @@ function register(ipcMain, context) {
         }
     });
 
+    // Get PHP Info
+    ipcMain.handle('apps-get-phpinfo', async (event, appId) => {
+        try {
+            const dbManager = getDbManager();
+            if (!dbManager) return { error: 'Database not initialized' };
+
+            const apps = dbManager.query('SELECT * FROM installed_apps WHERE app_id = ?', [appId]);
+            if (!apps || apps.length === 0) return { error: 'App not found' };
+
+            const app = apps[0];
+            const installPath = app.install_path;
+
+            // Try to find php-cgi.exe for HTML output, fallback to php.exe
+            const phpCgiPath = path.join(installPath, 'php-cgi.exe');
+            const phpPath = path.join(installPath, 'php.exe');
+
+            let execCmd = '';
+            let isHtml = false;
+
+            if (fs.existsSync(phpCgiPath)) {
+                execCmd = `"${phpCgiPath}" -i`;
+                isHtml = true;
+            } else if (fs.existsSync(phpPath)) {
+                execCmd = `"${phpPath}" -i`;
+                isHtml = false;
+            } else {
+                return { error: 'PHP executable not found' };
+            }
+
+            const { exec } = require('child_process');
+            return new Promise((resolve) => {
+                exec(execCmd, (error, stdout, stderr) => {
+                    if (error) {
+                        console.error('Failed to run php info:', error);
+                        resolve({ error: error.message });
+                        return;
+                    }
+                    // php-cgi -i often outputs headers first (Content-type: text/html...)
+                    // We should strip them to get just the HTML
+                    let content = stdout;
+                    if (isHtml) {
+                        const headerEnd = content.indexOf('<!DOCTYPE');
+                        if (headerEnd !== -1) {
+                            content = content.substring(headerEnd);
+                        } else {
+                            // Fallback attempts if DOCTYPE isn't there (older PHP?)
+                            const htmlStart = content.indexOf('<html');
+                            if (htmlStart !== -1) {
+                                content = content.substring(htmlStart);
+                            }
+                        }
+                    }
+
+                    resolve({ success: true, content, isHtml });
+                });
+            });
+
+        } catch (error) {
+            console.error('Failed to get php info:', error);
+            return { error: error.message };
+        }
+    });
+
     // Update apps list from XML
     ipcMain.handle('apps-update-list', async () => {
         try {
