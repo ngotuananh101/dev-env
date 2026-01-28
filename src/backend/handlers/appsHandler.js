@@ -782,6 +782,168 @@ function register(ipcMain, context) {
         }
     });
 
+    // Get PHP Extensions
+    ipcMain.handle('apps-get-extensions', async (event, appId) => {
+        try {
+            const dbManager = getDbManager();
+            if (!dbManager) return { error: 'Database not initialized' };
+
+            const apps = dbManager.query('SELECT * FROM installed_apps WHERE app_id = ?', [appId]);
+            if (!apps || apps.length === 0) return { error: 'App not found' };
+
+            const app = apps[0];
+            const installPath = app.install_path;
+            const extDir = path.join(installPath, 'ext');
+            const phpIniPath = path.join(installPath, 'php.ini');
+
+            if (!fs.existsSync(extDir) || !fs.existsSync(phpIniPath)) {
+                return { error: 'Extensions directory or php.ini not found' };
+            }
+
+            // Read php.ini
+            const phpIniContent = await fsPromises.readFile(phpIniPath, 'utf-8');
+            const iniLines = phpIniContent.split('\n');
+
+            // List .dll files in ext
+            const files = await fsPromises.readdir(extDir);
+            const dlls = files.filter(f => f.endsWith('.dll'));
+
+            const extensions = dlls.map(filename => {
+                // Derived name: php_mysqli.dll -> mysqli
+                let name = filename;
+                if (name.startsWith('php_')) name = name.substring(4);
+                if (name.endsWith('.dll')) name = name.substring(0, name.length - 4);
+
+                // Check status in php.ini
+                // Regex to find un-commented extension
+                // Matches "extension=name" or "extension=name.dll" or "extension=filename"
+                // It must NOT start with semicolon (ignoring whitespace)
+                // We'll check simply by looking for the line
+
+                let enabled = false;
+                const extensionRegex = new RegExp(`^\\s*extension\\s*=\\s*("${name}"|${name}|"${filename}"|${filename})`, 'm');
+
+                // We also need to check if it's commented out effectively? 
+                // The regex ^\s*extension= matches lines that START with extension= (optionally preceded by whitespace)
+                // So it excludes ;extension=
+
+                if (extensionRegex.test(phpIniContent)) {
+                    enabled = true;
+                }
+
+                return {
+                    name: name,
+                    filename: filename,
+                    enabled: enabled
+                };
+            });
+
+            return { success: true, extensions };
+
+        } catch (error) {
+            console.error('Failed to get extensions:', error);
+            return { error: error.message };
+        }
+    });
+
+    // Toggle PHP Extension
+    ipcMain.handle('apps-toggle-extension', async (event, appId, extension, enable) => {
+        try {
+            const dbManager = getDbManager();
+            if (!dbManager) return { error: 'Database not initialized' };
+
+            const apps = dbManager.query('SELECT * FROM installed_apps WHERE app_id = ?', [appId]);
+            if (!apps || apps.length === 0) return { error: 'App not found' };
+
+            const app = apps[0];
+            const phpIniPath = path.join(app.install_path, 'php.ini');
+
+            if (!fs.existsSync(phpIniPath)) {
+                return { error: 'php.ini not found' };
+            }
+
+            let content = await fsPromises.readFile(phpIniPath, 'utf-8');
+            const lines = content.split(/\r?\n/);
+
+            // Name variations to look for
+            const name = extension.name;
+            const filename = extension.filename; // e.g. php_mysqli.dll
+
+            // Strategy:
+            // 1. Find line with `extension=name` or `extension=name.dll` or `extension=filename`
+            // 2. If enabling:
+            //    - If found and commented (starts with ;), remove ;
+            //    - If found and enabled, do nothing
+            //    - If not found, append `extension=name` (or filename if preferred, usually name is fine)
+            // 3. If disabling:
+            //    - If found and enabled, add ;
+            //    - If found and commented, do nothing
+            //    - If not found, do nothing (already disabled effectively)
+
+            let lineIndex = -1;
+            let currentLine = '';
+
+            // Search for the line
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                // Check if line contains extension directive for this extension
+                // Matches: [;]extension=["']?(name|filename)["']?
+
+                // We strictly look for strict matches to avoid matching "mysqli" in "mysqlnd"
+                const cleanLine = line.replace(/^;/, '').trim();
+                if (cleanLine.startsWith('extension=')) {
+                    const val = cleanLine.substring(10).trim().toLowerCase().replace(/['"]/g, '');
+                    if (val === name.toLowerCase() || val === filename.toLowerCase() || val === (name + '.dll').toLowerCase()) {
+                        lineIndex = i;
+                        currentLine = lines[i];
+                        break;
+                    }
+                }
+            }
+
+            let modified = false;
+
+            if (enable) {
+                if (lineIndex !== -1) {
+                    // Line exists
+                    if (currentLine.trim().startsWith(';')) {
+                        // Uncomment
+                        // Preserve indentation if possible, but safe to just remove first ;
+                        lines[lineIndex] = currentLine.replace(';', ''); // Replace first semicolon
+                        modified = true;
+                    }
+                } else {
+                    // Line does not exist, append
+                    // Try to find a place to insert (after existing extensions) or just append to end
+                    // For now, appending to [Extension] section or end of file is common practice
+                    // But PHP doesn't strictly require sections for extensions.
+                    lines.push(`extension=${name}`);
+                    modified = true;
+                }
+            } else {
+                // Disable
+                if (lineIndex !== -1) {
+                    if (!currentLine.trim().startsWith(';')) {
+                        // Comment out
+                        lines[lineIndex] = ';' + currentLine;
+                        modified = true;
+                    }
+                }
+            }
+
+            if (modified) {
+                await fsPromises.writeFile(phpIniPath, lines.join('\n'), 'utf-8');
+                return { success: true };
+            }
+
+            return { success: true, message: 'No changes needed' };
+
+        } catch (error) {
+            console.error('Failed to toggle extension:', error);
+            return { error: error.message };
+        }
+    });
+
     // Update apps list from XML
     ipcMain.handle('apps-update-list', async () => {
         try {

@@ -101,6 +101,46 @@
               • This is the main configuration file. If you don't understand the rules, please don't modify it.
             </p>
           </div>
+
+          <!-- Extensions Panel -->
+          <div v-if="activePanel === 'extensions'" class="h-full flex flex-col">
+             <div class="flex items-center justify-between mb-4">
+               <h3 class="text-white font-medium">PHP Extensions</h3>
+               <button 
+                 @click="loadExtensions" 
+                 :disabled="extensionsLoading"
+                 class="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-white"
+                 title="Refresh"
+               >
+                 <svg class="w-4 h-4" :class="{ 'animate-spin': extensionsLoading }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                 </svg>
+               </button>
+             </div>
+             
+             <div v-if="extensionsLoading && extensions.length === 0" class="flex-1 flex items-center justify-center text-gray-500">
+               Loading extensions...
+             </div>
+             
+             <div v-else class="flex-1 overflow-y-auto space-y-1 pr-2">
+               <div v-for="ext in extensions" :key="ext.filename" 
+                   class="flex items-center justify-between p-3 bg-[#1e1e1e] rounded border border-gray-700 hover:border-gray-600 transition-colors">
+                 <div class="flex flex-col">
+                   <span class="text-white text-sm font-medium">{{ ext.name }}</span>
+                   <span class="text-gray-500 text-xs">{{ ext.filename }}</span>
+                 </div>
+                 
+                 <label class="relative inline-flex items-center cursor-pointer">
+                   <input type="checkbox" :checked="ext.enabled" @change="toggleExtension(ext)" class="sr-only peer">
+                   <div class="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                 </label>
+               </div>
+               
+               <div v-if="extensions.length === 0" class="text-center text-gray-500 py-8">
+                 No extensions found in ext directory.
+               </div>
+             </div>
+          </div>
         </div>
       </div>
     </div>
@@ -157,6 +197,16 @@ const menuItems = computed(() => {
       });
     });
   }
+
+  // Add Extensions tab for PHP apps
+  if (props.app?.id && props.app.id.startsWith('php')) {
+    items.push({
+      id: 'extensions',
+      label: 'Extensions',
+      tip: 'Enable or disable PHP extensions',
+      type: 'extensions'
+    });
+  }
   
   return items;
 });
@@ -178,6 +228,54 @@ const hasBackup = ref(false);
 const configLoading = ref(false);
 const configMessage = ref('');
 const configMessageClass = ref('text-gray-400');
+
+// Extension state
+const extensions = ref([]);
+const extensionsLoading = ref(false);
+
+const loadExtensions = async () => {
+  if (!props.app?.id) return;
+  
+  extensionsLoading.value = true;
+  try {
+    const result = await window.sysapi.apps.getExtensions(props.app.id);
+    if (result.error) {
+      toast.error(`Failed to load extensions: ${result.error}`);
+    } else {
+      extensions.value = result.extensions || [];
+    }
+  } catch (err) {
+    console.error('Load extensions error:', err);
+    toast.error(err.message);
+  } finally {
+    extensionsLoading.value = false;
+  }
+};
+
+const toggleExtension = async (ext) => {
+  if (extensionsLoading.value) return;
+  
+  // Optimistic update
+  const originalState = ext.enabled;
+  ext.enabled = !originalState;
+  
+  try {
+    const extData = { name: ext.name, filename: ext.filename };
+    const result = await window.sysapi.apps.toggleExtension(props.app.id, extData, ext.enabled);
+    if (result.error) {
+      // Revert on error
+      ext.enabled = originalState;
+      toast.error(`Failed to toggle extension: ${result.error}`);
+    } else {
+      toast.success(`${ext.name} ${ext.enabled ? 'enabled' : 'disabled'}`);
+    }
+  } catch (err) {
+    // Revert on error
+    ext.enabled = originalState;
+    console.error('Toggle extension error:', err);
+    toast.error(err.message);
+  }
+};
 
 // Import service control composable
 import { useServiceControl } from '../composables/useServiceControl';
@@ -420,6 +518,12 @@ watch(activePanel, async (newPanel) => {
     }
     await loadConfig();
     await initEditor();
+  } else if (newPanel === 'extensions') {
+    if (editor) {
+      editor.destroy();
+      editor = null;
+    }
+    await loadExtensions();
   } else {
     // Clean up when leaving config panel
     if (editor) {
