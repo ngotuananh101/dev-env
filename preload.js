@@ -117,6 +117,15 @@ const api = {
 
         // Template update
         updateTemplate: (oldTemplate, newTemplate) => ipcRenderer.invoke('sites-update-template', oldTemplate, newTemplate)
+    },
+
+    // SSL Certificate Management
+    ssl: {
+        getStatus: () => ipcRenderer.invoke('ssl-get-status'),
+        generateCert: (domain) => ipcRenderer.invoke('ssl-generate-cert', domain),
+        listCerts: () => ipcRenderer.invoke('ssl-list-certs'),
+        deleteCert: (domain) => ipcRenderer.invoke('ssl-delete-cert', domain),
+        installCA: () => ipcRenderer.invoke('ssl-install-ca')
     }
 };
 

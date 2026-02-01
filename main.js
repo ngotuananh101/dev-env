@@ -19,6 +19,7 @@ const terminalHandler = require('./src/backend/handlers/terminalHandler');
 const logsHandler = require('./src/backend/handlers/logsHandler');
 const hostsHandler = require('./src/backend/handlers/hostsHandler');
 const sitesHandler = require('./src/backend/handlers/sitesHandler');
+const sslHandler = require('./src/backend/handlers/sslHandler');
 
 // Global variables
 let dbManager = null;
@@ -86,6 +87,7 @@ function registerAllHandlers() {
   logsHandler.register(ipcMain, context);
   hostsHandler.register(ipcMain, context);
   sitesHandler.register(ipcMain, context);
+  sslHandler.register(ipcMain, context);
 }
 
 // Register handlers immediately (before app.whenReady)
@@ -95,6 +97,22 @@ registerAllHandlers();
 app.whenReady().then(async () => {
   // Initialize database
   dbManager = new DatabaseManager(app.getPath('userData'));
+
+  // Initialize SSL (create CA if needed)
+  try {
+    const sslResult = await sslHandler.initializeSSL(app.getPath('userData'));
+    if (sslResult.success) {
+      if (sslResult.isNew) {
+        console.log('[STARTUP] New SSL CA created');
+      } else {
+        console.log('[STARTUP] SSL CA loaded');
+      }
+    } else {
+      console.error('[STARTUP] SSL initialization failed:', sslResult.error);
+    }
+  } catch (err) {
+    console.error('[STARTUP] SSL initialization error:', err);
+  }
 
   // Create main window
   createWindow();

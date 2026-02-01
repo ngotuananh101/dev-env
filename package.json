@@ -66,6 +66,7 @@
     "adm-zip": "^0.5.16",
     "better-sqlite3": "^12.6.2",
     "lucide-vue-next": "^0.563.0",
+    "mkcert": "^3.2.0",
     "node-pty": "^1.1.0",
     "pinia": "^3.0.4",
     "systeminformation": "^5.30.5",

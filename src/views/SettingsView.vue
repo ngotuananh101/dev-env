@@ -91,6 +91,46 @@
                     <span>{{ loadingSystemInfo ? 'Loading...' : 'View System Info' }}</span>
                 </button>
             </div>
+
+            <!-- SSL Certificate -->
+            <div class="bg-gray-800/50 rounded-lg p-6 border border-gray-700/50 backdrop-blur-sm">
+                <h2 class="text-lg font-semibold text-white mb-4">SSL Certificate</h2>
+                <p class="text-sm text-gray-400 mb-4">Manage SSL certificates for local HTTPS development.</p>
+                
+                <!-- CA Status -->
+                <div class="mb-4 p-3 rounded-lg" :class="sslStatus.caInstalledInSystem ? 'bg-green-900/30 border border-green-700/50' : 'bg-yellow-900/30 border border-yellow-700/50'">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-2 h-2 rounded-full" :class="sslStatus.caInstalledInSystem ? 'bg-green-500' : 'bg-yellow-500'"></div>
+                        <span class="text-sm" :class="sslStatus.caInstalledInSystem ? 'text-green-400' : 'text-yellow-400'">
+                            {{ sslStatus.caInstalledInSystem ? 'CA is installed in system trust store' : 'CA is not installed - browsers will show warnings' }}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="flex flex-wrap gap-3">
+                    <button 
+                        v-if="!sslStatus.caInstalledInSystem"
+                        @click="installCA"
+                        :disabled="installingCA"
+                        class="flex items-center space-x-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-800 disabled:cursor-wait text-white rounded-lg transition-colors"
+                    >
+                        <ShieldCheck class="w-4 h-4" />
+                        <span>{{ installingCA ? 'Installing...' : 'Install CA to System' }}</span>
+                    </button>
+                    
+                    <button 
+                        @click="refreshSSLStatus"
+                        class="flex items-center space-x-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                    >
+                        <RefreshCw class="w-4 h-4" :class="{ 'animate-spin': loadingSSL }" />
+                        <span>Refresh Status</span>
+                    </button>
+                </div>
+                
+                <p v-if="sslStatus.caCertPath" class="text-xs text-gray-500 mt-3">
+                    CA Path: {{ sslStatus.caCertPath }}
+                </p>
+            </div>
         </div>
 
         <!-- System Info Modal -->
@@ -135,7 +175,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useDatabaseStore } from '../stores/database';
-import { Settings, Monitor, X, Copy, Save } from 'lucide-vue-next';
+import { Settings, Monitor, X, Copy, Save, ShieldCheck, RefreshCw } from 'lucide-vue-next';
 import { useToast } from 'vue-toastification';
 
 const dbStore = useDatabaseStore();
@@ -154,6 +194,51 @@ const showSystemInfoModal = ref(false);
 const loadingSystemInfo = ref(false);
 const systemInfoContent = ref('');
 const isSaving = ref(false);
+
+// SSL
+const sslStatus = ref({
+    initialized: false,
+    caExists: false,
+    caInstalledInSystem: false,
+    sslDir: null,
+    caCertPath: null
+});
+const installingCA = ref(false);
+const loadingSSL = ref(false);
+
+const refreshSSLStatus = async () => {
+    loadingSSL.value = true;
+    try {
+        const status = await window.sysapi.ssl.getStatus();
+        sslStatus.value = status;
+    } catch (error) {
+        console.error('Failed to get SSL status:', error);
+    } finally {
+        loadingSSL.value = false;
+    }
+};
+
+const installCA = async () => {
+    installingCA.value = true;
+    try {
+        const result = await window.sysapi.ssl.installCA();
+        if (result.success) {
+            if (result.alreadyInstalled) {
+                toast.info('CA is already installed in system');
+            } else {
+                toast.success('CA installed successfully!');
+            }
+            await refreshSSLStatus();
+        } else {
+            toast.error(`Failed to install CA: ${result.error || 'Cancelled by user'}`);
+        }
+    } catch (error) {
+        console.error('Failed to install CA:', error);
+        toast.error('Failed to install CA');
+    } finally {
+        installingCA.value = false;
+    }
+};
 
 const openSystemInfo = async () => {
     loadingSystemInfo.value = true;
@@ -200,6 +285,9 @@ onMounted(async () => {
     } catch (error) {
         console.error('Failed to load apps:', error);
     }
+    
+    // Load SSL status
+    await refreshSSLStatus();
 });
 
 const saveAllSettings = async () => {

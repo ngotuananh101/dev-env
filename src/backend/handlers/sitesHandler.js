@@ -10,6 +10,7 @@ const path = require('path');
 const { spawn, exec } = require('child_process');
 const { addHosts, removeHosts } = require('./hostsHandler');
 const { getAppServiceStatus, stopAppService, startAppService } = require('./serviceHandler');
+const sslHandler = require('./sslHandler');
 
 // Store running Node processes
 const runningNodeProcesses = new Map();
