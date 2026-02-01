@@ -14,6 +14,24 @@ const { getAppServiceStatus, stopAppService, startAppService } = require('./serv
 // Store running Node processes
 const runningNodeProcesses = new Map();
 
+// Import logApp from appsHandler (shared logging)
+let logAppFn = null;
+
+function logApp(message, type = 'INFO') {
+    if (logAppFn) {
+        logAppFn(message, type);
+    } else {
+        console.log(`${type}: ${message}`);
+    }
+}
+
+/**
+ * Escape special characters for use in RegExp
+ */
+function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /**
  * Generate Nginx config for a site
  * @param {Object} site - Site configuration
@@ -142,6 +160,12 @@ function generateApacheConfig(site, fastcgiAddress = '127.0.0.1:9000') {
  */
 function register(ipcMain, context) {
     const { getDbManager, appDir } = context;
+
+    // Context not currently used (beyond logApp) but kept for consistency
+    // Use shared logApp if provided
+    if (context.logApp) {
+        logAppFn = context.logApp;
+    }
 
     // Get list of sites
     ipcMain.handle('sites-list', async () => {
@@ -680,6 +704,119 @@ function register(ipcMain, context) {
             return { success: true };
         } catch (error) {
             console.error('Update Nginx root error:', error);
+            return { error: error.message };
+        }
+    });
+
+    // Update all sites when template changes
+    ipcMain.handle('sites-update-template', async (event, oldTemplate, newTemplate) => {
+        const dbManager = getDbManager();
+        if (!dbManager) return { error: 'Database not initialized' };
+
+        try {
+            const sites = dbManager.query('SELECT * FROM sites');
+            if (!sites || sites.length === 0) {
+                return { success: true, updated: [], message: 'No sites to update' };
+            }
+
+            const updated = [];
+            const failed = [];
+            const oldDomains = [];
+            const newDomains = [];
+
+            for (const site of sites) {
+                try {
+                    // Calculate new domain based on site name and new template
+                    const newDomain = newTemplate.replace('[site]', site.name);
+                    const oldDomain = site.domain;
+
+                    // Skip if domain is already the same
+                    if (oldDomain === newDomain) {
+                        continue;
+                    }
+
+                    // Check if new domain already exists (conflict)
+                    const existing = dbManager.query('SELECT id FROM sites WHERE domain = ? AND id != ?', [newDomain, site.id]);
+                    if (existing && existing.length > 0) {
+                        failed.push({
+                            site: site.name,
+                            oldDomain,
+                            newDomain,
+                            reason: 'Domain conflict - already exists'
+                        });
+                        continue;
+                    }
+
+                    // Get old config path
+                    const sitesConfigDir = path.join(appDir, 'sites');
+                    const oldConfigPath = path.join(sitesConfigDir, `${oldDomain}.conf`);
+                    const newConfigPath = path.join(sitesConfigDir, `${newDomain}.conf`);
+
+                    // Update config file content and rename
+                    if (fs.existsSync(oldConfigPath)) {
+                        let configContent = await fsPromises.readFile(oldConfigPath, 'utf-8');
+
+                        // Replace old domain with new domain in config content
+                        configContent = configContent.replace(new RegExp(escapeRegExp(oldDomain), 'g'), newDomain);
+
+                        // Write to new config path
+                        await fsPromises.writeFile(newConfigPath, configContent, 'utf-8');
+
+                        // Delete old config file
+                        await fsPromises.unlink(oldConfigPath);
+                    } else {
+                        // Config doesn't exist, regenerate it
+                        const updatedSite = { ...site, domain: newDomain };
+                        await saveSiteConfig(updatedSite, context.userDataPath, dbManager, appDir);
+                    }
+
+                    // Update database
+                    dbManager.query('UPDATE sites SET domain = ?, updated_at = ? WHERE id = ?',
+                        [newDomain, new Date().toISOString(), site.id]);
+
+                    // Track domains for hosts file update
+                    oldDomains.push(oldDomain);
+                    newDomains.push(newDomain);
+
+                    updated.push({
+                        site: site.name,
+                        oldDomain,
+                        newDomain
+                    });
+
+                } catch (siteError) {
+                    console.error(`Failed to update site ${site.name}:`, siteError);
+                    logApp(`Failed to update site ${site.name}: ${siteError.message}`, 'ERROR');
+                    failed.push({
+                        site: site.name,
+                        oldDomain: site.domain,
+                        reason: siteError.message
+                    });
+                }
+            }
+
+            // Update hosts file
+            if (oldDomains.length > 0) {
+                await removeHosts(oldDomains);
+            }
+            if (newDomains.length > 0) {
+                await addHosts(newDomains);
+            }
+
+            // Restart web services
+            if (updated.length > 0) {
+                await restartWebServices(dbManager);
+            }
+
+            return {
+                success: true,
+                updated,
+                failed,
+                message: `Updated ${updated.length} sites${failed.length > 0 ? `, ${failed.length} failed` : ''}`
+            };
+
+        } catch (error) {
+            console.error('Update template error:', error);
             return { error: error.message };
         }
     });

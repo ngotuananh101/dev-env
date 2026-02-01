@@ -57,6 +57,113 @@ function register(ipcMain, context) {
         app.quit();
     });
 
+    // Get detailed system information
+    ipcMain.handle('get-system-info', async () => {
+        const os = require('os');
+        try {
+            const [cpu, mem, osInfo, graphics, network, diskLayout] = await Promise.all([
+                si.cpu(),
+                si.mem(),
+                si.osInfo(),
+                si.graphics(),
+                si.networkInterfaces(),
+                si.diskLayout()
+            ]);
+
+            const separator = '='.repeat(60);
+            const lines = [];
+
+            lines.push(separator);
+            lines.push('DEV-ENV SYSTEM INFORMATION');
+            lines.push(separator);
+            lines.push('');
+
+            // OS Info
+            lines.push('[OPERATING SYSTEM]');
+            lines.push(`  OS: ${osInfo.distro} ${osInfo.release} (${osInfo.arch})`);
+            lines.push(`  Hostname: ${os.hostname()}`);
+            lines.push(`  Platform: ${osInfo.platform}`);
+            lines.push(`  Kernel: ${osInfo.kernel}`);
+            lines.push('');
+
+            // CPU Info
+            lines.push('[CPU]');
+            lines.push(`  Model: ${cpu.manufacturer} ${cpu.brand}`);
+            lines.push(`  Cores: ${cpu.physicalCores} physical, ${cpu.cores} logical`);
+            lines.push(`  Base Speed: ${cpu.speed} GHz`);
+            if (cpu.speedMax) {
+                lines.push(`  Max Speed: ${cpu.speedMax} GHz`);
+            }
+            lines.push('');
+
+            // Memory Info
+            lines.push('[MEMORY]');
+            const totalGB = (mem.total / (1024 ** 3)).toFixed(2);
+            const usedGB = (mem.used / (1024 ** 3)).toFixed(2);
+            const freeGB = (mem.free / (1024 ** 3)).toFixed(2);
+            lines.push(`  Total: ${totalGB} GB`);
+            lines.push(`  Used: ${usedGB} GB`);
+            lines.push(`  Free: ${freeGB} GB`);
+            lines.push('');
+
+            // Graphics Info
+            if (graphics.controllers && graphics.controllers.length > 0) {
+                lines.push('[GRAPHICS]');
+                graphics.controllers.forEach((gpu, index) => {
+                    lines.push(`  GPU ${index + 1}: ${gpu.vendor} ${gpu.model}`);
+                    if (gpu.vram) {
+                        lines.push(`    VRAM: ${gpu.vram} MB`);
+                    }
+                });
+                lines.push('');
+            }
+
+            // Disk Info
+            if (diskLayout && diskLayout.length > 0) {
+                lines.push('[STORAGE]');
+                diskLayout.forEach((disk, index) => {
+                    const sizeGB = (disk.size / (1024 ** 3)).toFixed(2);
+                    lines.push(`  Disk ${index + 1}: ${disk.vendor} ${disk.name} (${sizeGB} GB)`);
+                    lines.push(`    Type: ${disk.type}`);
+                });
+                lines.push('');
+            }
+
+            // Network Info
+            const activeNetworks = network.filter(n => !n.internal && n.ip4);
+            if (activeNetworks.length > 0) {
+                lines.push('[NETWORK]');
+                activeNetworks.forEach(net => {
+                    lines.push(`  ${net.iface}: ${net.ip4}`);
+                    if (net.mac) {
+                        lines.push(`    MAC: ${net.mac}`);
+                    }
+                });
+                lines.push('');
+            }
+
+            // App Info
+            lines.push('[APPLICATION]');
+            lines.push(`  App Version: ${app.getVersion()}`);
+            lines.push(`  Electron: ${process.versions.electron}`);
+            lines.push(`  Node.js: ${process.versions.node}`);
+            lines.push(`  Chrome: ${process.versions.chrome}`);
+            lines.push(`  V8: ${process.versions.v8}`);
+            lines.push(`  App Path: ${require.main ? require('path').dirname(require.main.filename) : 'N/A'}`);
+            lines.push(`  User Data: ${app.getPath('userData')}`);
+            lines.push('');
+
+            lines.push(separator);
+            lines.push(`Generated at: ${new Date().toLocaleString()}`);
+            lines.push(separator);
+
+            return { success: true, info: lines.join('\n') };
+        } catch (error) {
+            console.error('Failed to get system info:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
     // Database query
     ipcMain.handle('db-query', (event, sql, params) => {
         const dbManager = getDbManager();

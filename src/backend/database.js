@@ -19,7 +19,7 @@ class DatabaseManager {
                 fs.mkdirSync(dir, { recursive: true });
             }
 
-            this.db = new Database(dbPath, { verbose: console.log });
+            this.db = new Database(dbPath);
             this.db.pragma('journal_mode = WAL');
 
             console.log("SUCCESS: SQLite Database connected at", dbPath);

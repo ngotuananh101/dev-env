@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 const api = {
     getStats: () => ipcRenderer.invoke('get-sys-stats'),
     getIp: () => ipcRenderer.invoke('get-ip-address'),
+    getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
     quitApp: () => ipcRenderer.send('app-quit'),
 
     // Database
@@ -112,7 +113,10 @@ const api = {
         getTemplateContent: (templateName) => ipcRenderer.invoke('sites-get-template-content', templateName),
 
         getWebserver: () => ipcRenderer.invoke('sites-get-webserver'),
-        openBrowser: (domain) => ipcRenderer.invoke('sites-open-browser', domain)
+        openBrowser: (domain) => ipcRenderer.invoke('sites-open-browser', domain),
+
+        // Template update
+        updateTemplate: (oldTemplate, newTemplate) => ipcRenderer.invoke('sites-update-template', oldTemplate, newTemplate)
     }
 };
 
