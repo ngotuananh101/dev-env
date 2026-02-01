@@ -20,7 +20,6 @@
                             <select 
                                 v-model="settings.default_php_version" 
                                 class="flex-1 bg-gray-900 border border-gray-700 rounded-md px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all placeholder-gray-600 appearance-none"
-                                @change="saveSetting('default_php_version', settings.default_php_version)"
                             >
                                 <option value="" disabled>Select PHP Version</option>
                                 <option v-for="php in phpVersions" :key="php.id" :value="php.installedVersion">
@@ -42,7 +41,6 @@
                                 type="text" 
                                 placeholder="[site].local"
                                 class="flex-1 bg-gray-900 border border-gray-700 rounded-md px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all placeholder-gray-600"
-                                @change="saveSetting('site_template', settings.site_template)"
                             >
                         </div>
                         <p class="text-xs text-gray-500">
@@ -61,10 +59,21 @@
                                 type="checkbox" 
                                 v-model="settings.site_auto_create" 
                                 class="sr-only peer"
-                                @change="saveSetting('site_auto_create', settings.site_auto_create)"
                             >
                             <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                         </label>
+                    </div>
+
+                    <!-- Save Button -->
+                    <div class="pt-4 border-t border-gray-700/50">
+                        <button 
+                            @click="saveAllSettings"
+                            :disabled="isSaving"
+                            class="flex items-center space-x-2 px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-800 disabled:cursor-wait text-white rounded-lg transition-colors font-medium"
+                        >
+                            <Save class="w-4 h-4" />
+                            <span>{{ isSaving ? 'Saving...' : 'Save Settings' }}</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -126,7 +135,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useDatabaseStore } from '../stores/database';
-import { Settings, Monitor, X, Copy } from 'lucide-vue-next';
+import { Settings, Monitor, X, Copy, Save } from 'lucide-vue-next';
 import { useToast } from 'vue-toastification';
 
 const dbStore = useDatabaseStore();
@@ -144,6 +153,7 @@ const phpVersions = ref([]);
 const showSystemInfoModal = ref(false);
 const loadingSystemInfo = ref(false);
 const systemInfoContent = ref('');
+const isSaving = ref(false);
 
 const openSystemInfo = async () => {
     loadingSystemInfo.value = true;
@@ -192,43 +202,41 @@ onMounted(async () => {
     }
 });
 
-const saveSetting = async (key, value) => {
+const saveAllSettings = async () => {
+    isSaving.value = true;
     try {
         // Special handling for site_template - update all existing sites
-        if (key === 'site_template') {
-            const oldTemplate = dbStore.settings.site_template;
-            if (oldTemplate && oldTemplate !== value) {
-                toast.info('Updating sites with new template...');
-                const result = await window.sysapi.sites.updateTemplate(oldTemplate, value);
-                
-                if (result.error) {
-                    toast.error(`Failed to update sites: ${result.error}`);
-                    // Don't return - still save the setting so user can retry
-                }
-                
-                if (result.updated && result.updated.length > 0) {
-                    toast.success(`Updated ${result.updated.length} site(s) to new template`);
-                }
-                
-                if (result.failed && result.failed.length > 0) {
-                    const failedNames = result.failed.map(f => f.site).join(', ');
-                    toast.warning(`${result.failed.length} site(s) could not be updated: ${failedNames}`);
-                    console.warn('Failed sites:', result.failed);
-                }
+        const oldTemplate = dbStore.settings.site_template;
+        if (oldTemplate && oldTemplate !== settings.value.site_template) {
+            toast.info('Updating sites with new template...');
+            const result = await window.sysapi.sites.updateTemplate(oldTemplate, settings.value.site_template);
+            
+            if (result.error) {
+                toast.error(`Failed to update sites: ${result.error}`);
+            }
+            
+            if (result.updated && result.updated.length > 0) {
+                toast.success(`Updated ${result.updated.length} site(s) to new template`);
+            }
+            
+            if (result.failed && result.failed.length > 0) {
+                const failedNames = result.failed.map(f => f.site).join(', ');
+                toast.warning(`${result.failed.length} site(s) could not be updated: ${failedNames}`);
+                console.warn('Failed sites:', result.failed);
             }
         }
         
-        // Always save the setting to database
-        console.log(`Saving setting ${key} = ${value}`);
-        await dbStore.saveSetting(key, value);
+        // Save all settings to database
+        await dbStore.saveSetting('default_php_version', settings.value.default_php_version);
+        await dbStore.saveSetting('site_template', settings.value.site_template);
+        await dbStore.saveSetting('site_auto_create', settings.value.site_auto_create);
         
-        // Update local state as well
-        settings.value[key] = value;
-        
-        toast.success(`Saved ${key}`);
+        toast.success('Settings saved successfully!');
     } catch (error) {
-        console.error('Save setting error:', error);
-        toast.error(`Failed to save ${key}`);
+        console.error('Save settings error:', error);
+        toast.error('Failed to save settings');
+    } finally {
+        isSaving.value = false;
     }
 };
 </script>
