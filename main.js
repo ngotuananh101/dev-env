@@ -24,12 +24,12 @@ const sitesHandler = require('./src/backend/handlers/sitesHandler');
 let dbManager = null;
 
 // Enable hot reload in development
-try {
-  require('electron-reload')(__dirname, {
-    electron: path.join(__dirname, 'node_modules', '.bin', 'electron'),
-    ignored: /apps|logs|[\/\\]\./
-  });
-} catch (_) { }
+// try {
+//   require('electron-reload')(__dirname, {
+//     electron: path.join(__dirname, 'node_modules', '.bin', 'electron'),
+//     ignored: /apps|logs|[\/\\]\./
+//   });
+// } catch (_) { }
 
 /**
  * Create the main application window
