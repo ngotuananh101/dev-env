@@ -738,50 +738,6 @@ function register(ipcMain, context) {
         return { success: true };
     });
 
-    // Set custom args
-    ipcMain.handle('apps-set-args', async (event, appId, args) => {
-        const dbManager = getDbManager();
-        if (!dbManager) {
-            return { error: 'Database not initialized' };
-        }
-
-        const now = new Date().toISOString();
-        const result = dbManager.query(
-            'UPDATE installed_apps SET custom_args = ?, updated_at = ? WHERE app_id = ?',
-            [args, now, appId]
-        );
-
-        if (result.error) {
-            return { error: result.error };
-        }
-
-        return { success: true };
-    });
-
-    // Set dashboard visibility
-    ipcMain.handle('apps-set-dashboard', async (event, appId, showOnDashboard) => {
-        const dbManager = getDbManager();
-        if (!dbManager) {
-            return { error: 'Database not initialized' };
-        }
-
-        try {
-            const result = dbManager.query(
-                'UPDATE installed_apps SET show_on_dashboard = ?, updated_at = ? WHERE app_id = ?',
-                [showOnDashboard ? 1 : 0, new Date().toISOString(), appId]
-            );
-
-            if (result.error) {
-                return { error: result.error };
-            }
-
-            return { success: true };
-        } catch (error) {
-            console.error('Failed to update dashboard setting:', error);
-            return { error: error.message };
-        }
-    });
-
     // Get PHP Extensions
     ipcMain.handle('apps-get-extensions', async (event, appId) => {
         try {

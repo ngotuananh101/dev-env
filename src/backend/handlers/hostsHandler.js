@@ -159,33 +159,7 @@ function register(ipcMain, context) {
     // Write hosts file (requires admin privileges)
     ipcMain.handle('hosts-write', async (event, content) => writeHosts(content));
 
-    // Backup hosts file
-    ipcMain.handle('hosts-backup', async () => {
-        try {
-            const content = await fsPromises.readFile(HOSTS_PATH, 'utf-8');
-
-            // Try to write backup to userData first (safe writable location)
-            const { userDataPath } = context;
-            const backupPath = path.join(userDataPath, 'hosts_backup_' + Date.now());
-
-            try {
-                await fsPromises.writeFile(backupPath, content, 'utf-8');
-                return { success: true, path: backupPath };
-            } catch (e) {
-                // If fails, save to user's temp folder
-                const userBackup = path.join(process.env.TEMP || 'C:\\Temp', 'hosts_backup_' + Date.now());
-                await fsPromises.writeFile(userBackup, content, 'utf-8');
-                return { success: true, path: userBackup };
-            }
-
-            return { success: true, path: backupPath };
-        } catch (error) {
-            console.error('Failed to backup hosts:', error);
-            return { error: error.message };
-        }
-    });
-
-    // Manual add/remove (optional, exposed for frontend if needed)
+    // Manual add/remove (used internally by sitesHandler)
     ipcMain.handle('hosts-add', async (event, domains) => addHosts(domains));
     ipcMain.handle('hosts-remove', async (event, domains) => removeHosts(domains));
 }

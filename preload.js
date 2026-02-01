@@ -17,8 +17,6 @@ const api = {
         install: (appId, version, downloadUrl, filename, execFile, group, defaultArgs) => ipcRenderer.invoke('apps-install', appId, version, downloadUrl, filename, execFile, group, defaultArgs),
         cancelInstall: (appId) => ipcRenderer.invoke('apps-cancel-install', appId),
         uninstall: (appId) => ipcRenderer.invoke('apps-uninstall', appId),
-        setArgs: (appId, args) => ipcRenderer.invoke('apps-set-args', appId, args),
-        setDashboard: (appId, show) => ipcRenderer.invoke('apps-set-dashboard', appId, show),
         onInstallProgress: (callback) => {
             const handler = (event, data) => callback(data);
             ipcRenderer.on('app-install-progress', handler);
@@ -31,7 +29,6 @@ const api = {
         // Service management
         startService: (appId, execPath, args) => ipcRenderer.invoke('app-service-start', appId, execPath, args),
         stopService: (appId, execPath, stopArgs) => ipcRenderer.invoke('app-service-stop', appId, execPath, stopArgs),
-        restartService: (appId, execPath, startArgs, stopArgs) => ipcRenderer.invoke('app-service-restart', appId, execPath, startArgs, stopArgs),
         restartService: (appId, execPath, startArgs, stopArgs) => ipcRenderer.invoke('app-service-restart', appId, execPath, startArgs, stopArgs),
         getServiceStatus: (appId, execPath) => ipcRenderer.invoke('app-service-status', appId, execPath),
 
@@ -88,8 +85,7 @@ const api = {
     // Hosts file management
     hosts: {
         read: () => ipcRenderer.invoke('hosts-read'),
-        write: (content) => ipcRenderer.invoke('hosts-write', content),
-        backup: () => ipcRenderer.invoke('hosts-backup')
+        write: (content) => ipcRenderer.invoke('hosts-write', content)
     },
 
     // Sites/Projects management
@@ -101,7 +97,6 @@ const api = {
         stopNode: (siteId) => ipcRenderer.invoke('sites-stop-node', siteId),
         getConfig: (siteId) => ipcRenderer.invoke('sites-get-config', siteId),
         saveConfig: (siteId, content) => ipcRenderer.invoke('sites-save-config', siteId, content),
-        updateRoot: (siteId, newPath) => ipcRenderer.invoke('sites-update-root', siteId, newPath),
 
         // Server root management
         updateApacheRoot: (newPath) => ipcRenderer.invoke('sites-update-apache-root', newPath),
