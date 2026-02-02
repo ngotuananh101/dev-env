@@ -268,7 +268,7 @@ const toggleSelectAll = () => {
 const deleteSelected = async () => {
     if (selectedFiles.value.length === 0) return;
     
-    const confirmMsg = `Bạn có chắc muốn xóa ${selectedFiles.value.length} mục đã chọn không?`;
+    const confirmMsg = `Are you sure you want to delete ${selectedFiles.value.length} selected items?`;
     if (!confirm(confirmMsg)) return;
     
     if (window.sysapi && window.sysapi.files && window.sysapi.files.deletePath) {
@@ -282,7 +282,7 @@ const deleteSelected = async () => {
         refresh();
         
         if (errorCount > 0) {
-            alert(`Có ${errorCount} lỗi khi xóa.`);
+            alert(`${errorCount} errors occurred during deletion.`);
         }
     }
 };
@@ -545,7 +545,7 @@ const openItem = async (file) => {
         if (window.sysapi && window.sysapi.files && window.sysapi.files.openFile) {
             const result = await window.sysapi.files.openFile(file.path);
             if (result.error) {
-                alert('Không thể mở file: ' + result.error);
+                alert('Unable to open file: ' + result.error);
             }
         }
     }
