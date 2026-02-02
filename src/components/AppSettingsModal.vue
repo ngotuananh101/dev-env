@@ -276,6 +276,7 @@ const menuItemAvailable = {
 const menuItems = computed(() => {
   const items = [...baseMenuItems];
   
+  // Add config files
   if (props.app?.configs) {
     props.app.configs.forEach(conf => {
       const typeInfo = menuItemAvailable[conf.type] || menuItemAvailable.config;
@@ -289,7 +290,15 @@ const menuItems = computed(() => {
     });
   }
 
-  // Add Extensions tab for PHP apps
+  // Add Logs tab for all installed apps (file-based logs)
+  items.push({
+    id: 'logs',
+    label: 'Logs',
+    tip: 'View runtime logs (access, error)',
+    type: 'logs'
+  });
+
+  // Add Extensions and PHP Info tabs for PHP apps
   if (props.app?.id && props.app.id.startsWith('php')) {
     items.push({
       id: 'extensions',
@@ -304,14 +313,6 @@ const menuItems = computed(() => {
       type: 'phpinfo'
     });
   }
-  
-  // Add Logs tab for all installed apps
-  items.push({
-    id: 'logs',
-    label: 'Logs',
-    tip: 'View runtime logs (access, error)',
-    type: 'logs'
-  });
   
   return items;
 });

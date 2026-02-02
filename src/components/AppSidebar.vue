@@ -16,18 +16,6 @@
             <span>Home</span>
         </router-link>
 
-        <router-link to="/terminal" class="flex items-center space-x-3 px-3 py-2 rounded-md transition-colors"
-            :class="$route.path === '/terminal' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
-            <TerminalSquare class="w-5 h-5" />
-            <span>Terminal</span>
-        </router-link>
-
-        <router-link to="/files" class="flex items-center space-x-3 px-3 py-2 rounded-md transition-colors"
-            :class="$route.path === '/files' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
-            <Folder class="w-5 h-5" />
-            <span>Files</span>
-        </router-link>
-
         <router-link to="/apps" class="flex items-center space-x-3 px-3 py-2 rounded-md transition-colors"
             :class="$route.path === '/apps' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
             <Package class="w-5 h-5" />
@@ -40,16 +28,28 @@
             <span>Sites</span>
         </router-link>
 
-        <router-link to="/logs" class="flex items-center space-x-3 px-3 py-2 rounded-md transition-colors"
-            :class="$route.path === '/logs' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
-            <FileText class="w-5 h-5" />
-            <span>Logs</span>
-        </router-link>
-
         <router-link to="/hosts" class="flex items-center space-x-3 px-3 py-2 rounded-md transition-colors"
             :class="$route.path === '/hosts' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
             <Globe class="w-5 h-5" />
             <span>Hosts</span>
+        </router-link>
+
+        <router-link to="/files" class="flex items-center space-x-3 px-3 py-2 rounded-md transition-colors"
+            :class="$route.path === '/files' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
+            <Folder class="w-5 h-5" />
+            <span>Files</span>
+        </router-link>
+
+        <router-link to="/terminal" class="flex items-center space-x-3 px-3 py-2 rounded-md transition-colors"
+            :class="$route.path === '/terminal' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
+            <TerminalSquare class="w-5 h-5" />
+            <span>Terminal</span>
+        </router-link>
+
+        <router-link to="/logs" class="flex items-center space-x-3 px-3 py-2 rounded-md transition-colors"
+            :class="$route.path === '/logs' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
+            <FileText class="w-5 h-5" />
+            <span>Logs</span>
         </router-link>
 
         <router-link to="/settings" class="flex items-center space-x-3 px-3 py-2 rounded-md transition-colors"
