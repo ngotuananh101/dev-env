@@ -23,19 +23,13 @@
       <!-- Toolbar -->
       <div class="flex items-center justify-between p-3 bg-background border-t border-gray-700">
         <div class="flex items-center space-x-2">
-          <input 
-            v-model="newDbName" 
-            placeholder="New database name"
-            class="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded text-sm text-white placeholder-gray-400 w-48"
-            @keyup.enter="createDatabase"
-          />
           <button 
-            @click="createDatabase"
-            :disabled="loading"
+            @click="openCreateModal"
+            :disabled="loading || !activeTab"
             class="flex items-center space-x-1 px-3 py-1.5 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 rounded text-white text-xs"
           >
             <Plus class="w-3 h-3" />
-            <span>Create</span>
+            <span>Add Database</span>
           </button>
 
           <button 
@@ -88,12 +82,15 @@
         <thead class="bg-[#252526] sticky top-0">
           <tr class="text-gray-400">
             <th class="px-3 py-2 text-left font-medium">Database Name</th>
+            <th class="px-3 py-2 text-left font-medium">Username</th>
+            <th class="px-3 py-2 text-left font-medium">Password</th>
+            <th class="px-3 py-2 text-left font-medium">Host</th>
             <th class="px-3 py-2 text-center font-medium w-32">Actions</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="loading && databases.length === 0">
-            <td colspan="2" class="px-3 py-8 text-center text-gray-500">
+            <td colspan="5" class="px-3 py-8 text-center text-gray-500">
               <div class="flex flex-col items-center space-y-2">
                 <RefreshCw class="w-6 h-6 animate-spin" />
                 <span>Loading databases...</span>
@@ -101,7 +98,7 @@
             </td>
           </tr>
           <tr v-else-if="databases.length === 0">
-            <td colspan="2" class="px-3 py-8 text-center text-gray-500">
+            <td colspan="5" class="px-3 py-8 text-center text-gray-500">
               <div class="flex flex-col items-center space-y-2">
                 <Database class="w-8 h-8" />
                 <span>No databases found</span>
@@ -117,12 +114,21 @@
             <td class="px-3 py-2">
               <div class="flex items-center space-x-2">
                 <Database class="w-4 h-4 text-blue-400" />
-                <span class="text-white font-medium">{{ db }}</span>
+                <span class="text-white font-medium">{{ db.name }}</span>
               </div>
+            </td>
+            <td class="px-3 py-2 text-gray-400 text-xs">
+              {{ db.username || '-' }}
+            </td>
+             <td class="px-3 py-2 text-gray-400 text-xs font-mono select-all">
+              {{ db.password || '-' }}
+            </td>
+            <td class="px-3 py-2 text-gray-400 text-xs">
+              {{ db.host || 'localhost' }}
             </td>
             <td class="px-3 py-2 text-center">
               <button 
-                @click="dropDatabase(db)"
+                @click="dropDatabase(db.name)"
                 class="text-red-400 hover:text-red-300 text-xs"
               >
                 Delete
@@ -205,11 +211,78 @@
       </div>
     </div>
   </div>
+    <!-- Create Database Modal -->
+    <div v-if="showCreateModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div class="bg-[#1e1e1e] rounded-lg shadow-xl w-[450px] border border-gray-700">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-gray-700">
+          <h3 class="font-medium text-white">Add Database</h3>
+          <button @click="showCreateModal = false" class="text-gray-400 hover:text-white">
+            <X class="w-4 h-4" />
+          </button>
+        </div>
+        
+        <div class="p-4 space-y-4">
+          <div class="grid grid-cols-[100px_1fr] gap-4 items-center">
+            <label class="text-gray-400 text-right text-xs">Database name</label>
+            <input 
+              v-model="newDbName" 
+              placeholder="New database name" 
+              class="w-full bg-[#252526] border border-gray-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+            />
+          </div>
+
+          <div class="grid grid-cols-[100px_1fr] gap-4 items-center">
+            <label class="text-gray-400 text-right text-xs">Username</label>
+            <input 
+              v-model="newUsername" 
+              placeholder="Database user" 
+              class="w-full bg-[#252526] border border-gray-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+            />
+          </div>
+
+          <div class="grid grid-cols-[100px_1fr] gap-4 items-center">
+            <label class="text-gray-400 text-right text-xs">Password</label>
+            <div class="relative flex items-center">
+               <input 
+                v-model="newPassword" 
+                type="text"
+                placeholder="Password" 
+                class="w-full bg-[#252526] border border-gray-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 pr-9"
+              />
+              <button 
+                @click="generatePassword"
+                class="absolute right-2 text-gray-400 hover:text-white"
+                title="Generate Password"
+              >
+                <RefreshCw class="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-end space-x-2 px-4 py-3 bg-[#252526] rounded-b-lg border-t border-gray-700">
+          <button 
+            @click="showCreateModal = false"
+            class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs border border-gray-600"
+          >
+            Cancel
+          </button>
+          <button 
+            @click="createDatabase"
+            :disabled="loading || !newDbName"
+            class="flex items-center space-x-1 px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded text-white text-xs disabled:opacity-50"
+          >
+            <Loader2 v-if="loading" class="w-3 h-3 animate-spin" />
+            <span>Confirm</span>
+          </button>
+        </div>
+      </div>
+    </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
-import { Plus, RefreshCw, Database, User } from 'lucide-vue-next';
+import { Plus, RefreshCw, Database, User, X, Loader2 } from 'lucide-vue-next';
 import { useToast } from 'vue-toastification';
 
 const toast = useToast();
@@ -289,20 +362,44 @@ const loadDatabases = async () => {
   }
 };
 
+const showCreateModal = ref(false);
+const newUsername = ref('');
+const newPassword = ref('');
+
+const openCreateModal = () => {
+  newDbName.value = '';
+  newUsername.value = '';
+  newPassword.value = '';
+  showCreateModal.value = true;
+};
+
+const generatePassword = () => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+  let pass = '';
+  for(let i=0; i<16; i++) pass += chars.charAt(Math.floor(Math.random() * chars.length));
+  newPassword.value = pass;
+};
+
 const createDatabase = async () => {
-  console.log('Create requested:', { name: newDbName.value, tab: activeTab.value });
   if (!activeTab.value) { toast.warning('No active tab'); return; }
   if (!newDbName.value) { toast.warning('Please enter a database name'); return; }
   
   loading.value = true;
   try {
-    const result = await window.sysapi.database.createDatabase(activeTab.value, newDbName.value);
+    const result = await window.sysapi.database.createDatabase(
+      activeTab.value, 
+      newDbName.value,
+      newUsername.value,
+      newPassword.value
+    );
     if (result.error) {
       toast.error(`Failed to create database: ${result.error}`);
     } else {
       toast.success(`Database "${newDbName.value}" created`);
-      newDbName.value = '';
+      showCreateModal.value = false;
       await loadDatabases();
+      // If user created, maybe refresh users too?
+      if (newUsername.value) await loadUsers();
     }
   } catch (err) {
     console.error('Create database error:', err);

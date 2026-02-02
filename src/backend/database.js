@@ -85,6 +85,19 @@ class DatabaseManager {
                 )
             `).run();
 
+            // Created Databases Table (Store created DB credentials)
+            this.db.prepare(`
+                CREATE TABLE IF NOT EXISTS created_databases (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    app_id TEXT NOT NULL,
+                    db_name TEXT NOT NULL,
+                    username TEXT,
+                    password TEXT,
+                    host TEXT DEFAULT 'localhost',
+                    created_at TEXT
+                )
+            `).run();
+
             // Migrations: Try to add columns if they don't exist
             try { this.db.prepare("ALTER TABLE installed_apps ADD COLUMN custom_args TEXT").run(); } catch (e) { }
             try { this.db.prepare("ALTER TABLE installed_apps ADD COLUMN auto_start INTEGER DEFAULT 0").run(); } catch (e) { }

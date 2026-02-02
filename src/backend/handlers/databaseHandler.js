@@ -15,9 +15,7 @@ const path = require('path');
  */
 function execCommand(command, options = {}) {
     return new Promise((resolve) => {
-        console.log('[DB Handler] Executing command:', command);
-        console.log('[DB Handler] CWD:', options.cwd);
-        console.log('[DB Handler] ENV PGDATA:', options.env?.PGDATA);
+
 
         // Use spawn with shell option for better Windows compatibility
         const proc = spawn(command, [], {
@@ -45,10 +43,6 @@ function execCommand(command, options = {}) {
         });
 
         proc.on('close', (code) => {
-            console.log('[DB Handler] Process exited with code:', code);
-            if (stdout) console.log('[DB Handler] stdout:', stdout.substring(0, 200));
-            if (stderr) console.log('[DB Handler] stderr:', stderr.substring(0, 200));
-
             if (code !== 0 && stderr) {
                 resolve({ error: stderr || `Process exited with code ${code}`, stderr });
             } else {
@@ -76,11 +70,11 @@ function getDbType(appId) {
  * @returns {Object} { client }
  */
 function getDbCliPaths(appId, execPath) {
-    console.log('[DB Handler] getDbCliPaths called with:', { appId, execPath });
+
 
     // Get bin directory from exec_path
     const binDir = path.dirname(execPath);
-    console.log('[DB Handler] binDir:', binDir);
+
 
     let result = {};
     if (appId === 'mysql') {
@@ -91,7 +85,7 @@ function getDbCliPaths(appId, execPath) {
         result = { client: path.join(binDir, 'psql.exe') };
     }
 
-    console.log('[DB Handler] Resolved paths:', result);
+
     return result;
 }
 
@@ -126,11 +120,28 @@ function register(ipcMain, context) {
                     return { error: result.error };
                 }
 
-                const databases = result.stdout
+                const realDbs = result.stdout
                     .split('\n')
                     .slice(1) // Skip header
                     .map(line => line.trim())
                     .filter(line => line && !['information_schema', 'performance_schema', 'mysql', 'sys'].includes(line));
+
+                // Get saved credentials
+                const savedCreds = dbManager.query('SELECT * FROM created_databases WHERE app_id = ?', [appId]);
+                const credMap = new Map();
+                if (savedCreds && Array.isArray(savedCreds)) {
+                    savedCreds.forEach(c => credMap.set(c.db_name, c));
+                }
+
+                const databases = realDbs.map(dbName => {
+                    const info = credMap.get(dbName);
+                    return {
+                        name: dbName,
+                        username: info ? info.username : '',
+                        password: info ? info.password : '',
+                        host: info ? info.host : 'localhost'
+                    };
+                });
 
                 return { databases };
             } else if (dbType === 'postgresql') {
@@ -144,10 +155,27 @@ function register(ipcMain, context) {
                     return { error: result.error };
                 }
 
-                const databases = result.stdout
+                const realDbs = result.stdout
                     .split('\n')
                     .map(line => line.trim())
                     .filter(line => line && line !== 'postgres');
+
+                // Get saved credentials
+                const savedCreds = dbManager.query('SELECT * FROM created_databases WHERE app_id = ?', [appId]);
+                const credMap = new Map();
+                if (savedCreds && Array.isArray(savedCreds)) {
+                    savedCreds.forEach(c => credMap.set(c.db_name, c));
+                }
+
+                const databases = realDbs.map(dbName => {
+                    const info = credMap.get(dbName);
+                    return {
+                        name: dbName,
+                        username: info ? info.username : '',
+                        password: info ? info.password : '',
+                        host: info ? info.host : 'localhost'
+                    };
+                });
 
                 return { databases };
             }
@@ -160,7 +188,7 @@ function register(ipcMain, context) {
     });
 
     // Create database
-    ipcMain.handle('db-create-database', async (event, appId, dbName) => {
+    ipcMain.handle('db-create-database', async (event, appId, dbName, username, password) => {
         try {
             const dbManager = getDbManager();
             if (!dbManager) return { error: 'Database not initialized' };
@@ -178,29 +206,79 @@ function register(ipcMain, context) {
             const cliPaths = getDbCliPaths(appId, app.exec_path);
 
             if (dbType === 'mysql') {
-                const result = await execCommand(
+                // 1. Create Database
+                let result = await execCommand(
                     `"${cliPaths.client}" -u root -e "CREATE DATABASE \`${dbName}\`"`,
                     { cwd: path.dirname(cliPaths.client) }
                 );
+                if (result.error) return { error: result.error };
 
-                if (result.error) {
-                    return { error: result.error };
+                // 2. Create User & Grant Privileges (if provided)
+                if (username && password) {
+                    try {
+                        const commands = [
+                            `CREATE USER '${username}'@'localhost' IDENTIFIED BY '${password}'`,
+                            `GRANT ALL PRIVILEGES ON \`${dbName}\`.* TO '${username}'@'localhost'`,
+                            `FLUSH PRIVILEGES`
+                        ];
+
+                        for (const cmd of commands) {
+                            const userResult = await execCommand(
+                                `"${cliPaths.client}" -u root -e "${cmd}"`,
+                                { cwd: path.dirname(cliPaths.client) }
+                            );
+                            if (userResult.error && !userResult.error.includes('Operation CREATE USER failed')) {
+                                console.warn('User creation warning:', userResult.error);
+                            }
+                        }
+                    } catch (uErr) {
+                        console.error('Failed to create user:', uErr);
+                        // Continue even if user creation fails? Or return error?
+                        // Let's create DB at least.
+                    }
                 }
-                return { success: true };
             } else if (dbType === 'postgresql') {
                 const dataDir = path.join(app.install_path, 'data');
-                const result = await execCommand(
-                    `"${cliPaths.client}" -U postgres -c "CREATE DATABASE \\"${dbName}\\""`,
-                    { cwd: path.dirname(cliPaths.client), env: { ...process.env, PGDATA: dataDir } }
-                );
+                const env = { ...process.env, PGDATA: dataDir };
 
-                if (result.error) {
-                    return { error: result.error };
+                // 1. Create Database
+                let result = await execCommand(
+                    `"${cliPaths.client}" -U postgres -c "CREATE DATABASE \\"${dbName}\\""`,
+                    { cwd: path.dirname(cliPaths.client), env }
+                );
+                if (result.error) return { error: result.error };
+
+                // 2. Create User & Grant Privileges (if provided)
+                if (username && password) {
+                    try {
+                        // Postgres: Create User
+                        await execCommand(
+                            `"${cliPaths.client}" -U postgres -c "CREATE USER \\"${username}\\" WITH PASSWORD '${password}'"`,
+                            { cwd: path.dirname(cliPaths.client), env }
+                        );
+
+                        // Postgres: Grant Privileges
+                        await execCommand(
+                            `"${cliPaths.client}" -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE \\"${dbName}\\" TO \\"${username}\\""`,
+                            { cwd: path.dirname(cliPaths.client), env }
+                        );
+                        // Grant schema usage? usually public is accessible.
+                    } catch (uErr) {
+                        console.error('Failed to create user:', uErr);
+                    }
                 }
-                return { success: true };
+            } else {
+                return { error: 'Unsupported database type' };
             }
 
-            return { error: 'Unsupported database type' };
+            // Save to internal DB
+            dbManager.query(
+                `INSERT INTO created_databases (app_id, db_name, username, password, created_at) VALUES (?, ?, ?, ?, ?)`,
+                [appId, dbName, username || null, password || null, new Date().toISOString()]
+            );
+
+            return { success: true };
+
         } catch (error) {
             console.error('Failed to create database:', error);
             return { error: error.message };
