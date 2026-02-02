@@ -48,7 +48,16 @@ const api = {
         // App logs management
         getAppLogs: (appId) => ipcRenderer.invoke('apps-get-logs', appId),
         readAppLog: (appId, filename) => ipcRenderer.invoke('apps-read-log', appId, filename),
-        clearAppLog: (appId, filename) => ipcRenderer.invoke('apps-clear-log', appId, filename)
+        clearAppLog: (appId, filename) => ipcRenderer.invoke('apps-clear-log', appId, filename),
+    },
+
+    // Database Management
+    database: {
+        listDatabases: (appId) => ipcRenderer.invoke('db-list-databases', appId),
+        createDatabase: (appId, dbName) => ipcRenderer.invoke('db-create-database', appId, dbName),
+        dropDatabase: (appId, dbName) => ipcRenderer.invoke('db-drop-database', appId, dbName),
+        listUsers: (appId) => ipcRenderer.invoke('db-list-users', appId),
+        changePassword: (appId, username, newPassword, host) => ipcRenderer.invoke('db-change-password', appId, username, newPassword, host),
     },
 
     // File System

@@ -7,6 +7,7 @@ import LogsView from '../views/LogsView.vue';
 import HostsView from '../views/HostsView.vue';
 import SitesView from '../views/SitesView.vue';
 import SettingsView from '../views/SettingsView.vue';
+import DatabaseView from '../views/DatabaseView.vue';
 
 const routes = [
     {
@@ -48,6 +49,11 @@ const routes = [
         path: '/settings',
         name: 'settings',
         component: SettingsView
+    },
+    {
+        path: '/database',
+        name: 'database',
+        component: DatabaseView
     }
 ];
 

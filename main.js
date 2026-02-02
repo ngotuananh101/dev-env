@@ -20,6 +20,7 @@ const logsHandler = require('./src/backend/handlers/logsHandler');
 const hostsHandler = require('./src/backend/handlers/hostsHandler');
 const sitesHandler = require('./src/backend/handlers/sitesHandler');
 const sslHandler = require('./src/backend/handlers/sslHandler');
+const databaseHandler = require('./src/backend/handlers/databaseHandler');
 
 // Global variables
 let dbManager = null;
@@ -93,6 +94,7 @@ function registerAllHandlers() {
   hostsHandler.register(ipcMain, context);
   sitesHandler.register(ipcMain, context);
   sslHandler.register(ipcMain, context);
+  databaseHandler.register(ipcMain, context);
 }
 
 // Register handlers immediately (before app.whenReady)

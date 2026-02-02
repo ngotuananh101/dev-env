@@ -28,6 +28,12 @@
             <span>Sites</span>
         </router-link>
 
+        <router-link to="/database" class="flex items-center space-x-3 px-3 py-2 rounded-md transition-colors"
+            :class="$route.path === '/database' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
+            <Database class="w-5 h-5" />
+            <span>Database</span>
+        </router-link>
+
         <router-link to="/hosts" class="flex items-center space-x-3 px-3 py-2 rounded-md transition-colors"
             :class="$route.path === '/hosts' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
             <Globe class="w-5 h-5" />
@@ -73,7 +79,7 @@
 <script setup>
 import { useSystemStore } from '../stores/system';
 import { 
-    Home, TerminalSquare, Folder, Power, Package, FileText, Globe, Globe2, Settings 
+    Home, TerminalSquare, Folder, Power, Package, FileText, Globe, Globe2, Settings, Database 
 } from 'lucide-vue-next';
 
 const systemStore = useSystemStore();

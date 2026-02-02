@@ -298,6 +298,8 @@ const menuItems = computed(() => {
     type: 'logs'
   });
 
+
+
   // Add Extensions and PHP Info tabs for PHP apps
   if (props.app?.id && props.app.id.startsWith('php')) {
     items.push({
@@ -339,6 +341,8 @@ const configMessageClass = ref('text-gray-400');
 const serviceLogs = ref([]);
 const serviceLogContainer = ref(null);
 let serviceLogUnsubscribe = null;
+
+
 
 // Extension state
 const extensions = ref([]);
@@ -468,6 +472,8 @@ const formatLogSize = (bytes) => {
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
   return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + sizes[i];
 };
+
+
 
 const loadExtensions = async () => {
   if (!props.app?.id) return;
