@@ -40,6 +40,7 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1200,
     height: 720,
+    title: `${app.getName()} v${app.getVersion()}`,
     icon: path.join(__dirname, 'build', 'icon.ico'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
