@@ -68,6 +68,7 @@
             class="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs"
           >
             <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': isLoading }" />
+            <span>Reload</span>
           </button>
         </div>
 
@@ -284,7 +285,7 @@ import { ref, computed, onMounted } from 'vue';
 import { 
   Plus, RefreshCw, Search, Server, Globe2, Globe, ExternalLink,
   Folder, Play, Square, FileCode, Terminal, ArrowRightLeft, FolderCog,
-  ChevronDown
+  ChevronDown, RotateCw
 } from 'lucide-vue-next';
 import { useToast } from 'vue-toastification';
 import AddSiteModal from '../components/AddSiteModal.vue';

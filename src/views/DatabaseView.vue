@@ -38,6 +38,7 @@
             class="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs"
           >
             <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': loading }" />
+            <span>Reload</span>
           </button>
 
           <!-- Database indicator -->
@@ -120,8 +121,18 @@
             <td class="px-3 py-2 text-gray-400 text-xs">
               {{ db.username || '-' }}
             </td>
-             <td class="px-3 py-2 text-gray-400 text-xs font-mono select-all">
-              {{ db.password || '-' }}
+             <td class="px-3 py-2 text-gray-400 text-xs font-mono">
+              <div class="flex items-center space-x-2">
+                <span>{{ db.password ? '******' : '-' }}</span>
+                <button 
+                  v-if="db.password"
+                  @click="copyToClipboard(db.password)"
+                  class="text-gray-500 hover:text-white transition-colors"
+                  title="Copy Password"
+                >
+                  <Copy class="w-3 h-3" />
+                </button>
+              </div>
             </td>
             <td class="px-3 py-2 text-gray-400 text-xs">
               {{ db.host || 'localhost' }}
@@ -210,7 +221,7 @@
         {{ currentDbApp?.name || 'No database selected' }}
       </div>
     </div>
-  </div>
+
     <!-- Create Database Modal -->
     <div v-if="showCreateModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div class="bg-[#1e1e1e] rounded-lg shadow-xl w-[450px] border border-gray-700">
@@ -278,11 +289,12 @@
         </div>
       </div>
     </div>
+  </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
-import { Plus, RefreshCw, Database, User, X, Loader2 } from 'lucide-vue-next';
+import { Plus, RefreshCw, Database, User, X, Loader2, Copy } from 'lucide-vue-next';
 import { useToast } from 'vue-toastification';
 
 const toast = useToast();
@@ -369,7 +381,7 @@ const newPassword = ref('');
 const openCreateModal = () => {
   newDbName.value = '';
   newUsername.value = '';
-  newPassword.value = '';
+  generatePassword();
   showCreateModal.value = true;
 };
 
@@ -380,10 +392,24 @@ const generatePassword = () => {
   newPassword.value = pass;
 };
 
+const copyToClipboard = async (text) => {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast.success('Password copied to clipboard');
+  } catch (err) {
+    toast.error('Failed to copy password');
+  }
+};
+
 const createDatabase = async () => {
   if (!activeTab.value) { toast.warning('No active tab'); return; }
   if (!newDbName.value) { toast.warning('Please enter a database name'); return; }
   
+  // Auto-generate username from db name if empty
+  if (!newUsername.value) {
+    newUsername.value = newDbName.value.replace(/[^a-zA-Z0-9_]/g, '_');
+  }
+
   loading.value = true;
   try {
     const result = await window.sysapi.database.createDatabase(
