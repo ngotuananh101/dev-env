@@ -1,7 +1,8 @@
 {
   "name": "dev-env",
   "version": "1.0.0",
-  "description": "",
+  "productName": "Dev Env",
+  "description": "Local development environment for Windows",
   "main": "main.js",
   "scripts": {
     "start": "electron .",

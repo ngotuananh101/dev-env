@@ -25,14 +25,6 @@ const databaseHandler = require('./src/backend/handlers/databaseHandler');
 // Global variables
 let dbManager = null;
 
-// Enable hot reload in development
-// try {
-//   require('electron-reload')(__dirname, {
-//     electron: path.join(__dirname, 'node_modules', '.bin', 'electron'),
-//     ignored: /apps|logs|[\/\\]\./
-//   });
-// } catch (_) { }
-
 /**
  * Create the main application window
  */
@@ -47,6 +39,11 @@ function createWindow() {
       nodeIntegration: true,
       contextIsolation: false
     }
+  });
+
+  // Prevent page from overriding the window title
+  win.on('page-title-updated', (event) => {
+    event.preventDefault();
   });
 
   // Dev vs Prod Loading
