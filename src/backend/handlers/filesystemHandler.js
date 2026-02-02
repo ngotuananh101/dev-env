@@ -22,7 +22,7 @@ let currentDownloadPath = null;
  * @param {Object} context - Shared context containing shell
  */
 function register(ipcMain, context) {
-    const { shell } = context;
+    const { shell, app } = context;
 
     // Get available drives (Windows)
     ipcMain.handle('fs-get-drives', async () => {
@@ -42,7 +42,7 @@ function register(ipcMain, context) {
     // List directory contents
     ipcMain.handle('fs-list-dir', async (event, dirPath) => {
         try {
-            const targetPath = dirPath ? path.resolve(dirPath) : os.homedir();
+            const targetPath = dirPath ? path.resolve(dirPath) : app.getPath('userData');
             const entries = await fsPromises.readdir(targetPath, { withFileTypes: true });
 
             const filePromises = entries.map(async (entry) => {
