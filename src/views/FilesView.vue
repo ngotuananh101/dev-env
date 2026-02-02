@@ -170,17 +170,27 @@
     </BaseModal>
 
     <!-- 7. Rename Modal -->
-    <BaseModal :show="showRenameModal" @close="showRenameModal = false">
+    <BaseModal :show="showRenameModal" @close="showRenameModal = false" max-width="450px">
         <template #title>Rename Item</template>
         
-        <div class="space-y-2">
-            <label class="block text-gray-400 text-xs">New Name</label>
-            <input v-model="renameNewName" @keyup.enter="performRename" type="text" class="w-full bg-[#1e1e1e] border border-gray-600 rounded px-3 py-1.5 focus:border-blue-500 focus:outline-none text-gray-200" autofocus>
+        <div class="p-4 w-full">
+            <div class="mb-2">
+                <label class="block text-gray-400 text-xs mb-1">New Name</label>
+                <input 
+                    v-model="renameNewName" 
+                    @keyup.enter="performRename" 
+                    type="text" 
+                    class="w-full bg-[#1e1e1e] border border-gray-600 rounded px-3 py-2 text-sm text-gray-200 focus:border-blue-500 focus:outline-none" 
+                    autofocus
+                >
+            </div>
         </div>
         
         <template #footer>
-            <button @click="showRenameModal = false" class="px-4 py-1.5 rounded bg-gray-600 hover:bg-gray-500 text-white text-xs">Cancel</button>
-            <button @click="performRename" class="px-4 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white text-xs">Rename</button>
+            <div class="flex justify-end space-x-2 w-full">
+                <button @click="showRenameModal = false" class="px-3 py-1.5 rounded bg-gray-600 hover:bg-gray-500 text-white text-xs border border-gray-500">Cancel</button>
+                <button @click="performRename" class="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white text-xs text-center min-w-[60px]">Rename</button>
+            </div>
         </template>
     </BaseModal>
 
