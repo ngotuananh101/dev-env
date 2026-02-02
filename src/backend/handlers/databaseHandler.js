@@ -4,7 +4,7 @@
  * Supports: MySQL, MariaDB, PostgreSQL
  */
 
-const { execSync, exec } = require('child_process');
+const { spawn } = require('child_process');
 const path = require('path');
 
 /**
@@ -15,11 +15,44 @@ const path = require('path');
  */
 function execCommand(command, options = {}) {
     return new Promise((resolve) => {
-        exec(command, { ...options, encoding: 'utf-8', timeout: 30000 }, (error, stdout, stderr) => {
-            if (error) {
-                resolve({ error: error.message, stderr });
+        console.log('[DB Handler] Executing command:', command);
+        console.log('[DB Handler] CWD:', options.cwd);
+        console.log('[DB Handler] ENV PGDATA:', options.env?.PGDATA);
+
+        // Use spawn with shell option for better Windows compatibility
+        const proc = spawn(command, [], {
+            cwd: options.cwd,
+            env: options.env || process.env,
+            shell: true,
+            windowsHide: true,
+            timeout: 30000
+        });
+
+        let stdout = '';
+        let stderr = '';
+
+        proc.stdout.on('data', (data) => {
+            stdout += data.toString();
+        });
+
+        proc.stderr.on('data', (data) => {
+            stderr += data.toString();
+        });
+
+        proc.on('error', (err) => {
+            console.error('[DB Handler] Process error:', err.message);
+            resolve({ error: err.message, stderr });
+        });
+
+        proc.on('close', (code) => {
+            console.log('[DB Handler] Process exited with code:', code);
+            if (stdout) console.log('[DB Handler] stdout:', stdout.substring(0, 200));
+            if (stderr) console.log('[DB Handler] stderr:', stderr.substring(0, 200));
+
+            if (code !== 0 && stderr) {
+                resolve({ error: stderr || `Process exited with code ${code}`, stderr });
             } else {
-                resolve({ stdout: stdout || '', stderr });
+                resolve({ stdout, stderr });
             }
         });
     });
@@ -39,24 +72,27 @@ function getDbType(appId) {
 /**
  * Get CLI executable path for database
  * @param {string} appId
- * @param {string} installPath
- * @returns {Object} { client, psql }
+ * @param {string} execPath - exec_path from installed_apps table
+ * @returns {Object} { client }
  */
-function getDbCliPaths(appId, installPath) {
+function getDbCliPaths(appId, execPath) {
+    console.log('[DB Handler] getDbCliPaths called with:', { appId, execPath });
+
+    // Get bin directory from exec_path
+    const binDir = path.dirname(execPath);
+    console.log('[DB Handler] binDir:', binDir);
+
+    let result = {};
     if (appId === 'mysql') {
-        return {
-            client: path.join(installPath, 'bin', 'mysql.exe')
-        };
+        result = { client: path.join(binDir, 'mysql.exe') };
     } else if (appId === 'mariadb') {
-        return {
-            client: path.join(installPath, 'bin', 'mariadb.exe')
-        };
+        result = { client: path.join(binDir, 'mariadb.exe') };
     } else if (appId === 'postgresql') {
-        return {
-            client: path.join(installPath, 'bin', 'psql.exe')
-        };
+        result = { client: path.join(binDir, 'psql.exe') };
     }
-    return {};
+
+    console.log('[DB Handler] Resolved paths:', result);
+    return result;
 }
 
 /**
@@ -78,7 +114,7 @@ function register(ipcMain, context) {
 
             const app = apps[0];
             const dbType = getDbType(appId);
-            const cliPaths = getDbCliPaths(appId, app.install_path);
+            const cliPaths = getDbCliPaths(appId, app.exec_path);
 
             if (dbType === 'mysql') {
                 const result = await execCommand(
@@ -139,7 +175,7 @@ function register(ipcMain, context) {
 
             const app = apps[0];
             const dbType = getDbType(appId);
-            const cliPaths = getDbCliPaths(appId, app.install_path);
+            const cliPaths = getDbCliPaths(appId, app.exec_path);
 
             if (dbType === 'mysql') {
                 const result = await execCommand(
@@ -182,7 +218,7 @@ function register(ipcMain, context) {
 
             const app = apps[0];
             const dbType = getDbType(appId);
-            const cliPaths = getDbCliPaths(appId, app.install_path);
+            const cliPaths = getDbCliPaths(appId, app.exec_path);
 
             if (dbType === 'mysql') {
                 const result = await execCommand(
@@ -225,7 +261,7 @@ function register(ipcMain, context) {
 
             const app = apps[0];
             const dbType = getDbType(appId);
-            const cliPaths = getDbCliPaths(appId, app.install_path);
+            const cliPaths = getDbCliPaths(appId, app.exec_path);
 
             if (dbType === 'mysql') {
                 const result = await execCommand(
@@ -285,7 +321,7 @@ function register(ipcMain, context) {
 
             const app = apps[0];
             const dbType = getDbType(appId);
-            const cliPaths = getDbCliPaths(appId, app.install_path);
+            const cliPaths = getDbCliPaths(appId, app.exec_path);
 
             if (dbType === 'mysql') {
                 const result = await execCommand(
