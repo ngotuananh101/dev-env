@@ -12,7 +12,9 @@
       "icon": "Server",
       "iconColor": "text-green-500",
       "helpLink": "https://nginx.org/",
+      "autostart": true,
       "exec_file": "nginx.exe",
+      "cli_file": "nginx.exe",
       "configs": [
         {
           "id": "nginx_main",
@@ -55,7 +57,9 @@
       "icon": "Server",
       "iconColor": "text-orange-400",
       "helpLink": "https://www.apachelounge.com/",
+      "autostart": true,
       "exec_file": "bin/httpd.exe",
+      "cli_file": "bin/httpd.exe",
       "configs": [
         {
           "id": "apache_httpd",
@@ -90,7 +94,9 @@
       "icon": "Database",
       "iconColor": "text-orange-800",
       "helpLink": "https://www.mysql.com/",
+      "autostart": true,
       "exec_file": "bin/mysqld.exe",
+      "cli_file": "bin/mysql.exe",
       "configs": [
         {
           "id": "mysql_main",
@@ -136,7 +142,9 @@
       "icon": "Database",
       "iconColor": "text-cyan-500",
       "helpLink": "https://mariadb.org/",
+      "autostart": true,
       "exec_file": "bin/mariadbd.exe",
+      "cli_file": "bin/mariadb.exe",
       "configs": [
         {
           "id": "mariadb_main",
@@ -181,7 +189,9 @@
       "icon": "Cpu",
       "iconColor": "text-red-500",
       "helpLink": "https://redis.io/",
+      "autostart": true,
       "exec_file": "redis-server.exe",
+      "cli_file": "redis-cli.exe",
       "configs": [
         {
           "id": "redis_conf",
@@ -210,7 +220,9 @@
       "icon": "Database",
       "iconColor": "text-blue-600",
       "helpLink": "https://www.postgresql.org/",
+      "autostart": true,
       "exec_file": "bin/postgres.exe",
+      "cli_file": "bin/psql.exe",
       "configs": [
         {
           "id": "pgsql_conf",
@@ -285,7 +297,9 @@
       "icon": "FileCode",
       "iconColor": "text-indigo-500",
       "helpLink": "https://www.php.net/",
+      "autostart": true,
       "exec_file": "php-cgi.exe",
+      "cli_file": "php.exe",
       "default_args": "-b 127.0.0.1:9082",
       "configs": [
         {
@@ -315,7 +329,9 @@
       "icon": "FileCode",
       "iconColor": "text-indigo-500",
       "helpLink": "https://www.php.net/",
+      "autostart": true,
       "exec_file": "php-cgi.exe",
+      "cli_file": "php.exe",
       "default_args": "-b 127.0.0.1:9083",
       "configs": [
         {
@@ -345,7 +361,9 @@
       "icon": "FileCode",
       "iconColor": "text-indigo-500",
       "helpLink": "https://www.php.net/",
+      "autostart": true,
       "exec_file": "php-cgi.exe",
+      "cli_file": "php.exe",
       "default_args": "-b 127.0.0.1:9084",
       "configs": [
         {
@@ -375,7 +393,9 @@
       "icon": "FileCode",
       "iconColor": "text-indigo-500",
       "helpLink": "https://www.php.net/",
+      "autostart": true,
       "exec_file": "php-cgi.exe",
+      "cli_file": "php.exe",
       "default_args": "-b 127.0.0.1:9085",
       "configs": [
         {

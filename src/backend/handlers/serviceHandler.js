@@ -152,10 +152,18 @@ async function startAppService(appId, execPath, args) {
                 }
             }
             const dataDir2 = path.join(execDir, '..', 'data');
-            args = args + ' -D ' + dataDir2;
+            args = args + ` -D "${dataDir2}"`;
         }
 
-        const cmdArgs = args ? args.split(' ').filter(a => a) : [];
+        // Parse args properly, respecting quoted strings
+        let cmdArgs = [];
+        if (args) {
+            // Match either quoted strings or non-space sequences
+            const matches = args.match(/"([^"]+)"|([^\s]+)/g);
+            if (matches) {
+                cmdArgs = matches.map(arg => arg.replace(/^"|"$/g, ''));
+            }
+        }
         logApp(`Starting: ${execPathNormalized} ${cmdArgs.join(' ')} in ${execDir}`, 'SERVICE');
 
         // Clear old logs for this app

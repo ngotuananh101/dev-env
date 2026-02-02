@@ -124,7 +124,7 @@
               <span v-else class="text-gray-500">--</span>
             </td>
             <td class="px-2 py-2 text-center">
-              <label v-if="app.status === 'installed' && app.execPath" class="relative inline-flex items-center cursor-pointer" @click.prevent="togglePath(app)">
+              <label v-if="app.status === 'installed' && app.installPath" class="relative inline-flex items-center cursor-pointer" @click.prevent="togglePath(app)">
                 <input type="checkbox" :checked="app.inPath" class="sr-only peer">
                 <div class="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
               </label>
@@ -350,12 +350,29 @@ const loadApps = async () => {
     
     // Check PATH status for installed apps
     for (const app of apps.value) {
-      if (app.status === 'installed' && app.execPath) {
-        const execDir = app.execPath.substring(0, app.execPath.lastIndexOf('\\'));
-        try {
-          const pathResult = await window.sysapi.files.checkPath(execDir);
-          app.inPath = pathResult.inPath || false;
-        } catch (e) {
+      if (app.status === 'installed' && app.installPath) {
+        // Use cliPath from database (exact path found during installation)
+        // Fallback to calculating from cli_file or execPath if cliPath not available
+        let cliDir;
+        if (app.cliPath) {
+          // cliPath is the full path to CLI file, get its directory
+          cliDir = app.cliPath.substring(0, app.cliPath.lastIndexOf('\\'));
+        } else if (app.cli_file) {
+          const cliPath = app.installPath + '\\' + app.cli_file.replace(/\//g, '\\');
+          cliDir = cliPath.substring(0, cliPath.lastIndexOf('\\'));
+        } else if (app.execPath) {
+          cliDir = app.execPath.substring(0, app.execPath.lastIndexOf('\\'));
+        }
+        
+        if (cliDir) {
+          try {
+            const pathResult = await window.sysapi.files.checkPath(cliDir);
+            app.inPath = pathResult.inPath || false;
+            app.cliDir = cliDir; // Store for later use
+          } catch (e) {
+            app.inPath = false;
+          }
+        } else {
           app.inPath = false;
         }
       } else {
@@ -588,7 +605,9 @@ const confirmInstall = async () => {
       ver.filename,
       app.exec_file,
       app.group || null,
-      app.default_args || null
+      app.default_args || null,
+      app.autostart || false,
+      app.cli_file || null
     );
     
     if (result.error) {
@@ -628,8 +647,28 @@ const confirmInstall = async () => {
     app.installedVersion = ver.version;
     app.installPath = result.installPath;
     app.execPath = result.execPath;
+    app.cliPath = result.cliPath; // CLI path for PATH operations
     app.customArgs = app.default_args || '';
     addToRecentlyUsed(app);
+    
+    // Auto-start service if autostart is enabled
+    if (app.autostart && result.execPath) {
+      installLogs.value.push(`[${new Date().toLocaleTimeString()}] Auto-starting service...`);
+      installStatus.value = 'Starting service...';
+      
+      try {
+        const startArgs = app.service_commands?.start || app.default_args || '';
+        const startResult = await window.sysapi.apps.startService(app.id, result.execPath, startArgs);
+        if (startResult.success) {
+          app.serviceRunning = true;
+          installLogs.value.push(`[${new Date().toLocaleTimeString()}] Service started successfully!`);
+        } else {
+          installLogs.value.push(`[${new Date().toLocaleTimeString()}] [WARNING] Failed to start service: ${startResult.error}`);
+        }
+      } catch (startErr) {
+        installLogs.value.push(`[${new Date().toLocaleTimeString()}] [WARNING] Failed to start service: ${startErr.message}`);
+      }
+    }
     
     // Close modal after short delay to show 100%
     setTimeout(() => {
@@ -676,10 +715,22 @@ const uninstallApp = async (app) => {
 };
 
 const togglePath = async (app) => {
-  if (!app.execPath) return;
+  // Get CLI directory - prioritize cliPath from database, then cliDir, then calculate
+  let cliDir = app.cliDir;
+  if (!cliDir) {
+    if (app.cliPath) {
+      cliDir = app.cliPath.substring(0, app.cliPath.lastIndexOf('\\'));
+    } else if (app.cli_file && app.installPath) {
+      const cliPath = app.installPath + '\\' + app.cli_file.replace(/\//g, '\\');
+      cliDir = cliPath.substring(0, cliPath.lastIndexOf('\\'));
+    } else if (app.execPath) {
+      cliDir = app.execPath.substring(0, app.execPath.lastIndexOf('\\'));
+    }
+  }
+  
+  if (!cliDir) return;
   
   try {
-    const execDir = app.execPath.substring(0, app.execPath.lastIndexOf('\\'));
     const newValue = !app.inPath;
     
     // Show info toast immediately
@@ -687,9 +738,9 @@ const togglePath = async (app) => {
     
     let result;
     if (newValue) {
-      result = await window.sysapi.files.addToPath(execDir);
+      result = await window.sysapi.files.addToPath(cliDir);
     } else {
-      result = await window.sysapi.files.removeFromPath(execDir);
+      result = await window.sysapi.files.removeFromPath(cliDir);
     }
     
     if (result.error) {
@@ -698,7 +749,7 @@ const togglePath = async (app) => {
     }
     
     app.inPath = newValue;
-    toast.success(newValue ? `Added ${execDir} to PATH` : `Removed from PATH`);
+    toast.success(newValue ? `Added ${cliDir} to PATH` : `Removed from PATH`);
   } catch (error) {
     console.error('Toggle PATH error:', error);
     toast.error(`Error: ${error.message}`);

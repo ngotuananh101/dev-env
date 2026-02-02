@@ -8,6 +8,7 @@ const fsPromises = require('fs').promises;
 const path = require('path');
 const https = require('https');
 const http = require('http');
+const { Worker } = require('worker_threads');
 const serviceHandler = require('./serviceHandler');
 const { removeHosts } = require('./hostsHandler');
 const { runningNodeProcesses } = require('./sitesHandler');
@@ -265,7 +266,7 @@ function register(ipcMain, context) {
     });
 
     // Install app
-    ipcMain.handle('apps-install', async (event, appId, version, downloadUrl, filename, execFile, group, defaultArgs) => {
+    ipcMain.handle('apps-install', async (event, appId, version, downloadUrl, filename, execFile, group, defaultArgs, autostart, cliFile) => {
         try {
             const dbManager = getDbManager();
             if (!dbManager) {
@@ -313,8 +314,6 @@ function register(ipcMain, context) {
             activeInstalls.set(appId, installContext);
 
             try {
-                const AdmZip = require('adm-zip');
-
                 logApp(`Starting installation for ${appId} version ${version}`, 'INSTALL');
 
                 const appsDir = path.join(context.userDataPath, 'apps');
@@ -428,34 +427,57 @@ function register(ipcMain, context) {
 
                 sendProgress(50, 'Extracting...');
 
-                // Extract ZIP file
+                // Extract ZIP file using Worker thread to avoid blocking UI
                 try {
-                    const zip = new AdmZip(zipPath);
-                    const zipEntries = zip.getEntries();
-                    const totalEntries = zipEntries.length;
-                    let extractedCount = 0;
+                    await new Promise((resolve, reject) => {
+                        const workerPath = path.join(__dirname, '..', 'workers', 'extractWorker.js');
+                        const worker = new Worker(workerPath, {
+                            workerData: {
+                                zipPath,
+                                appInstallDir
+                            }
+                        });
 
-                    sendProgress(50, 'Extracting...', `Starting extraction of ${totalEntries} files`);
+                        installContext.worker = worker;
 
-                    for (const entry of zipEntries) {
-                        if (installContext.cancelled) {
-                            throw new Error('Installation cancelled');
-                        }
+                        worker.on('message', (msg) => {
+                            if (installContext.cancelled) {
+                                worker.terminate();
+                                reject(new Error('Installation cancelled'));
+                                return;
+                            }
 
-                        try {
-                            zip.extractEntryTo(entry, appInstallDir, true, true);
-                        } catch (err) {
-                            logApp(`Failed to extract ${entry.entryName}: ${err.message}`, 'WARNING');
-                        }
+                            switch (msg.type) {
+                                case 'start':
+                                    sendProgress(50, 'Extracting...', `Starting extraction of ${msg.totalEntries} files`);
+                                    break;
+                                case 'progress':
+                                    const extractPercent = 50 + Math.round((msg.extractedCount / msg.totalEntries) * 40);
+                                    sendProgress(extractPercent, 'Extracting...', `Extracted ${msg.extractedCount} / ${msg.totalEntries} files`);
+                                    break;
+                                case 'warning':
+                                    logApp(msg.message, 'WARNING');
+                                    break;
+                                case 'complete':
+                                    sendProgress(90, 'Finishing...');
+                                    resolve();
+                                    break;
+                                case 'error':
+                                    reject(new Error(msg.message));
+                                    break;
+                            }
+                        });
 
-                        extractedCount++;
-                        if (extractedCount % Math.ceil(totalEntries / 20) === 0 || extractedCount === totalEntries) {
-                            const extractPercent = 50 + Math.round((extractedCount / totalEntries) * 40);
-                            sendProgress(extractPercent, 'Extracting...', `Extracted ${extractedCount} / ${totalEntries} files`);
-                        }
-                    }
+                        worker.on('error', (err) => {
+                            reject(err);
+                        });
 
-                    sendProgress(90, 'Finishing...');
+                        worker.on('exit', (code) => {
+                            if (code !== 0 && !installContext.cancelled) {
+                                reject(new Error(`Worker stopped with exit code ${code}`));
+                            }
+                        });
+                    });
                 } catch (extractError) {
                     if (fs.existsSync(zipPath)) try { fs.unlinkSync(zipPath); } catch (e) { }
                     throw new Error(`Failed to extract: ${extractError.message}`);
@@ -570,12 +592,37 @@ function register(ipcMain, context) {
                     }
                 }
 
+                // Find CLI path (for PATH operations)
+                let cliPath = '';
+                if (cliFile) {
+                    const findFile = async (dir, target) => {
+                        const entries = await fsPromises.readdir(dir, { withFileTypes: true });
+                        for (const entry of entries) {
+                            const fullPath = path.join(dir, entry.name);
+                            if (entry.isDirectory()) {
+                                const found = await findFile(fullPath, target);
+                                if (found) return found;
+                            } else if (fullPath.endsWith(target.replace('/', '\\')) || fullPath.endsWith(target.replace('\\', '/'))) {
+                                return fullPath;
+                            }
+                        }
+                        return null;
+                    };
+
+                    const foundCliPath = await findFile(appInstallDir, cliFile);
+                    if (foundCliPath) {
+                        cliPath = foundCliPath;
+                        logApp(`Found CLI at: ${cliPath}`, 'INSTALL');
+                    }
+                }
+
                 // Save to database
                 const now = new Date().toISOString();
+                const autoStartValue = autostart ? 1 : 0;
                 const result = dbManager.query(
-                    `INSERT OR REPLACE INTO installed_apps (app_id, installed_version, install_path, exec_path, custom_args, show_on_dashboard, installed_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, 0, ?, ?)`,
-                    [appId, version, appInstallDir, execPath, defaultArgs || '', now, now]
+                    `INSERT OR REPLACE INTO installed_apps (app_id, installed_version, install_path, exec_path, cli_path, custom_args, auto_start, show_on_dashboard, installed_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+                    [appId, version, appInstallDir, execPath, cliPath, defaultArgs || '', autoStartValue, now, now]
                 );
 
                 if (result.error) {
@@ -598,7 +645,7 @@ function register(ipcMain, context) {
                 sendProgress(100, 'Installed!');
                 logApp(`Successfully installed ${appId}`, 'INSTALL');
 
-                return { success: true, installPath: appInstallDir, execPath };
+                return { success: true, installPath: appInstallDir, execPath, cliPath };
             } catch (error) {
                 console.error('Failed to install app:', error);
                 logApp(`Installation failed for ${appId}: ${error.message}`, 'ERROR');
@@ -635,6 +682,13 @@ function register(ipcMain, context) {
 
         if (ctx.request) {
             ctx.request.destroy();
+        }
+
+        // Terminate worker if running
+        if (ctx.worker) {
+            try {
+                ctx.worker.terminate();
+            } catch (e) { /* ignore */ }
         }
 
         // Clean up app directory immediately

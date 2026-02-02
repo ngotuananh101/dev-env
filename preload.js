@@ -15,7 +15,7 @@ const api = {
     apps: {
         getList: () => ipcRenderer.invoke('apps-get-list'),
         updateList: () => ipcRenderer.invoke('apps-update-list'),
-        install: (appId, version, downloadUrl, filename, execFile, group, defaultArgs) => ipcRenderer.invoke('apps-install', appId, version, downloadUrl, filename, execFile, group, defaultArgs),
+        install: (appId, version, downloadUrl, filename, execFile, group, defaultArgs, autostart, cliFile) => ipcRenderer.invoke('apps-install', appId, version, downloadUrl, filename, execFile, group, defaultArgs, autostart, cliFile),
         cancelInstall: (appId) => ipcRenderer.invoke('apps-cancel-install', appId),
         uninstall: (appId) => ipcRenderer.invoke('apps-uninstall', appId),
         onInstallProgress: (callback) => {
