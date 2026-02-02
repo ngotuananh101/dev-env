@@ -54,6 +54,11 @@ function createWindow() {
   } else {
     win.loadFile('dist/index.html');
   }
+
+  // Set mainWindow for service log streaming
+  serviceHandler.setMainWindow(win);
+
+  return win;
 }
 
 /**

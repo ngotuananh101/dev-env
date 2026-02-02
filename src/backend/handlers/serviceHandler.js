@@ -10,6 +10,13 @@ const { spawn, execSync } = require('child_process');
 // Shared state - running processes map
 const runningProcesses = new Map();
 
+// Service logs storage (circular buffer per app, max 100 lines)
+const serviceLogs = new Map();
+const MAX_LOG_LINES = 100;
+
+// Reference to mainWindow for sending IPC events
+let mainWindowRef = null;
+
 // Import logApp function reference
 let logAppFn = null;
 
@@ -18,6 +25,29 @@ function logApp(message, type = 'INFO') {
         logAppFn(message, type);
     } else {
         console.log(`${type}: ${message}`);
+    }
+}
+
+// Add log entry for a service
+function addServiceLog(appId, type, message) {
+    if (!serviceLogs.has(appId)) {
+        serviceLogs.set(appId, []);
+    }
+
+    const logs = serviceLogs.get(appId);
+    const timestamp = new Date().toLocaleTimeString();
+    const entry = { timestamp, type, message };
+
+    logs.push(entry);
+
+    // Keep only last MAX_LOG_LINES entries
+    if (logs.length > MAX_LOG_LINES) {
+        logs.shift();
+    }
+
+    // Stream to frontend if mainWindow available
+    if (mainWindowRef && !mainWindowRef.isDestroyed()) {
+        mainWindowRef.webContents.send('service-log', { appId, ...entry });
     }
 }
 
@@ -128,27 +158,38 @@ async function startAppService(appId, execPath, args) {
         const cmdArgs = args ? args.split(' ').filter(a => a) : [];
         logApp(`Starting: ${execPathNormalized} ${cmdArgs.join(' ')} in ${execDir}`, 'SERVICE');
 
+        // Clear old logs for this app
+        serviceLogs.set(appId, []);
+        addServiceLog(appId, 'info', `Starting ${appId}...`);
+        addServiceLog(appId, 'info', `Command: ${execPathNormalized} ${cmdArgs.join(' ')}`);
+
         const proc = spawn(execPathNormalized, cmdArgs, {
             cwd: execDir,
             detached: false,
             stdio: ['ignore', 'pipe', 'pipe']
         });
 
-        let stderrData = '';
+        // Stream stdout
+        proc.stdout.on('data', (data) => {
+            const lines = data.toString().split('\n').filter(l => l.trim());
+            lines.forEach(line => addServiceLog(appId, 'stdout', line));
+        });
+
+        // Stream stderr
         proc.stderr.on('data', (data) => {
-            stderrData += data.toString();
+            const lines = data.toString().split('\n').filter(l => l.trim());
+            lines.forEach(line => addServiceLog(appId, 'stderr', line));
         });
 
         proc.on('error', (err) => {
             logApp(`Service ${appId} error: ${err.message}`, 'ERROR');
+            addServiceLog(appId, 'error', `Process error: ${err.message}`);
             runningProcesses.delete(appId);
         });
 
         proc.on('exit', (code) => {
             logApp(`Service ${appId} exited with code ${code}`, 'SERVICE');
-            if (stderrData) {
-                logApp(`Service ${appId} stderr: ${stderrData}`, 'ERROR');
-            }
+            addServiceLog(appId, 'info', `Process exited with code ${code}`);
             runningProcesses.delete(appId);
         });
 
@@ -223,6 +264,23 @@ function register(ipcMain, context) {
 
         return await startAppService(appId, execPath, startArgs);
     });
+
+    // Get service logs
+    ipcMain.handle('app-service-get-logs', async (event, appId) => {
+        const logs = serviceLogs.get(appId) || [];
+        return { logs };
+    });
+
+    // Clear service logs
+    ipcMain.handle('app-service-clear-logs', async (event, appId) => {
+        serviceLogs.set(appId, []);
+        return { success: true };
+    });
+}
+
+// Set mainWindow reference for IPC events
+function setMainWindow(win) {
+    mainWindowRef = win;
 }
 
 /**
@@ -332,11 +390,11 @@ function getAppServiceStatus(appId, execPath) {
 }
 
 // Export functions and state for use by main.js
-// Export functions and state for use by main.js
 module.exports = {
     register,
     startAppService,
     stopAppService,
     getAppServiceStatus,
+    setMainWindow,
     runningProcesses
 };

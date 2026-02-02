@@ -32,6 +32,14 @@ const api = {
         stopService: (appId, execPath, stopArgs) => ipcRenderer.invoke('app-service-stop', appId, execPath, stopArgs),
         restartService: (appId, execPath, startArgs, stopArgs) => ipcRenderer.invoke('app-service-restart', appId, execPath, startArgs, stopArgs),
         getServiceStatus: (appId, execPath) => ipcRenderer.invoke('app-service-status', appId, execPath),
+        // Service logs
+        getServiceLogs: (appId) => ipcRenderer.invoke('app-service-get-logs', appId),
+        clearServiceLogs: (appId) => ipcRenderer.invoke('app-service-clear-logs', appId),
+        onServiceLog: (callback) => {
+            const handler = (event, data) => callback(data);
+            ipcRenderer.on('service-log', handler);
+            return () => ipcRenderer.removeListener('service-log', handler);
+        },
 
         // Extension management
         getExtensions: (appId) => ipcRenderer.invoke('apps-get-extensions', appId),

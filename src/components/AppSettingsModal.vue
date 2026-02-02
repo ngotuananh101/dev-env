@@ -36,14 +36,14 @@
         <!-- Content Area -->
         <div class="flex-1 overflow-hidden p-4">
           <!-- Service Panel -->
-          <div v-if="activePanel === 'service'" class="h-full flex flex-col items-center justify-center space-y-6">
-            <div class="flex items-center space-x-4">
+          <div v-if="activePanel === 'service'" class="h-full flex flex-col items-start justify-center space-y-4">
+            <div class="flex items-center space-x-2">
               <span class="text-gray-400">Status:</span>
               <span :class="serviceRunning ? 'text-green-400' : 'text-red-400'" class="font-medium">
                 {{ serviceRunning ? 'Running' : 'Stopped' }}
               </span>
             </div>
-            <div class="flex space-x-4">
+            <div class="flex space-x-2">
               <button
                 @click="startService"
                 :disabled="serviceRunning || serviceLoading"
@@ -67,6 +67,24 @@
               </button>
             </div>
             <p v-if="serviceLoading" class="text-gray-400 text-sm">{{ serviceLoadingText }}</p>
+            
+            <!-- Service Console Logs -->
+            <div class="flex-1 flex flex-col min-h-0 w-full">
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="text-gray-400 text-sm font-medium">Console Output</h3>
+                <button 
+                  @click="clearServiceLogs" 
+                  :disabled="serviceLogs.length === 0"
+                  class="px-2 py-1 text-xs text-gray-400 hover:text-white hover:bg-gray-700 rounded disabled:opacity-50"
+                >
+                  Clear
+                </button>
+              </div>
+              <pre 
+                ref="serviceLogContainer"
+                class="flex-1 overflow-auto p-3 text-xs font-mono bg-black/50 text-gray-300 border border-gray-700 rounded select-text whitespace-pre-wrap"
+              ><template v-if="serviceLogs.length === 0"><span class="text-gray-500">No console output yet. Start the service to see logs.</span></template><template v-else><div v-for="(log, idx) in serviceLogs" :key="idx" :class="getLogClass(log.type)"><span class="text-gray-500">[{{ log.timestamp }}]</span> {{ log.message }}</div></template></pre>
+            </div>
           </div>
 
           <!-- Config Editor Panel -->
@@ -316,6 +334,11 @@ const configLoading = ref(false);
 const configMessage = ref('');
 const configMessageClass = ref('text-gray-400');
 
+// Service logs state
+const serviceLogs = ref([]);
+const serviceLogContainer = ref(null);
+let serviceLogUnsubscribe = null;
+
 // Extension state
 const extensions = ref([]);
 const extensionsLoading = ref(false);
@@ -497,6 +520,79 @@ const {
   restartService: restartServiceApi, 
   checkServiceStatus: checkServiceStatusApi 
 } = useServiceControl();
+
+// Service logs methods
+const loadServiceLogs = async () => {
+  if (!props.app?.id) return;
+  
+  try {
+    const result = await window.sysapi.apps.getServiceLogs(props.app.id);
+    if (!result.error) {
+      serviceLogs.value = result.logs || [];
+      scrollServiceLogToBottom();
+    }
+  } catch (err) {
+    console.error('Load service logs error:', err);
+  }
+};
+
+const setupServiceLogListener = () => {
+  if (!props.app?.id) return;
+  
+  // Unsubscribe previous listener
+  if (serviceLogUnsubscribe) {
+    serviceLogUnsubscribe();
+  }
+  
+  // Subscribe to real-time logs
+  serviceLogUnsubscribe = window.sysapi.apps.onServiceLog((data) => {
+    if (data.appId === props.app.id) {
+      serviceLogs.value.push({
+        timestamp: data.timestamp,
+        type: data.type,
+        message: data.message
+      });
+      
+      // Keep only last 100 logs
+      if (serviceLogs.value.length > 100) {
+        serviceLogs.value.shift();
+      }
+      
+      scrollServiceLogToBottom();
+    }
+  });
+};
+
+const clearServiceLogs = async () => {
+  if (!props.app?.id) return;
+  
+  try {
+    await window.sysapi.apps.clearServiceLogs(props.app.id);
+    serviceLogs.value = [];
+  } catch (err) {
+    console.error('Clear service logs error:', err);
+  }
+};
+
+const scrollServiceLogToBottom = () => {
+  if (serviceLogContainer.value) {
+    setTimeout(() => {
+      serviceLogContainer.value.scrollTop = serviceLogContainer.value.scrollHeight;
+    }, 50);
+  }
+};
+
+const getLogClass = (type) => {
+  switch (type) {
+    case 'stderr':
+    case 'error':
+      return 'text-red-400';
+    case 'stdout':
+      return 'text-green-300';
+    default:
+      return 'text-gray-300';
+  }
+};
 
 // Check service status
 const checkServiceStatus = async () => {
@@ -762,6 +858,9 @@ watch(() => props.show, async (isShow) => {
   if (isShow) {
     activePanel.value = 'service';
     await checkServiceStatus();
+    // Load and subscribe to service logs
+    await loadServiceLogs();
+    setupServiceLogListener();
   } else {
     // Cleanup editor and content
     configContent.value = '';
@@ -782,6 +881,11 @@ onUnmounted(() => {
   if (editor) {
     editor.destroy();
     editor = null;
+  }
+  // Cleanup service log listener
+  if (serviceLogUnsubscribe) {
+    serviceLogUnsubscribe();
+    serviceLogUnsubscribe = null;
   }
 });
 </script>
