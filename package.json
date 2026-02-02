@@ -26,7 +26,9 @@
       "main.js",
       "preload.js",
       "package.json",
-      "data/**/*"
+      "data/**/*",
+      "build/icon.ico",
+      "build/icon.png"
     ],
     "extraResources": [
       {
@@ -39,7 +41,8 @@
     ],
     "asar": true,
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,

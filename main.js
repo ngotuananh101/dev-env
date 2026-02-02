@@ -40,6 +40,7 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1200,
     height: 720,
+    icon: path.join(__dirname, 'build', 'icon.ico'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: true,
@@ -53,6 +54,7 @@ function createWindow() {
     win.loadURL('http://localhost:5173');
     // win.webContents.openDevTools();
   } else {
+    win.removeMenu();
     win.loadFile('dist/index.html');
   }
 
