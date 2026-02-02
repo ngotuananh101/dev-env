@@ -1038,6 +1038,169 @@ function register(ipcMain, context) {
             return { error: error.message };
         }
     });
+
+    // Get list of log files for an app
+    ipcMain.handle('apps-get-logs', async (event, appId) => {
+        try {
+            const dbManager = getDbManager();
+            if (!dbManager) return { error: 'Database not initialized' };
+
+            const apps = dbManager.query('SELECT * FROM installed_apps WHERE app_id = ?', [appId]);
+            if (!apps || apps.length === 0) return { error: 'App not found' };
+
+            const app = apps[0];
+            const installPath = app.install_path;
+
+            // Find logs directory - could be in different locations depending on app
+            const possibleLogDirs = [
+                path.join(installPath, 'logs'),
+                path.join(installPath, 'log'),
+                path.join(path.dirname(app.exec_path), 'logs'),
+                path.join(path.dirname(app.exec_path), 'log'),
+                // For MySQL/MariaDB, logs might be in data folder
+                path.join(installPath, 'data')
+            ];
+
+            let logsPath = null;
+            for (const dir of possibleLogDirs) {
+                if (fs.existsSync(dir)) {
+                    logsPath = dir;
+                    break;
+                }
+            }
+
+            if (!logsPath) {
+                return { files: [], logsPath: null };
+            }
+
+            const entries = await fsPromises.readdir(logsPath);
+            const logFiles = entries
+                .filter(f => f.endsWith('.log') || f.endsWith('.err'))
+                .map(f => ({
+                    name: f,
+                    path: path.join(logsPath, f)
+                }));
+
+            return { files: logFiles, logsPath };
+        } catch (error) {
+            console.error('Failed to get app logs:', error);
+            return { error: error.message };
+        }
+    });
+
+    // Read content of a specific log file
+    ipcMain.handle('apps-read-log', async (event, appId, filename) => {
+        try {
+            const dbManager = getDbManager();
+            if (!dbManager) return { error: 'Database not initialized' };
+
+            const apps = dbManager.query('SELECT * FROM installed_apps WHERE app_id = ?', [appId]);
+            if (!apps || apps.length === 0) return { error: 'App not found' };
+
+            const app = apps[0];
+            const installPath = app.install_path;
+
+            // Security: ensure filename is just a filename
+            const baseName = path.basename(filename);
+            if (baseName !== filename) {
+                return { error: 'Invalid filename' };
+            }
+
+            // Find the log file
+            const possibleLogDirs = [
+                path.join(installPath, 'logs'),
+                path.join(installPath, 'log'),
+                path.join(path.dirname(app.exec_path), 'logs'),
+                path.join(path.dirname(app.exec_path), 'log'),
+                path.join(installPath, 'data')
+            ];
+
+            let logFilePath = null;
+            for (const dir of possibleLogDirs) {
+                const candidate = path.join(dir, filename);
+                if (fs.existsSync(candidate)) {
+                    logFilePath = candidate;
+                    break;
+                }
+            }
+
+            if (!logFilePath) {
+                return { content: '', error: null };
+            }
+
+            // Get file stats
+            const stats = await fsPromises.stat(logFilePath);
+            const maxSize = 500 * 1024; // 500KB max to avoid performance issues
+
+            let content;
+            if (stats.size > maxSize) {
+                // Read only last 500KB
+                const fd = await fsPromises.open(logFilePath, 'r');
+                const buffer = Buffer.alloc(maxSize);
+                await fd.read(buffer, 0, maxSize, stats.size - maxSize);
+                await fd.close();
+                content = '... (showing last 500KB) ...\n\n' + buffer.toString('utf-8');
+            } else {
+                content = await fsPromises.readFile(logFilePath, 'utf-8');
+            }
+
+            return { content, size: stats.size };
+        } catch (error) {
+            console.error('Failed to read app log:', error);
+            return { error: error.message };
+        }
+    });
+
+    // Clear a specific log file
+    ipcMain.handle('apps-clear-log', async (event, appId, filename) => {
+        try {
+            const dbManager = getDbManager();
+            if (!dbManager) return { error: 'Database not initialized' };
+
+            const apps = dbManager.query('SELECT * FROM installed_apps WHERE app_id = ?', [appId]);
+            if (!apps || apps.length === 0) return { error: 'App not found' };
+
+            const app = apps[0];
+            const installPath = app.install_path;
+
+            // Security: ensure filename is just a filename
+            const baseName = path.basename(filename);
+            if (baseName !== filename) {
+                return { error: 'Invalid filename' };
+            }
+
+            // Find the log file
+            const possibleLogDirs = [
+                path.join(installPath, 'logs'),
+                path.join(installPath, 'log'),
+                path.join(path.dirname(app.exec_path), 'logs'),
+                path.join(path.dirname(app.exec_path), 'log'),
+                path.join(installPath, 'data')
+            ];
+
+            let logFilePath = null;
+            for (const dir of possibleLogDirs) {
+                const candidate = path.join(dir, filename);
+                if (fs.existsSync(candidate)) {
+                    logFilePath = candidate;
+                    break;
+                }
+            }
+
+            if (!logFilePath) {
+                return { success: true }; // File doesn't exist, consider it cleared
+            }
+
+            // Truncate file instead of deleting
+            await fsPromises.writeFile(logFilePath, '', 'utf-8');
+            logApp(`Cleared log file: ${logFilePath}`, 'LOGS');
+
+            return { success: true };
+        } catch (error) {
+            console.error('Failed to clear app log:', error);
+            return { error: error.message };
+        }
+    });
 }
 
 // Export for use by other handlers

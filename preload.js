@@ -36,7 +36,11 @@ const api = {
         // Extension management
         getExtensions: (appId) => ipcRenderer.invoke('apps-get-extensions', appId),
         toggleExtension: (appId, extension, enable) => ipcRenderer.invoke('apps-toggle-extension', appId, extension, enable),
-        getPhpInfo: (appId) => ipcRenderer.invoke('apps-get-phpinfo', appId)
+        getPhpInfo: (appId) => ipcRenderer.invoke('apps-get-phpinfo', appId),
+        // App logs management
+        getAppLogs: (appId) => ipcRenderer.invoke('apps-get-logs', appId),
+        readAppLog: (appId, filename) => ipcRenderer.invoke('apps-read-log', appId, filename),
+        clearAppLog: (appId, filename) => ipcRenderer.invoke('apps-clear-log', appId, filename)
     },
 
     // File System

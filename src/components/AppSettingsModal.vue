@@ -161,6 +161,59 @@
                <pre v-else class="w-full h-full overflow-auto p-4 text-xs font-mono bg-[#1e1e1e] text-gray-300 select-text">{{ phpInfoContent }}</pre>
              </div>
           </div>
+
+          <!-- Logs Panel -->
+          <div v-if="activePanel === 'logs'" class="h-full flex flex-col">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center space-x-3">
+                <select 
+                  v-model="selectedLogFile" 
+                  @change="loadLogContent"
+                  class="bg-[#1e1e1e] border border-gray-600 rounded px-3 py-1.5 text-sm text-gray-200 focus:border-blue-500 focus:outline-none"
+                >
+                  <option value="">Select log file...</option>
+                  <option v-for="file in logFiles" :key="file.name" :value="file.name">
+                    {{ file.name }}
+                  </option>
+                </select>
+                <span v-if="logSize" class="text-gray-500 text-xs">{{ formatLogSize(logSize) }}</span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <button 
+                  @click="loadLogContent" 
+                  :disabled="logsLoading || !selectedLogFile"
+                  class="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-white disabled:opacity-50"
+                  title="Refresh"
+                >
+                  <svg class="w-4 h-4" :class="{ 'animate-spin': logsLoading }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                  </svg>
+                </button>
+                <button 
+                  @click="clearLog" 
+                  :disabled="logsLoading || !selectedLogFile"
+                  class="px-3 py-1 bg-red-600 hover:bg-red-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-white text-xs"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+            
+            <div v-if="logsLoading && !logContent" class="flex-1 flex items-center justify-center text-gray-500">
+              Loading logs...
+            </div>
+            <div v-else-if="logFiles.length === 0" class="flex-1 flex items-center justify-center text-gray-500">
+              No log files found for this application.
+            </div>
+            <div v-else-if="!selectedLogFile" class="flex-1 flex items-center justify-center text-gray-500">
+              Select a log file to view.
+            </div>
+            <pre 
+              v-else
+              ref="logContainer"
+              class="flex-1 overflow-auto p-3 text-xs font-mono bg-black/50 text-gray-300 border border-gray-700 rounded select-text whitespace-pre-wrap"
+            >{{ logContent || 'Log file is empty.' }}</pre>
+          </div>
         </div>
       </div>
     </div>
@@ -234,6 +287,14 @@ const menuItems = computed(() => {
     });
   }
   
+  // Add Logs tab for all installed apps
+  items.push({
+    id: 'logs',
+    label: 'Logs',
+    tip: 'View runtime logs (access, error)',
+    type: 'logs'
+  });
+  
   return items;
 });
 
@@ -265,6 +326,14 @@ const phpInfoIsHtml = ref(false);
 const phpInfoLoading = ref(false);
 const phpInfoError = ref('');
 
+// Logs state
+const logFiles = ref([]);
+const selectedLogFile = ref('');
+const logContent = ref('');
+const logSize = ref(0);
+const logsLoading = ref(false);
+const logContainer = ref(null);
+
 const loadPhpInfo = async () => {
     if (!props.app?.id) return;
     
@@ -285,6 +354,95 @@ const loadPhpInfo = async () => {
     } finally {
         phpInfoLoading.value = false;
     }
+};
+
+// Logs methods
+const loadLogFiles = async () => {
+  if (!props.app?.id) return;
+  
+  logsLoading.value = true;
+  logFiles.value = [];
+  selectedLogFile.value = '';
+  logContent.value = '';
+  logSize.value = 0;
+  
+  try {
+    const result = await window.sysapi.apps.getAppLogs(props.app.id);
+    if (result.error) {
+      toast.error(`Failed to load logs: ${result.error}`);
+    } else {
+      logFiles.value = result.files || [];
+      // Auto-select first log file if available
+      if (logFiles.value.length > 0) {
+        selectedLogFile.value = logFiles.value[0].name;
+        await loadLogContent();
+      }
+    }
+  } catch (err) {
+    console.error('Load log files error:', err);
+    toast.error(err.message);
+  } finally {
+    logsLoading.value = false;
+  }
+};
+
+const loadLogContent = async () => {
+  if (!props.app?.id || !selectedLogFile.value) return;
+  
+  logsLoading.value = true;
+  
+  try {
+    const result = await window.sysapi.apps.readAppLog(props.app.id, selectedLogFile.value);
+    if (result.error) {
+      toast.error(`Failed to read log: ${result.error}`);
+      logContent.value = '';
+    } else {
+      logContent.value = result.content || '';
+      logSize.value = result.size || 0;
+      
+      // Auto-scroll to bottom
+      if (logContainer.value) {
+        setTimeout(() => {
+          logContainer.value.scrollTop = logContainer.value.scrollHeight;
+        }, 50);
+      }
+    }
+  } catch (err) {
+    console.error('Read log error:', err);
+    toast.error(err.message);
+  } finally {
+    logsLoading.value = false;
+  }
+};
+
+const clearLog = async () => {
+  if (!props.app?.id || !selectedLogFile.value) return;
+  if (!confirm(`Clear log file "${selectedLogFile.value}"?`)) return;
+  
+  logsLoading.value = true;
+  
+  try {
+    const result = await window.sysapi.apps.clearAppLog(props.app.id, selectedLogFile.value);
+    if (result.error) {
+      toast.error(`Failed to clear log: ${result.error}`);
+    } else {
+      toast.success('Log cleared');
+      logContent.value = '';
+      logSize.value = 0;
+    }
+  } catch (err) {
+    console.error('Clear log error:', err);
+    toast.error(err.message);
+  } finally {
+    logsLoading.value = false;
+  }
+};
+
+const formatLogSize = (bytes) => {
+  if (!bytes) return '';
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + sizes[i];
 };
 
 const loadExtensions = async () => {
@@ -584,6 +742,12 @@ watch(activePanel, async (newPanel) => {
       editor = null;
     }
     await loadPhpInfo();
+  } else if (newPanel === 'logs') {
+    if (editor) {
+      editor.destroy();
+      editor = null;
+    }
+    await loadLogFiles();
   } else {
     // Clean up when leaving config panel
     if (editor) {
