@@ -31,7 +31,7 @@
           />
           <button 
             @click="createDatabase"
-            :disabled="!newDbName || loading || !activeTab"
+            :disabled="loading"
             class="flex items-center space-x-1 px-3 py-1.5 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 rounded text-white text-xs"
           >
             <Plus class="w-3 h-3" />
@@ -290,7 +290,9 @@ const loadDatabases = async () => {
 };
 
 const createDatabase = async () => {
-  if (!activeTab.value || !newDbName.value) return;
+  console.log('Create requested:', { name: newDbName.value, tab: activeTab.value });
+  if (!activeTab.value) { toast.warning('No active tab'); return; }
+  if (!newDbName.value) { toast.warning('Please enter a database name'); return; }
   
   loading.value = true;
   try {

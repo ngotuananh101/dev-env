@@ -165,9 +165,9 @@ function register(ipcMain, context) {
             const dbManager = getDbManager();
             if (!dbManager) return { error: 'Database not initialized' };
 
-            // Validate database name
-            if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(dbName)) {
-                return { error: 'Invalid database name. Use only letters, numbers, and underscores.' };
+            // Validate database name (allow alphanumeric, underscore, and hyphen)
+            if (!/^[a-zA-Z0-9_][a-zA-Z0-9_-]*$/.test(dbName)) {
+                return { error: 'Invalid database name. Use letters, numbers, underscores, and hyphens.' };
             }
 
             const apps = dbManager.query('SELECT * FROM installed_apps WHERE app_id = ?', [appId]);
@@ -190,7 +190,7 @@ function register(ipcMain, context) {
             } else if (dbType === 'postgresql') {
                 const dataDir = path.join(app.install_path, 'data');
                 const result = await execCommand(
-                    `"${cliPaths.client}" -U postgres -c "CREATE DATABASE ${dbName}"`,
+                    `"${cliPaths.client}" -U postgres -c "CREATE DATABASE \\"${dbName}\\""`,
                     { cwd: path.dirname(cliPaths.client), env: { ...process.env, PGDATA: dataDir } }
                 );
 
@@ -233,7 +233,7 @@ function register(ipcMain, context) {
             } else if (dbType === 'postgresql') {
                 const dataDir = path.join(app.install_path, 'data');
                 const result = await execCommand(
-                    `"${cliPaths.client}" -U postgres -c "DROP DATABASE ${dbName}"`,
+                    `"${cliPaths.client}" -U postgres -c "DROP DATABASE \\"${dbName}\\""`,
                     { cwd: path.dirname(cliPaths.client), env: { ...process.env, PGDATA: dataDir } }
                 );
 
