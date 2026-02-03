@@ -3,6 +3,44 @@
   "lastUpdated": "2026-01-24T16:56:06.230Z",
   "apps": [
     {
+      "id": "nvm",
+      "name": "NVM",
+      "developer": "official",
+      "description": "Node Version Manager",
+      "category": "deployment",
+      "group": "nodejs",
+      "icon": "",
+      "icon_file": "Node.js.svg",
+      "iconColor": "text-green-500",
+      "helpLink": "https://github.com/coreybutler/nvm-windows",
+      "autostart": false,
+      "exec_file": "nvm.exe",
+      "cli_file": "nvm.exe",
+      "configs": [
+        {
+          "id": "nvm_main",
+          "name": "NVM Config",
+          "file": "settings.txt",
+          "type": "text"
+        }
+      ],
+      "service_commands": {
+        "start": "",
+        "stop": "",
+        "restart": ""
+      },
+      "versions": [
+        {
+          "version": "1.1.11",
+          "filename": "nvm-1.1.11.zip",
+          "download_url": "https://archive.org/download/dev-env/nvm/nvm-1.1.11.zip",
+          "size": 1234567,
+          "md5": "1234567890abcdef1234567890abcdef",
+          "sha1": "1234567890abcdef1234567890abcdef"
+        }
+      ]
+    },
+    {
       "id": "nginx",
       "name": "Nginx",
       "developer": "official",
@@ -10,6 +48,7 @@
       "category": "deployment",
       "group": "webserver",
       "icon": "Server",
+      "icon_file": "NGINX.svg",
       "iconColor": "text-green-500",
       "helpLink": "https://nginx.org/",
       "autostart": true,
@@ -55,6 +94,7 @@
       "category": "deployment",
       "group": "webserver",
       "icon": "Server",
+      "icon_file": "Apache.svg",
       "iconColor": "text-orange-400",
       "helpLink": "https://www.apachelounge.com/",
       "autostart": true,
@@ -92,6 +132,7 @@
       "category": "deployment",
       "group": "mysql",
       "icon": "Database",
+      "icon_file": "MySQL.svg",
       "iconColor": "text-orange-800",
       "helpLink": "https://www.mysql.com/",
       "autostart": true,
@@ -140,6 +181,7 @@
       "category": "deployment",
       "group": "mysql",
       "icon": "Database",
+      "icon_file": "Mariadb.svg",
       "iconColor": "text-cyan-500",
       "helpLink": "https://mariadb.org/",
       "autostart": true,
@@ -187,6 +229,7 @@
       "description": "Redis is an in-memory data structure store, used as a database, cache, and message broker!",
       "category": "deployment",
       "icon": "Cpu",
+      "icon_file": "Redis.svg",
       "iconColor": "text-red-500",
       "helpLink": "https://redis.io/",
       "autostart": true,
@@ -218,6 +261,7 @@
       "description": "PostgreSQL is a relational database management system!",
       "category": "deployment",
       "icon": "Database",
+      "icon_file": "PostgresSQL.svg",
       "iconColor": "text-blue-600",
       "helpLink": "https://www.postgresql.org/",
       "autostart": true,
@@ -295,6 +339,7 @@
       "description": "PHP is a server scripting language!",
       "category": "deployment",
       "icon": "FileCode",
+      "icon_file": "PHP.svg",
       "iconColor": "text-indigo-500",
       "helpLink": "https://www.php.net/",
       "autostart": true,
@@ -327,6 +372,7 @@
       "description": "PHP is a server scripting language!",
       "category": "deployment",
       "icon": "FileCode",
+      "icon_file": "PHP.svg",
       "iconColor": "text-indigo-500",
       "helpLink": "https://www.php.net/",
       "autostart": true,
@@ -359,6 +405,7 @@
       "description": "PHP is a server scripting language!",
       "category": "deployment",
       "icon": "FileCode",
+      "icon_file": "PHP.svg",
       "iconColor": "text-indigo-500",
       "helpLink": "https://www.php.net/",
       "autostart": true,
@@ -391,6 +438,7 @@
       "description": "PHP is a server scripting language!",
       "category": "deployment",
       "icon": "FileCode",
+      "icon_file": "PHP.svg",
       "iconColor": "text-indigo-500",
       "helpLink": "https://www.php.net/",
       "autostart": true,

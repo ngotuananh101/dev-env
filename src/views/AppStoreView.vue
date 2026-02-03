@@ -30,7 +30,8 @@
       <div class="flex items-center space-x-3">
         <div v-for="app in recentlyUsed" :key="app.id" 
             class="flex items-center space-x-1.5 px-2 py-1 hover:bg-gray-700 rounded cursor-pointer text-xs">
-          <component :is="getAppIcon(app.icon)" class="w-4 h-4" :class="app.iconColor" />
+          <img v-if="app.iconContent" :src="app.iconContent" class="w-4 h-4" />
+          <component v-else :is="getAppIcon(app.icon)" class="w-4 h-4" :class="app.iconColor" />
           <span>{{ app.name }}</span>
         </div>
       </div>
@@ -58,7 +59,7 @@
       <table class="w-full text-left border-collapse">
         <thead class="sticky top-0 bg-[#2d2d2d] z-10 text-xs text-gray-400 font-normal">
           <tr>
-            <th class="p-2 border-b border-gray-700">Software name</th>
+            <th class="p-2 border-b border-gray-700 w-48">Software name</th>
             <th class="p-2 border-b border-gray-700 w-24">Developer</th>
             <th class="p-2 border-b border-gray-700">Instructions</th>
             <th class="p-2 border-b border-gray-700 w-20">Location</th>
@@ -72,7 +73,8 @@
               class="hover:bg-[#2a2d3e] transition-colors min-h-[50px] h-[50px]">
             <td class="px-2 py-2">
               <div class="flex items-center space-x-2">
-                <component :is="getAppIcon(app.icon)" class="w-4 h-4" :class="app.iconColor" />
+                <img v-if="app.iconContent" :src="app.iconContent" class="w-4 h-4" />
+                <component v-else :is="getAppIcon(app.icon)" class="w-4 h-4" :class="app.iconColor" />
                 <span class="text-white font-medium">{{ app.name }}</span>
               </div>
             </td>
@@ -175,7 +177,8 @@
         <!-- Header -->
         <div class="flex items-center justify-between p-4 border-b border-gray-700">
           <div class="flex items-center space-x-3">
-            <component :is="getAppIcon(installingApp?.icon)" class="w-6 h-6" :class="installingApp?.iconColor" />
+            <img v-if="installingApp?.iconContent" :src="installingApp.iconContent" class="w-6 h-6" />
+            <component v-else :is="getAppIcon(installingApp?.icon)" class="w-6 h-6" :class="installingApp?.iconColor" />
             <div>
               <h3 class="text-white font-medium">Install {{ installingApp?.name }}</h3>
               <p class="text-gray-400 text-xs">Select version to install</p>
@@ -377,6 +380,21 @@ const loadApps = async () => {
         }
       } else {
         app.inPath = false;
+      }
+      
+      // Load icon if available
+      if (app.icon_file) {
+        window.sysapi.apps.readIcon(app.icon_file).then(iconResult => {
+             if (iconResult && !iconResult.error && iconResult.data) {
+                 app.iconContent = `data:${iconResult.mime};base64,${iconResult.data}`;
+                 
+                 // Update recently used if match
+                 const recent = recentlyUsed.value.find(r => r.id === app.id);
+                 if (recent) {
+                     recent.iconContent = app.iconContent;
+                 }
+             }
+        }).catch(err => console.error('Icon load error:', err));
       }
     }
   } catch (error) {
@@ -772,7 +790,13 @@ const openLocation = async (app) => {
 const addToRecentlyUsed = (app) => {
   const exists = recentlyUsed.value.find(a => a.id === app.id);
   if (!exists) {
-    recentlyUsed.value.unshift({ id: app.id, name: app.name, icon: app.icon, iconColor: app.iconColor });
+    recentlyUsed.value.unshift({ 
+        id: app.id, 
+        name: app.name, 
+        icon: app.icon, 
+        iconColor: app.iconColor,
+        iconContent: app.iconContent 
+    });
     if (recentlyUsed.value.length > 5) recentlyUsed.value.pop();
     localStorage.setItem('recentlyUsedApps', JSON.stringify(recentlyUsed.value));
   }

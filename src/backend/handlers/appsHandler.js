@@ -173,20 +173,37 @@ function register(ipcMain, context) {
 
     // Initialize paths
     // Define writable paths in userData
-    const dataDir = path.join(userDataPath, 'data');
-    appsJsonPath = path.join(dataDir, 'apps.json');
+    const userDataDataDir = path.join(userDataPath, 'data');
+    const userDataAppsJsonPath = path.join(userDataDataDir, 'apps.json');
     logsDir = path.join(userDataPath, 'logs');
+
+    // Determine working apps.json path
+    // In Dev Mode (!app.isPackaged), we prefer reading from source for development convenience, 
+    // but we might want to still write to userData to avoid polluting source.
+    // However, for simplicity and ensuring updates are seen, let's prioritize source in dev.
+    const isDev = !context.app.isPackaged;
+
+    // In Dev mode, use the source data directory
+    const sourceDataDir = path.join(appDir, 'data');
+    const sourceAppsJsonPath = path.join(sourceDataDir, 'apps.json');
+
+    if (isDev) {
+        appsJsonPath = sourceAppsJsonPath;
+        // Also ensure we use source data dir for icons/etc if needed
+    } else {
+        appsJsonPath = userDataAppsJsonPath;
+    }
 
     // Ensure directories exist
     if (!fs.existsSync(logsDir)) {
         fs.mkdirSync(logsDir, { recursive: true });
     }
-    if (!fs.existsSync(dataDir)) {
-        fs.mkdirSync(dataDir, { recursive: true });
+    if (!fs.existsSync(userDataDataDir)) {
+        fs.mkdirSync(userDataDataDir, { recursive: true });
     }
 
-    // Copy default apps.json if it doesn't exist in userData
-    if (!fs.existsSync(appsJsonPath)) {
+    // Copy default apps.json if it doesn't exist in userData (ONLY IN PROD)
+    if (!isDev && !fs.existsSync(appsJsonPath)) {
         const defaultAppsJson = path.join(appDir, 'data', 'apps.json');
         if (fs.existsSync(defaultAppsJson)) {
             try {
@@ -261,6 +278,51 @@ function register(ipcMain, context) {
             return jsonData;
         } catch (error) {
             console.error('Failed to read apps.json:', error);
+            return { error: error.message };
+        }
+    });
+
+    // Get App Icon
+    ipcMain.handle('apps-read-icon', async (event, filename) => {
+        try {
+            if (!filename) return null;
+
+            // Allow reading from icons directory
+            let iconsDir;
+            if (!context.app.isPackaged) {
+                // Dev mode: use source icons
+                iconsDir = path.join(context.appDir, 'data', 'icons');
+            } else {
+                // Prod mode: use userData icons
+                iconsDir = path.join(context.userDataPath, 'data', 'icons');
+
+                // If not found in userData, try fallback to app resources (common case for fresh installs)
+                if (!fs.existsSync(path.join(iconsDir, filename))) {
+                    const resourceIcons = path.join(process.resourcesPath, 'data', 'icons');
+                    if (fs.existsSync(path.join(resourceIcons, filename))) {
+                        iconsDir = resourceIcons;
+                    }
+                }
+            }
+
+            const iconPath = path.join(iconsDir, filename);
+
+            // Basic security check to prevent traversal
+            if (!iconPath.startsWith(iconsDir)) {
+                return { error: 'Invalid icon path' };
+            }
+
+            if (!fs.existsSync(iconPath)) {
+                return { error: 'Icon not found' };
+            }
+
+            const content = await fsPromises.readFile(iconPath, 'base64');
+            return {
+                mime: 'image/svg+xml',
+                data: content
+            };
+        } catch (error) {
+            console.error(`Failed to read icon ${filename}:`, error);
             return { error: error.message };
         }
     });
