@@ -90,7 +90,7 @@
               <span v-else class="text-gray-500">--</span>
             </td>
             <td class="px-2 py-2 text-center">
-              <div v-if="app.status === 'installed' && app.execPath" class="flex items-center justify-center space-x-1">
+              <div v-if="app.status === 'installed' && app.execPath && !['nvm'].includes(app.id)" class="flex items-center justify-center space-x-1">
                 <!-- Service is running -->
                 <template v-if="app.serviceRunning">
                   <button 
@@ -818,6 +818,7 @@ let statusCheckInterval = null;
 const checkServiceStatuses = async () => {
   for (const app of apps.value) {
     if (app.status === 'installed' && app.execPath) {
+      if (['nvm'].includes(app.id)) continue;
       app.serviceRunning = await checkServiceStatus(app);
     }
   }
