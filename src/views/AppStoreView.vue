@@ -414,9 +414,9 @@ const updateAppList = async () => {
       alert(`Failed to update app list: ${result.error}`);
       return;
     }
-    if (result.success && result.data) {
-      apps.value = result.data.apps || [];
-      appListVersion.value = result.data.version || '';
+    if (result.success) {
+      // Reload apps to ensure installed status is merged from DB
+      await loadApps();
       alert(`App list updated successfully! (${result.updatedCount || 0} apps updated)`);
     }
   } catch (error) {
