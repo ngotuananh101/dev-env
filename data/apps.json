@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastUpdated": "2026-01-24T16:56:06.230Z",
+  "lastUpdated": "2026-02-03T15:08:01.364Z",
   "apps": [
     {
       "id": "nvm",
@@ -31,12 +31,12 @@
       },
       "versions": [
         {
-          "version": "1.1.11",
-          "filename": "nvm-1.1.11.zip",
-          "download_url": "https://archive.org/download/dev-env/nvm/nvm-1.1.11.zip",
-          "size": 1234567,
-          "md5": "1234567890abcdef1234567890abcdef",
-          "sha1": "1234567890abcdef1234567890abcdef"
+          "version": "1.2.2",
+          "filename": "nvm-1.2.2.zip",
+          "download_url": "https://archive.org/download/dev-env/nvm/nvm-1.2.2.zip",
+          "size": 6306101,
+          "md5": "d654c26a04e35a318d5939f8ceb09934",
+          "sha1": "50f6b6e7bfd6234019cc9ad0c69818b8acd8113e"
         }
       ]
     },
