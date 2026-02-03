@@ -1099,13 +1099,13 @@ function register(ipcMain, context) {
                 line = line.trim();
                 if (!line) return;
 
-                const isCurrent = line.startsWith('*');
-                const version = line.replace('*', '').trim().replace('v', ''); // Remove * and v
+                const isCurrent = line.includes('*'); // Simpler check
 
-                // version should look like '18.16.0' or '18.16.0 (Currently using 64-bit executable)'
-                const cleanVersion = version.split(' ')[0];
+                // Extract version using regex to ignore ANSI codes, whitespace, etc.
+                const versionMatch = line.match(/(\d+\.\d+\.\d+)/);
 
-                if (/^\d+\.\d+\.\d+$/.test(cleanVersion)) {
+                if (versionMatch) {
+                    const cleanVersion = versionMatch[1];
                     installed.push(cleanVersion);
                     if (isCurrent) current = cleanVersion;
                 }

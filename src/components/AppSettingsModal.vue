@@ -447,21 +447,9 @@ const menuItems = computed(() => {
   return items;
 });
 
-const activePanel = ref('service');
+const activePanel = ref(props.app?.id === 'nvm' ? 'versions' : 'service');
 
-watch(() => props.app, async (newApp) => {
-    if (newApp) {
-        // Default to versions for NVM, service for others
-        if (newApp.id === 'nvm') {
-            activePanel.value = 'versions';
-            await loadNvmInstalled();
-        } else {
-            activePanel.value = 'service';
-        }
-    }
-}, { immediate: true });
-
-// Initial load watch for activePanel to load resources
+// Watch for tab changes to load data when user switches tabs
 watch(activePanel, async (newPanel) => {
     if (newPanel === 'logs') {
         await loadLogFiles();
@@ -471,6 +459,14 @@ watch(activePanel, async (newPanel) => {
         await loadPhpInfo();
     } else if (newPanel === 'versions' && props.app?.id === 'nvm') {
         if (nvmInstalled.value.length === 0) await loadNvmInstalled();
+    }
+});
+
+// Load initial data on mount
+onMounted(async () => {
+    // For NVM, load versions immediately
+    if (props.app?.id === 'nvm') {
+        await loadNvmInstalled();
     }
 });
 
@@ -527,6 +523,13 @@ const nvmAvailableCurrent = ref([]);
 const nvmLoading = ref(false);
 const nvmStatus = ref('');
 const nvmStatusType = ref('info');
+
+// Watch nvmMode to load available versions when switching tabs
+watch(nvmMode, async (mode) => {
+    if (mode === 'available' && nvmAvailableLts.value.length === 0) {
+        await loadNvmAvailable();
+    }
+});
 
 const loadNvmInstalled = async () => {
     nvmLoading.value = true;

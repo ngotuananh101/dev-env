@@ -264,6 +264,7 @@
     </div>
     <!-- App Settings Modal -->
     <AppSettingsModal 
+      v-if="showSettingsModal"
       :show="showSettingsModal" 
       :app="settingsApp"
       @close="closeSettings"
