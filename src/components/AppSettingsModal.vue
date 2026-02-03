@@ -394,6 +394,16 @@ const menuItemAvailable = {
 };
 
 const menuItems = computed(() => {
+  // Special case for NVM: Only show Versions tab
+  if (props.app?.id === 'nvm') {
+      return [{
+          id: 'versions',
+          label: 'Versions',
+          tip: 'Manage Node.js versions',
+          type: 'versions'
+      }];
+  }
+
   const items = [...baseMenuItems];
   
   // Add config files
@@ -415,26 +425,8 @@ const menuItems = computed(() => {
     id: 'logs',
     label: 'Logs',
     tip: 'View runtime logs (access, error)',
-    tip: 'View runtime logs (access, error)',
     type: 'logs'
   });
-
-  // NVM Versions
-  if (props.app?.id === 'nvm') {
-      items.push({
-          id: 'versions',
-          label: 'Versions',
-          tip: 'Manage Node.js versions',
-          type: 'versions'
-      });
-      // NVM usually doesn't have a "service" in the Windows Service sense for nvm itself, 
-      // though the active node process is what matters. 
-      // nvm manages PATH symlinks.
-      // We might want to remove 'service' tab for NVM if it confuses users, 
-      // but let's leave it if they configured it as a service/executable checking.
-  }
-
-
 
   // Add Extensions and PHP Info tabs for PHP apps
   if (props.app?.id && props.app.id.startsWith('php')) {
