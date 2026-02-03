@@ -467,6 +467,9 @@ onMounted(async () => {
     // For NVM, load versions immediately
     if (props.app?.id === 'nvm') {
         await loadNvmInstalled();
+    } else if (props.app?.execPath) {
+        // For other apps, check service status
+        await checkServiceStatus();
     }
 });
 
