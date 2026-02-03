@@ -59,12 +59,12 @@
       <table class="w-full text-left border-collapse">
         <thead class="sticky top-0 bg-[#2d2d2d] z-10 text-xs text-gray-400 font-normal">
           <tr>
-            <th class="p-2 border-b border-gray-700 w-48">Software name</th>
-            <th class="p-2 border-b border-gray-700 w-24">Developer</th>
+            <th class="p-2 border-b border-gray-700 w-40 min-w-40">Software name</th>
+            <th class="p-2 border-b border-gray-700 w-24 min-w-24">Developer</th>
             <th class="p-2 border-b border-gray-700">Instructions</th>
-            <th class="p-2 border-b border-gray-700 w-20">Location</th>
-            <th class="p-2 border-b border-gray-700 w-16 text-center">Status</th>
-            <th class="p-2 border-b border-gray-700 w-24 text-center">Add to PATH</th>
+            <th class="p-2 border-b border-gray-700 w-20 min-w-20">Location</th>
+            <th class="p-2 border-b border-gray-700 w-16 min-w-16 text-center">Status</th>
+            <th class="p-2 border-b border-gray-700 w-24 min-w-24 text-center">Add to PATH</th>
             <th class="p-2 border-b border-gray-700 w-32 text-center">Operate</th>
           </tr>
         </thead>

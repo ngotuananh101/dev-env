@@ -145,6 +145,30 @@ function extractXmlValue(content, tag) {
 }
 
 /**
+ * Execute NVM command and return output
+ * @param {string} command - NVM command
+ * @param {string} [execPath='nvm'] - Path to NVM executable
+ * @returns {Promise<string>} Output
+ */
+function runNvmCommand(command, execPath = 'nvm') {
+    const { exec } = require('child_process');
+    return new Promise((resolve, reject) => {
+        // Enclose execPath in quotes if it contains spaces
+        const cmd = `"${execPath}" ${command}`;
+        exec(cmd, (error, stdout, stderr) => {
+            if (error) {
+                // nvm sometimes returns exit code 1 or 5 for valid errors, 
+                // but stdout helps understand what happened.
+                if (stdout) resolve(stdout);
+                else reject(error);
+            } else {
+                resolve(stdout);
+            }
+        });
+    });
+}
+
+/**
  * Compare two version strings
  * @param {string} a - Version A
  * @param {string} b - Version B
@@ -561,8 +585,27 @@ function register(ipcMain, context) {
                             if (entry.isDirectory()) {
                                 const found = await findFile(fullPath, target);
                                 if (found) return found;
-                            } else if (fullPath.endsWith(target.replace('/', '\\')) || fullPath.endsWith(target.replace('\\', '/'))) {
-                                return fullPath;
+                            } else {
+                                // Strict filename check if target is just a filename
+                                // If target contains separators, we might keep the suffix check but be careful
+                                // Assuming target usually comes from executables config like "bin/mysql.exe" or "nvm.exe"
+
+                                const targetName = path.basename(target);
+                                // If exact filename matches
+                                if (entry.name.toLowerCase() === targetName.toLowerCase()) {
+                                    // Verify if target had path components, that they also match?
+                                    // The original logic was loose. Let's make it check if the path ends with the full target.
+                                    // But crucially, ensure it ends with explicit separator if target doesn't start with one.
+                                    const normalizedTarget = target.replace(/\//g, '\\');
+
+                                    if (fullPath.endsWith(normalizedTarget)) {
+                                        // Check that the character before the match is a separator, to avoid "author-nvm.exe" matching "nvm.exe"
+                                        const pathBefore = fullPath.slice(0, -normalizedTarget.length);
+                                        if (pathBefore.endsWith('\\') || pathBefore === '') {
+                                            return fullPath;
+                                        }
+                                    }
+                                }
                             }
                         }
                         return null;
@@ -664,8 +707,17 @@ function register(ipcMain, context) {
                             if (entry.isDirectory()) {
                                 const found = await findFile(fullPath, target);
                                 if (found) return found;
-                            } else if (fullPath.endsWith(target.replace('/', '\\')) || fullPath.endsWith(target.replace('\\', '/'))) {
-                                return fullPath;
+                            } else {
+                                const targetName = path.basename(target);
+                                if (entry.name.toLowerCase() === targetName.toLowerCase()) {
+                                    const normalizedTarget = target.replace(/\//g, '\\');
+                                    if (fullPath.endsWith(normalizedTarget)) {
+                                        const pathBefore = fullPath.slice(0, -normalizedTarget.length);
+                                        if (pathBefore.endsWith('\\') || pathBefore === '') {
+                                            return fullPath;
+                                        }
+                                    }
+                                }
                             }
                         }
                         return null;
@@ -674,7 +726,6 @@ function register(ipcMain, context) {
                     const foundCliPath = await findFile(appInstallDir, cliFile);
                     if (foundCliPath) {
                         cliPath = foundCliPath;
-                        logApp(`Found CLI at: ${cliPath}`, 'INSTALL');
                     }
                 }
 
@@ -1022,6 +1073,159 @@ function register(ipcMain, context) {
         } catch (error) {
             console.error('Failed to toggle extension:', error);
             return { error: error.message };
+        }
+    });
+
+    // ========== NVM Management ==========
+
+    // List installed node versions (nvm list)
+    ipcMain.handle('nvm-list', async () => {
+        try {
+            const dbManager = getDbManager();
+            let nvmPath = 'nvm';
+            if (dbManager) {
+                const result = dbManager.query("SELECT cli_path FROM installed_apps WHERE app_id = 'nvm'");
+                if (result && result.length > 0 && result[0].cli_path) {
+                    nvmPath = result[0].cli_path;
+                }
+            }
+
+            const output = await runNvmCommand('list', nvmPath);
+            const lines = output.split('\n');
+            const installed = [];
+            let current = '';
+
+            lines.forEach(line => {
+                line = line.trim();
+                if (!line) return;
+
+                const isCurrent = line.startsWith('*');
+                const version = line.replace('*', '').trim().replace('v', ''); // Remove * and v
+
+                // version should look like '18.16.0' or '18.16.0 (Currently using 64-bit executable)'
+                const cleanVersion = version.split(' ')[0];
+
+                if (/^\d+\.\d+\.\d+$/.test(cleanVersion)) {
+                    installed.push(cleanVersion);
+                    if (isCurrent) current = cleanVersion;
+                }
+            });
+
+            return { success: true, installed, current };
+        } catch (err) {
+            return { error: err.message };
+        }
+    });
+
+    // List available (nvm list available) - Parsing this is fragile, maybe just fetch from nodejs.org?
+    // nvm-windows "list available" shows a table.
+    // Let's implement a direct fetch from nodejs.org dist index.json for reliability and speed
+    ipcMain.handle('nvm-list-available', async () => {
+        try {
+            return new Promise((resolve, reject) => {
+                const https = require('https');
+                https.get('https://nodejs.org/dist/index.json', { headers: { 'User-Agent': 'DevEnv' } }, (res) => {
+                    let data = '';
+                    res.on('data', chunk => data += chunk);
+                    res.on('end', () => {
+                        try {
+                            const allVersions = JSON.parse(data);
+                            // Filter for LTS and Current (last 50 or so to avoid huge list)
+                            const lts = allVersions.filter(v => v.lts).slice(0, 20);
+                            const current = allVersions.filter(v => !v.lts).slice(0, 10);
+
+                            // Transform to simple objects
+                            const processVer = (v) => ({
+                                version: v.version.replace('v', ''),
+                                lts: v.lts ? (typeof v.lts === 'string' ? v.lts : 'Yes') : false,
+                                date: v.date
+                            });
+
+                            resolve({
+                                success: true,
+                                lts: lts.map(processVer),
+                                current: current.map(processVer)
+                            });
+                        } catch (e) {
+                            reject(e);
+                        }
+                    });
+                }).on('error', reject);
+            });
+        } catch (err) {
+            return { error: err.message };
+        }
+    });
+
+    // Install version
+    ipcMain.handle('nvm-install', async (event, version) => {
+        try {
+            const dbManager = getDbManager();
+            let nvmPath = 'nvm';
+            if (dbManager) {
+                const result = dbManager.query("SELECT cli_path FROM installed_apps WHERE app_id = 'nvm'");
+                if (result && result.length > 0 && result[0].cli_path) {
+                    nvmPath = result[0].cli_path;
+                }
+            }
+
+            // This can take a while, send events?
+            // For now, simple await. nvm install output is streamed to stdout
+            // We can't easily stream it back with current runNvmCommand helper.
+            // Just return success/fail.
+            await runNvmCommand(`install ${version}`, nvmPath);
+            return { success: true };
+        } catch (err) {
+            // Check if it's just "already installed" or true error
+            if (err && err.message && err.message.includes('is already installed')) {
+                return { success: true, message: 'Already installed' };
+            }
+            return { error: err.message || 'Install failed' };
+        }
+    });
+
+    // Uninstall version
+    ipcMain.handle('nvm-uninstall', async (event, version) => {
+        try {
+            const dbManager = getDbManager();
+            let nvmPath = 'nvm';
+            if (dbManager) {
+                const result = dbManager.query("SELECT cli_path FROM installed_apps WHERE app_id = 'nvm'");
+                if (result && result.length > 0 && result[0].cli_path) {
+                    nvmPath = result[0].cli_path;
+                }
+            }
+
+            await runNvmCommand(`uninstall ${version}`, nvmPath);
+            return { success: true };
+        } catch (err) {
+            return { error: err.message };
+        }
+    });
+
+    // Use version
+    ipcMain.handle('nvm-use', async (event, version) => {
+        try {
+            const dbManager = getDbManager();
+            let nvmPath = 'nvm';
+            if (dbManager) {
+                const result = dbManager.query("SELECT cli_path FROM installed_apps WHERE app_id = 'nvm'");
+                if (result && result.length > 0 && result[0].cli_path) {
+                    nvmPath = result[0].cli_path;
+                }
+            }
+
+            // 'nvm use' requires Admin on Windows usually.
+            // The app should be run as Admin for this to work reliably if not using NVM for Windows >= 1.1.8 with developer mode enabled (?)
+            const output = await runNvmCommand(`use ${version}`, nvmPath);
+            if (output.includes('Now using')) {
+                return { success: true };
+            } else {
+                // Often 'exit status 1' or 'Access is denied'
+                return { error: output || 'Failed to switch version' };
+            }
+        } catch (err) {
+            return { error: err.message || err.toString() };
         }
     });
 

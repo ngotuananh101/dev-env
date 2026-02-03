@@ -232,6 +232,126 @@
               class="flex-1 overflow-auto p-3 text-xs font-mono bg-black/50 text-gray-300 border border-gray-700 rounded select-text whitespace-pre-wrap"
             >{{ logContent || 'Log file is empty.' }}</pre>
           </div>
+
+          <!-- NVM Versions Panel -->
+          <div v-if="activePanel === 'versions'" class="h-full flex flex-col overflow-hidden">
+             <!-- Tabs for list mode -->
+             <div class="flex space-x-1 border-b border-gray-700 mb-4 pb-2">
+               <button 
+                 @click="nvmMode = 'installed'" 
+                 class="px-4 py-1.5 text-sm rounded transition-colors"
+                 :class="nvmMode === 'installed' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'"
+               >
+                 Installed
+               </button>
+               <button 
+                 @click="nvmMode = 'available'" 
+                 class="px-4 py-1.5 text-sm rounded transition-colors"
+                 :class="nvmMode === 'available' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'"
+               >
+                 Available
+               </button>
+               
+               <div class="flex-1"></div>
+               
+               <button 
+                  @click="nvmMode === 'installed' ? loadNvmInstalled() : loadNvmAvailable()" 
+                  :disabled="nvmLoading"
+                  class="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-white"
+                  title="Refresh"
+                >
+                  <svg class="w-4 h-4" :class="{ 'animate-spin': nvmLoading }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                  </svg>
+                </button>
+             </div>
+
+             <!-- Installed List -->
+             <div v-if="nvmMode === 'installed'" class="flex-1 overflow-y-auto pr-2 space-y-2">
+                <div v-for="ver in nvmInstalled" :key="ver" 
+                     class="flex items-center justify-between p-3 rounded border transition-colors"
+                     :class="ver === nvmCurrent ? 'bg-green-900/30 border-green-600' : 'bg-[#1e1e1e] border-gray-700 hover:border-gray-600'">
+                  <div class="flex items-center space-x-3">
+                    <span class="text-white font-mono text-sm">{{ ver }}</span>
+                    <span v-if="ver === nvmCurrent" class="px-2 py-0.5 bg-green-600 text-white text-[10px] rounded uppercase font-bold tracking-wider">Current</span>
+                  </div>
+                  
+                  <div class="flex space-x-2">
+                    <button 
+                      v-if="ver !== nvmCurrent"
+                      @click="useNvmVersion(ver)"
+                      :disabled="nvmLoading"
+                      class="px-3 py-1 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-white text-xs"
+                    >
+                      Use
+                    </button>
+                    <button 
+                      v-if="ver !== nvmCurrent"
+                      @click="uninstallNvmVersion(ver)"
+                      :disabled="nvmLoading"
+                      class="px-3 py-1 bg-red-600 hover:bg-red-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-white text-xs"
+                    >
+                      Uninstall
+                    </button>
+                  </div>
+                </div>
+                <div v-if="!nvmLoading && nvmInstalled.length === 0" class="text-center text-gray-500 py-8">
+                   No versions installed.
+                </div>
+             </div>
+
+             <!-- Available List -->
+             <div v-else class="flex-1 flex flex-col overflow-hidden">
+                <div class="flex space-x-4 mb-3 text-xs text-gray-400 border-b border-gray-800 pb-2">
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="radio" v-model="nvmFilter" value="lts" class="text-blue-600 focus:ring-blue-500 bg-gray-700 border-gray-600">
+                        <span>LTS Versions</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="radio" v-model="nvmFilter" value="current" class="text-blue-600 focus:ring-blue-500 bg-gray-700 border-gray-600">
+                        <span>Current Versions</span>
+                    </label>
+                </div>
+                
+                <div class="flex-1 overflow-y-auto pr-2 space-y-2">
+                   <div v-for="ver in (nvmFilter === 'lts' ? nvmAvailableLts : nvmAvailableCurrent)" :key="ver.version" 
+                        class="flex items-center justify-between p-3 bg-[#1e1e1e] rounded border border-gray-700 hover:border-gray-600 transition-colors">
+                     <div>
+                       <div class="flex items-center space-x-2">
+                         <span class="text-white font-mono text-sm">{{ ver.version }}</span>
+                         <span v-if="ver.lts" class="px-1.5 py-0.5 bg-gray-700 text-gray-300 text-[10px] rounded">LTS: {{ ver.lts }}</span>
+                       </div>
+                       <div class="text-[10px] text-gray-500 mt-1">Released: {{ ver.date }}</div>
+                     </div>
+                     
+                     <button 
+                       v-if="isInstalled(ver.version)"
+                       disabled
+                       class="px-3 py-1 bg-gray-700 text-gray-400 rounded text-xs cursor-not-allowed"
+                     >
+                       Installed
+                     </button>
+                     <button 
+                       v-else
+                       @click="installNvmVersion(ver.version)"
+                       :disabled="nvmLoading"
+                       class="px-3 py-1 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-white text-xs"
+                     >
+                       Install
+                     </button>
+                   </div>
+                   
+                   <div v-if="!nvmLoading && (nvmFilter === 'lts' ? nvmAvailableLts : nvmAvailableCurrent).length === 0" class="text-center text-gray-500 py-8">
+                       No versions found.
+                   </div>
+                </div>
+             </div>
+
+             <!-- status message -->
+             <div v-if="nvmStatus" class="mt-2 text-xs text-center" :class="nvmStatusType === 'error' ? 'text-red-400' : 'text-blue-400'">
+                {{ nvmStatus }}
+             </div>
+          </div>
         </div>
       </div>
     </div>
@@ -295,8 +415,24 @@ const menuItems = computed(() => {
     id: 'logs',
     label: 'Logs',
     tip: 'View runtime logs (access, error)',
+    tip: 'View runtime logs (access, error)',
     type: 'logs'
   });
+
+  // NVM Versions
+  if (props.app?.id === 'nvm') {
+      items.push({
+          id: 'versions',
+          label: 'Versions',
+          tip: 'Manage Node.js versions',
+          type: 'versions'
+      });
+      // NVM usually doesn't have a "service" in the Windows Service sense for nvm itself, 
+      // though the active node process is what matters. 
+      // nvm manages PATH symlinks.
+      // We might want to remove 'service' tab for NVM if it confuses users, 
+      // but let's leave it if they configured it as a service/executable checking.
+  }
 
 
 
@@ -320,6 +456,31 @@ const menuItems = computed(() => {
 });
 
 const activePanel = ref('service');
+
+watch(() => props.app, async (newApp) => {
+    if (newApp) {
+        // Default to versions for NVM, service for others
+        if (newApp.id === 'nvm') {
+            activePanel.value = 'versions';
+            await loadNvmInstalled();
+        } else {
+            activePanel.value = 'service';
+        }
+    }
+}, { immediate: true });
+
+// Initial load watch for activePanel to load resources
+watch(activePanel, async (newPanel) => {
+    if (newPanel === 'logs') {
+        await loadLogFiles();
+    } else if (newPanel === 'extensions') {
+        await loadExtensions();
+    } else if (newPanel === 'phpinfo') {
+        await loadPhpInfo();
+    } else if (newPanel === 'versions' && props.app?.id === 'nvm') {
+        if (nvmInstalled.value.length === 0) await loadNvmInstalled();
+    }
+});
 
 const currentMenuItem = computed(() => menuItems.value.find(m => m.id === activePanel.value));
 
@@ -361,6 +522,146 @@ const logContent = ref('');
 const logSize = ref(0);
 const logsLoading = ref(false);
 const logContainer = ref(null);
+
+
+
+// NVM State
+const nvmMode = ref('installed'); // 'installed' | 'available'
+const nvmFilter = ref('lts'); // 'lts' | 'current'
+const nvmInstalled = ref([]);
+const nvmCurrent = ref('');
+const nvmAvailableLts = ref([]);
+const nvmAvailableCurrent = ref([]);
+const nvmLoading = ref(false);
+const nvmStatus = ref('');
+const nvmStatusType = ref('info');
+
+const loadNvmInstalled = async () => {
+    nvmLoading.value = true;
+    nvmStatus.value = 'Checking installed versions...';
+    nvmStatusType.value = 'info';
+    try {
+        const result = await window.sysapi.apps.nvmList();
+        if (result.error) {
+            nvmStatus.value = result.error;
+            nvmStatusType.value = 'error';
+        } else {
+            nvmInstalled.value = result.installed || [];
+            nvmCurrent.value = result.current || '';
+            nvmStatus.value = '';
+        }
+    } catch (e) {
+        nvmStatus.value = e.message;
+        nvmStatusType.value = 'error';
+    } finally {
+        nvmLoading.value = false;
+    }
+};
+
+const loadNvmAvailable = async () => {
+    if (nvmAvailableLts.value.length > 0) return; // Cache for session
+    nvmLoading.value = true;
+    nvmStatus.value = 'Fetching available versions...';
+    nvmStatusType.value = 'info';
+    try {
+        const result = await window.sysapi.apps.nvmListAvailable();
+        if (result.error) {
+            nvmStatus.value = result.error;
+            nvmStatusType.value = 'error';
+        } else {
+            nvmAvailableLts.value = result.lts || [];
+            nvmAvailableCurrent.value = result.current || [];
+            nvmStatus.value = '';
+        }
+    } catch (e) {
+        nvmStatus.value = e.message;
+        nvmStatusType.value = 'error';
+    } finally {
+        nvmLoading.value = false;
+    }
+};
+
+const isInstalled = (ver) => {
+    return nvmInstalled.value.includes(ver);
+};
+
+const installNvmVersion = async (version) => {
+    if (nvmLoading.value) return;
+    nvmLoading.value = true;
+    nvmStatus.value = `Installing v${version}... This may take a while.`;
+    nvmStatusType.value = 'info';
+    
+    try {
+        const result = await window.sysapi.apps.nvmInstall(version);
+        if (result.error) {
+            nvmStatus.value = `Install failed: ${result.error}`;
+            nvmStatusType.value = 'error';
+            toast.error(`Failed to install Node.js v${version}`);
+        } else {
+            nvmStatus.value = `Successfully installed v${version}`;
+            nvmStatusType.value = 'success';
+            toast.success(`Node.js v${version} installed`);
+            await loadNvmInstalled();
+            // Switch back to installed view to see it
+            nvmMode.value = 'installed';
+        }
+    } catch (e) {
+        nvmStatus.value = `Error: ${e.message}`;
+        nvmStatusType.value = 'error';
+    } finally {
+        nvmLoading.value = false;
+    }
+};
+
+const uninstallNvmVersion = async (version) => {
+    if (!confirm(`Are you sure you want to uninstall Node.js v${version}?`)) return;
+    
+    nvmLoading.value = true;
+    nvmStatus.value = `Uninstalling v${version}...`;
+    try {
+        const result = await window.sysapi.apps.nvmUninstall(version);
+        if (result.error) {
+            nvmStatus.value = `Uninstall failed: ${result.error}`;
+            nvmStatusType.value = 'error';
+            toast.error(`Failed to uninstall v${version}`);
+        } else {
+            nvmStatus.value = `Uninstalled v${version}`;
+            nvmStatusType.value = 'success';
+            toast.success(`Node.js v${version} uninstalled`);
+            await loadNvmInstalled();
+        }
+    } catch (e) {
+        nvmStatus.value = `Error: ${e.message}`;
+        nvmStatusType.value = 'error';
+    } finally {
+        nvmLoading.value = false;
+    }
+};
+
+const useNvmVersion = async (version) => {
+    nvmLoading.value = true;
+    nvmStatus.value = `Switching to v${version}... (Admin might be required)`;
+    nvmStatusType.value = 'info';
+    
+    try {
+        const result = await window.sysapi.apps.nvmUse(version);
+        if (result.error) {
+            nvmStatus.value = `Switch failed: ${result.error}`;
+            nvmStatusType.value = 'error';
+            toast.error(`Failed to switch to v${version}: ${result.error}`);
+        } else {
+            nvmStatus.value = `Now using v${version}`;
+            nvmStatusType.value = 'success';
+            toast.success(`Switched to Node.js v${version}`);
+            await loadNvmInstalled();
+        }
+    } catch (e) {
+        nvmStatus.value = `Error: ${e.message}`;
+        nvmStatusType.value = 'error';
+    } finally {
+        nvmLoading.value = false;
+    }
+};
 
 const loadPhpInfo = async () => {
     if (!props.app?.id) return;

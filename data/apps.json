@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastUpdated": "2026-02-03T15:08:01.364Z",
+  "lastUpdated": "2026-02-03T15:46:59.921Z",
   "apps": [
     {
       "id": "nvm",
@@ -121,6 +121,14 @@
           "size": 12363215,
           "md5": "4870f836409d98e87fd8153c4617b3f9",
           "sha1": "76d95b781bd9a1c18fc4b5e8c3697bce3d73a5ab"
+        },
+        {
+          "version": "2.4.66",
+          "filename": "httpd-2.4.66-260131-Win64-VS18.zip",
+          "download_url": "https://archive.org/download/dev-env/apache/httpd-2.4.66-260131-Win64-VS18.zip",
+          "size": 12328196,
+          "md5": "3ffc88dbb414e25dbb0c93da277591eb",
+          "sha1": "fe6b214790a1a42e237e5315d9630f42d6bd27bd"
         }
       ]
     },
@@ -389,6 +397,14 @@
       ],
       "versions": [
         {
+          "version": "8.3.30",
+          "filename": "php-8.3.30-nts-Win32-vs16-x64.zip",
+          "download_url": "https://archive.org/download/dev-env/php8.3/php-8.3.30-nts-Win32-vs16-x64.zip",
+          "size": 32258211,
+          "md5": "6b7fdf1b07b3cad7ef88ff0a1e5d72bf",
+          "sha1": "e34796f44d25d2dcea557d6627c9d5dc4200e6b1"
+        },
+        {
           "version": "8.3.29",
           "filename": "php-8.3.29-nts-Win32-vs16-x64.zip",
           "download_url": "https://archive.org/download/dev-env/php8.3/php-8.3.29-nts-Win32-vs16-x64.zip",
@@ -422,6 +438,14 @@
       ],
       "versions": [
         {
+          "version": "8.4.17",
+          "filename": "php-8.4.17-nts-Win32-vs17-x64.zip",
+          "download_url": "https://archive.org/download/dev-env/php8.4/php-8.4.17-nts-Win32-vs17-x64.zip",
+          "size": 33876164,
+          "md5": "520212f79464a668f07df32b81dc9443",
+          "sha1": "d0c6dd9d6d1b264de3cddc04d092e4f4ad790dbf"
+        },
+        {
           "version": "8.4.16",
           "filename": "php-8.4.16-nts-Win32-vs17-x64.zip",
           "download_url": "https://archive.org/download/dev-env/php8.4/php-8.4.16-nts-Win32-vs17-x64.zip",
@@ -454,6 +478,14 @@
         }
       ],
       "versions": [
+        {
+          "version": "8.5.2",
+          "filename": "php-8.5.2-nts-Win32-vs17-x64.zip",
+          "download_url": "https://archive.org/download/dev-env/php8.5/php-8.5.2-nts-Win32-vs17-x64.zip",
+          "size": 34939853,
+          "md5": "cd04fccfcb4f4c5a2c9a7e4cdbc08c1e",
+          "sha1": "0c0a95d1208b34a787fec4727209e469bf0de1a8"
+        },
         {
           "version": "8.5.1",
           "filename": "php-8.5.1-nts-Win32-vs17-x64.zip",

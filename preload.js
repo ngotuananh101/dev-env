@@ -50,6 +50,13 @@ const api = {
         getAppLogs: (appId) => ipcRenderer.invoke('apps-get-logs', appId),
         readAppLog: (appId, filename) => ipcRenderer.invoke('apps-read-log', appId, filename),
         clearAppLog: (appId, filename) => ipcRenderer.invoke('apps-clear-log', appId, filename),
+
+        // NVM Management
+        nvmList: () => ipcRenderer.invoke('nvm-list'),
+        nvmListAvailable: () => ipcRenderer.invoke('nvm-list-available'),
+        nvmInstall: (version) => ipcRenderer.invoke('nvm-install', version),
+        nvmUninstall: (version) => ipcRenderer.invoke('nvm-uninstall', version),
+        nvmUse: (version) => ipcRenderer.invoke('nvm-use', version),
     },
 
     // Database Management
