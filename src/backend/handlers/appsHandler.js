@@ -231,9 +231,14 @@ async function configurePhpMyAdmin(dbManager, context) {
 
                 if (installedPhp && installedPhp.length > 0 && installedPhp[0].custom_args) {
                     const args = installedPhp[0].custom_args;
+                    logApp(`PHP custom_args: ${args}`, 'CONFIG');
                     const portMatch = args.match(/-b\s+[\d\.]+:(\d+)/);
                     if (portMatch) {
-                        phpPort = portMatch[1];
+                        // Ensure we only get digits, although regex (\d+) guarantees it
+                        const extracted = portMatch[1];
+                        // If extracted has non-digits (impossible with \d+ but safety first)
+                        phpPort = extracted.replace(/\D/g, '');
+                        logApp(`Extracted PHP Port: ${phpPort}`, 'CONFIG');
                     }
                 }
 
@@ -884,19 +889,6 @@ function register(ipcMain, context) {
 
                 if (result.error) {
                     return { error: result.error };
-                }
-
-                // Auto-set default PHP version if not set
-                if (appId.startsWith('php')) {
-                    try {
-                        const currentDefault = dbManager.query('SELECT value FROM settings WHERE key = ?', ['default_php_version']);
-                        if (!currentDefault || currentDefault.length === 0 || !currentDefault[0].value) {
-                            dbManager.query('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['default_php_version', version]);
-                            logApp(`Auto-set default PHP version to ${version}`, 'CONFIG');
-                        }
-                    } catch (err) {
-                        console.error('Failed to auto-set default PHP version:', err);
-                    }
                 }
 
                 sendProgress(100, 'Installed!');
