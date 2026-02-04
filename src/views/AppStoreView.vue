@@ -61,11 +61,11 @@
           <tr>
             <th class="p-2 border-b border-gray-700 w-40 min-w-40">Software name</th>
             <th class="p-2 border-b border-gray-700 w-24 min-w-24">Developer</th>
-            <th class="p-2 border-b border-gray-700">Instructions</th>
+            <th class="p-2 border-b border-gray-700 w-40 min-w-40">Instructions</th>
             <th class="p-2 border-b border-gray-700 w-20 min-w-20">Location</th>
             <th class="p-2 border-b border-gray-700 w-16 min-w-16 text-center">Status</th>
             <th class="p-2 border-b border-gray-700 w-24 min-w-24 text-center">Add to PATH</th>
-            <th class="p-2 border-b border-gray-700 w-32 text-center">Operate</th>
+            <th class="p-2 border-b border-gray-700 w-32 min-w-32 text-center">Operate</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-800">
@@ -79,9 +79,8 @@
               </div>
             </td>
             <td class="px-2 py-2 text-yellow-500">{{ app.developer }}</td>
-            <td class="px-2 py-2 text-gray-400 text-xs truncate max-w-md">
+            <td class="px-2 py-2 text-gray-400 text-xs truncate max-w-40 xl:max-w-96 xxl:max-w-full">
               {{ app.description }}
-              <a v-if="app.helpLink" href="#" class="text-blue-400 hover:underline ml-1">>> Help</a>
             </td>
             <td class="px-2 py-2 text-gray-500 text-center">
               <div v-if="app.status === 'installed'" class="flex items-center justify-center space-x-1 cursor-pointer" @click="openLocation(app)">
