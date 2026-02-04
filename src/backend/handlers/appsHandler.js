@@ -285,9 +285,9 @@ async function configurePhpMyAdmin(dbManager, context) {
                 // 4. Generate config.inc.php
                 const configIncPhpContent = `<?php
 
-$cfg['Servers'][$i]['auth_type'] = 'config';
+$cfg['Servers'][$i]['auth_type'] = 'cookie';
 $cfg['Servers'][$i]['host'] = 'localhost';
-$cfg['Servers'][$i]['port'] = ${phpPort};
+$cfg['Servers'][$i]['port'] = 3306;
 $cfg['Servers'][$i]['socket'] = '';
 $cfg['Servers'][$i]['connect_type'] = 'tcp';
 $cfg['Servers'][$i]['compress'] = false;
