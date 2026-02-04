@@ -733,14 +733,6 @@ function register(ipcMain, context) {
                                 await dbManager.query("UPDATE settings SET value = ? WHERE key = 'default_php_version'", [phpVersion]);
                                 logApp(`Default PHP version updated to ${phpVersion}`, 'CONFIG');
                             }
-
-                            // Check phpMyadmin is installed
-                            const phpMyAdminInstalled = await dbManager.query("SELECT * FROM installed_apps WHERE app_id = 'phpmyadmin'");
-                            if (phpMyAdminInstalled.length > 0) {
-                                logApp(`phpMyAdmin already installed, re-configuring...`, 'CONFIG');
-                                // Re-configure phpMyAdmin
-                                await configurePhpMyAdmin(dbManager, context);
-                            }
                         } else if (appId === 'apache') {
                             logApp('Configuring Apache...', 'CONFIG');
                             try {
@@ -753,8 +745,23 @@ function register(ipcMain, context) {
 
                                     // Prepare paths (convert to forward slashes for Apache config)
                                     const serverRootSlash = serverRoot.replace(/\\/g, '/');
-                                    const htdocsPathSlash = path.join(context.appDir, 'htdocs').replace(/\\/g, '/');
-                                    const cgiBinPathSlash = path.join(serverRoot, 'cgi-bin').replace(/\\/g, '/');
+                                    // Make sure htdocs exists
+                                    const htdocsPath = path.join(context.appDir, 'htdocs');
+                                    if (!fs.existsSync(htdocsPath)) {
+                                        await fsPromises.mkdir(htdocsPath, { recursive: true });
+                                    }
+                                    const htdocsPathSlash = htdocsPath.replace(/\\/g, '/');
+                                    // Make sure cgi-bin exists
+                                    const cgiBinPath = path.join(serverRoot, 'cgi-bin');
+                                    if (!fs.existsSync(cgiBinPath)) {
+                                        await fsPromises.mkdir(cgiBinPath, { recursive: true });
+                                    }
+                                    const cgiBinPathSlash = cgiBinPath.replace(/\\/g, '/');
+                                    // Make sure logs directory exists
+                                    const logsPath = path.join(serverRoot, 'logs');
+                                    if (!fs.existsSync(logsPath)) {
+                                        await fsPromises.mkdir(logsPath, { recursive: true });
+                                    }
 
                                     // Ensure sites directory exists
                                     const sitesDir = path.join(context.appDir, 'sites');
@@ -894,6 +901,8 @@ function register(ipcMain, context) {
 
                 sendProgress(100, 'Installed!');
                 logApp(`Successfully installed ${appId}`, 'INSTALL');
+
+                await configurePhpMyAdmin(dbManager, context);
 
                 return { success: true, installPath: appInstallDir, execPath, cliPath };
             } catch (error) {
