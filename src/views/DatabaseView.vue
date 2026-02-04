@@ -59,6 +59,17 @@
             <ExternalLink class="w-3 h-3" />
             <span>pgAdmin</span>
           </button>
+
+          <!-- phpMyAdmin Button -->
+          <button 
+            v-if="(currentDbApp?.id === 'mysql' || currentDbApp?.id === 'mariadb') && isPhpMyAdminInstalled"
+            @click="openPhpMyAdmin"
+            class="flex items-center space-x-1 px-3 py-1.5 bg-yellow-600 hover:bg-yellow-500 rounded text-white text-xs border border-yellow-500"
+            title="Open phpMyAdmin"
+          >
+            <ExternalLink class="w-3 h-3" />
+            <span>phpMyAdmin</span>
+          </button>
         </div>
 
         <div class="flex items-center space-x-2">
@@ -319,6 +330,7 @@ const databases = ref([]);
 const users = ref([]);
 const newDbName = ref('');
 const userPasswords = ref({});
+const isPhpMyAdminInstalled = ref(false);
 
 // Available tabs based on installed DB apps
 const availableTabs = computed(() => {
@@ -340,6 +352,12 @@ const loadDbApps = async () => {
     const result = await window.sysapi.db.query(
       "SELECT * FROM installed_apps WHERE app_id IN ('mysql', 'mariadb', 'postgresql')"
     );
+
+    // Check for phpMyAdmin
+    const pmaResult = await window.sysapi.db.query(
+      "SELECT * FROM installed_apps WHERE app_id = 'phpmyadmin'"
+    );
+    isPhpMyAdminInstalled.value = pmaResult && pmaResult.length > 0;
     
     if (result && Array.isArray(result)) {
       dbApps.value = result.map(app => ({
@@ -479,6 +497,10 @@ const openPgAdmin = async () => {
     console.error('Open pgAdmin error:', err);
     toast.error(err.message);
   }
+};
+
+const openPhpMyAdmin = () => {
+  window.sysapi.sites.openBrowser('http://localhost/phpmyadmin');
 };
 
 const dropDatabase = async (dbName) => {

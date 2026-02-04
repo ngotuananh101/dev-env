@@ -89,7 +89,7 @@
               <span v-else class="text-gray-500">--</span>
             </td>
             <td class="px-2 py-2 text-center">
-              <div v-if="app.status === 'installed' && app.execPath && !['nvm'].includes(app.id)" class="flex items-center justify-center space-x-1">
+              <div v-if="app.status === 'installed' && app.execPath && !['nvm', 'phpmyadmin'].includes(app.id)" class="flex items-center justify-center space-x-1">
                 <!-- Service is running -->
                 <template v-if="app.serviceRunning">
                   <button 

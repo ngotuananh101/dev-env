@@ -633,9 +633,13 @@ function register(ipcMain, context) {
     });
 
     // Open site in browser
-    ipcMain.handle('sites-open-browser', async (event, domain) => {
+    ipcMain.handle('sites-open-browser', async (event, urlOrDomain) => {
         const { shell } = require('electron');
-        await shell.openExternal(`http://${domain}`);
+        let target = urlOrDomain;
+        if (!target.startsWith('http://') && !target.startsWith('https://')) {
+            target = `http://${target}`;
+        }
+        await shell.openExternal(target);
         return { success: true };
     });
 
