@@ -95,24 +95,56 @@ async function startAppService(appId, execPath, args) {
         if (appId === 'mysql' || appId === 'mariadb') {
             const dataDir = path.join(execDir, '..', 'data');
             if (!fs.existsSync(dataDir)) {
-                logApp(`MySQL data directory not found at ${dataDir}. Initializing...`, 'SERVICE');
+                logApp(`${appId === 'mariadb' ? 'MariaDB' : 'MySQL'} data directory not found at ${dataDir}. Initializing...`, 'SERVICE');
 
                 try {
-                    const initArgs = ['--initialize-insecure', '--console'];
+                    // Create data directory first
+                    fs.mkdirSync(dataDir, { recursive: true });
+                    logApp(`Created data directory: ${dataDir}`, 'SERVICE');
+
                     const baseDir = path.resolve(execDir, '..');
-                    initArgs.push(`--basedir=${baseDir}`);
-                    initArgs.push(`--datadir=${dataDir}`);
 
-                    logApp(`Running initialization: ${execPathNormalized} ${initArgs.join(' ')}`, 'SERVICE');
+                    if (appId === 'mariadb') {
+                        // MariaDB uses mariadb-install-db.exe or mysql_install_db.exe
+                        const mariadbInstallDb = path.join(execDir, 'mariadb-install-db.exe');
+                        const mysqlInstallDb = path.join(execDir, 'mysql_install_db.exe');
 
-                    execSync(`"${execPathNormalized}" ${initArgs.join(' ')}`, {
-                        cwd: execDir,
-                        stdio: 'inherit'
-                    });
+                        let installDbPath = null;
+                        if (fs.existsSync(mariadbInstallDb)) {
+                            installDbPath = mariadbInstallDb;
+                        } else if (fs.existsSync(mysqlInstallDb)) {
+                            installDbPath = mysqlInstallDb;
+                        }
 
-                    logApp('MySQL initialized successfully.', 'SERVICE');
+                        if (installDbPath) {
+                            const initArgs = [
+                                `--datadir="${dataDir}"`
+                            ];
+                            logApp(`Running initialization: ${installDbPath} ${initArgs.join(' ')}`, 'SERVICE');
+                            execSync(`"${installDbPath}" ${initArgs.join(' ')}`, {
+                                cwd: execDir,
+                                stdio: 'inherit'
+                            });
+                        } else {
+                            // Fallback: Just create the data directory and let MariaDB create files on first start
+                            logApp('MariaDB install script not found. Will attempt first-start initialization.', 'SERVICE');
+                        }
+                    } else {
+                        // MySQL uses --initialize-insecure
+                        const initArgs = ['--initialize-insecure', '--console'];
+                        initArgs.push(`--basedir="${baseDir}"`);
+                        initArgs.push(`--datadir="${dataDir}"`);
+
+                        logApp(`Running initialization: ${execPathNormalized} ${initArgs.join(' ')}`, 'SERVICE');
+                        execSync(`"${execPathNormalized}" ${initArgs.join(' ')}`, {
+                            cwd: execDir,
+                            stdio: 'inherit'
+                        });
+                    }
+
+                    logApp(`${appId === 'mariadb' ? 'MariaDB' : 'MySQL'} initialized successfully.`, 'SERVICE');
                 } catch (initErr) {
-                    logApp(`MySQL initialization failed: ${initErr.message}`, 'ERROR');
+                    logApp(`${appId === 'mariadb' ? 'MariaDB' : 'MySQL'} initialization failed: ${initErr.message}`, 'ERROR');
                     return { error: `Failed to initialize database: ${initErr.message}` };
                 }
             }
