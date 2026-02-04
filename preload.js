@@ -57,6 +57,7 @@ const api = {
         nvmInstall: (version) => ipcRenderer.invoke('nvm-install', version),
         nvmUninstall: (version) => ipcRenderer.invoke('nvm-uninstall', version),
         nvmUse: (version) => ipcRenderer.invoke('nvm-use', version),
+        updateDefaultPhp: (version) => ipcRenderer.invoke('apps-update-default-php', version),
     },
 
     // Database Management

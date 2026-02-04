@@ -314,10 +314,17 @@ const saveAllSettings = async () => {
             }
         }
         
-        // Save all settings to database
-        await dbStore.saveSetting('default_php_version', settings.value.default_php_version);
+        // Local update for default_php_version with side effects (phpMyAdmin config)
+        if (settings.value.default_php_version !== dbStore.settings.default_php_version) {
+            const result = await window.sysapi.apps.updateDefaultPhp(settings.value.default_php_version);
+            if (result.error) throw new Error(result.error);
+        }
+
         await dbStore.saveSetting('site_template', settings.value.site_template);
         await dbStore.saveSetting('site_auto_create', settings.value.site_auto_create);
+        
+        // Reload settings to ensure store is in sync
+        await dbStore.loadSettings();
         
         toast.success('Settings saved successfully!');
     } catch (error) {

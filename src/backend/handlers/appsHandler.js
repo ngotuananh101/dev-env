@@ -188,6 +188,108 @@ function compareVersions(a, b) {
 }
 
 /**
+ * Post-install/Re-configure phpMyAdmin
+ * @param {Object} dbManager - Database Manager
+ * @param {Object} context - App Context
+ */
+async function configurePhpMyAdmin(dbManager, context) {
+    const { appDir } = context;
+    const fs = require('fs');
+    const fsPromises = fs.promises;
+    const path = require('path');
+
+    logApp('Configuring phpMyAdmin...', 'CONFIG');
+
+    try {
+        // Find phpMyAdmin install path
+        const apps = dbManager.query("SELECT * FROM installed_apps WHERE app_id = 'phpmyadmin'");
+        if (!apps || apps.length === 0) {
+            // Not installed, nothing to do
+            return;
+        }
+
+        const app = apps[0];
+        const execPath = app.exec_path;
+        if (!execPath) return;
+
+        const phpMyAdminRoot = path.dirname(execPath);
+        const phpMyAdminRootSlash = phpMyAdminRoot.replace(/\\/g, '/');
+
+        // 1. Get Default PHP Version
+        const defaultPhpSettings = dbManager.query("SELECT value FROM settings WHERE key = 'default_php_version'");
+        if (defaultPhpSettings && defaultPhpSettings.length > 0) {
+            const phpVersion = defaultPhpSettings[0].value; // e.g. "8.2" or "8.2.30"
+            // Match major.minor for id
+            const versionMatch = phpVersion.match(/^(\d+\.\d+)/);
+            if (versionMatch) {
+                const shortVersion = versionMatch[1];
+                const phpAppId = `php${shortVersion}`; // e.g. php8.2
+
+                // 2. Get PHP Port from installed app args
+                const installedPhp = dbManager.query("SELECT custom_args FROM installed_apps WHERE app_id = ?", [phpAppId]);
+                let phpPort = '9000'; // Default fallback
+
+                if (installedPhp && installedPhp.length > 0 && installedPhp[0].custom_args) {
+                    const args = installedPhp[0].custom_args;
+                    const portMatch = args.match(/-b\s+[\d\.]+:(\d+)/);
+                    if (portMatch) {
+                        phpPort = portMatch[1];
+                    }
+                }
+
+                // 3. Generate Configs
+
+                // Nginx
+                const nginxConfigContent = `location ^~ /phpmyadmin/ {
+    alias "${phpMyAdminRootSlash}/";
+    index index.php index.html index.htm;
+
+    location ~ \\.php$ {
+        if (!-f $request_filename) { return 404; }
+        fastcgi_pass   127.0.0.1:${phpPort};
+        fastcgi_index  index.php;
+        include        fastcgi_params;
+        fastcgi_param  SCRIPT_FILENAME $request_filename;
+    }
+}`;
+                const nginxStaticDir = path.join(appDir, 'static', 'nginx');
+                if (!fs.existsSync(nginxStaticDir)) {
+                    await fsPromises.mkdir(nginxStaticDir, { recursive: true });
+                }
+                await fsPromises.writeFile(path.join(nginxStaticDir, 'phpmyadmin.conf'), nginxConfigContent, 'utf-8');
+                logApp(`phpMyAdmin Nginx config created (PHP ${shortVersion} :${phpPort})`, 'CONFIG');
+
+
+                // Apache
+                const apacheConfigContent = `Alias /phpmyadmin "${phpMyAdminRootSlash}"
+<Directory "${phpMyAdminRootSlash}">
+    Options Indexes FollowSymLinks
+    AllowOverride All
+    Require all granted
+    <FilesMatch "\\.php$">
+        SetHandler "proxy:fcgi://127.0.0.1:${phpPort}"
+    </FilesMatch>
+</Directory>`;
+                const apacheStaticDir = path.join(appDir, 'static', 'apache');
+                if (!fs.existsSync(apacheStaticDir)) {
+                    await fsPromises.mkdir(apacheStaticDir, { recursive: true });
+                }
+                await fsPromises.writeFile(path.join(apacheStaticDir, 'phpmyadmin.conf'), apacheConfigContent, 'utf-8');
+                logApp(`phpMyAdmin Apache config created (PHP ${shortVersion} :${phpPort})`, 'CONFIG');
+
+            } else {
+                logApp('Could not determine default PHP version short code', 'WARNING');
+            }
+        } else {
+            logApp('Default PHP version not set, skipping phpMyAdmin config', 'WARNING');
+        }
+    } catch (err) {
+        logApp(`Failed to configure phpMyAdmin: ${err.message}`, 'ERROR');
+        console.error(err);
+    }
+}
+
+/**
  * Register apps-related IPC handlers
  * @param {Electron.IpcMain} ipcMain - Electron IPC Main
  * @param {Object} context - Shared context
@@ -622,6 +724,23 @@ function register(ipcMain, context) {
                             if (fs.existsSync(devConfigPath)) {
                                 fs.copyFileSync(devConfigPath, configPath);
                             }
+                            // Check if current php app is single
+                            const phpAppInstalled = await dbManager.query("SELECT * FROM installed_apps WHERE app_id Like 'php%';");
+                            logApp(`Number of PHP apps installed: ${phpAppInstalled.length}`, 'CONFIG');
+                            if (phpAppInstalled.length === 0) {
+                                // Update default_php_version
+                                const phpVersion = appId.replace('php', '');
+                                await dbManager.query("UPDATE settings SET value = ? WHERE key = 'default_php_version'", [phpVersion]);
+                                logApp(`Default PHP version updated to ${phpVersion}`, 'CONFIG');
+                            }
+
+                            // Check phpMyadmin is installed
+                            const phpMyAdminInstalled = await dbManager.query("SELECT * FROM installed_apps WHERE app_id = 'phpmyadmin'");
+                            if (phpMyAdminInstalled.length > 0) {
+                                logApp(`phpMyAdmin already installed, re-configuring...`, 'CONFIG');
+                                // Re-configure phpMyAdmin
+                                await configurePhpMyAdmin(dbManager, context);
+                            }
                         } else if (appId === 'apache') {
                             logApp('Configuring Apache...', 'CONFIG');
                             try {
@@ -709,6 +828,8 @@ function register(ipcMain, context) {
                                 logApp(`Failed to configure Nginx: ${configErr.message}`, 'ERROR');
                                 console.error('Nginx config error:', configErr);
                             }
+                        } else if (appId === 'phpmyadmin') {
+                            await configurePhpMyAdmin(dbManager, context, execPath);
                         }
                     }
                 }
@@ -1535,6 +1656,26 @@ function register(ipcMain, context) {
         } catch (error) {
             console.error('Failed to clear app log:', error);
             return { error: error.message };
+        }
+    });
+
+    // Update Default PHP Version and re-configure related apps (e.g. phpMyAdmin)
+    ipcMain.handle('apps-update-default-php', async (event, version) => {
+        const dbManager = getDbManager();
+        if (!dbManager) return { error: 'Database not initialized' };
+
+        try {
+            // Update setting
+            dbManager.query('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['default_php_version', version]);
+            logApp(`Default PHP version updated to ${version}`, 'CONFIG');
+
+            // Re-configure phpMyAdmin
+            await configurePhpMyAdmin(dbManager, context);
+
+            return { success: true };
+        } catch (err) {
+            console.error('Failed to update default PHP version:', err);
+            return { error: err.message };
         }
     });
 }
