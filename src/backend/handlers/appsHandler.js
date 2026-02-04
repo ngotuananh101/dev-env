@@ -282,6 +282,21 @@ async function configurePhpMyAdmin(dbManager, context) {
                 await fsPromises.writeFile(path.join(apacheStaticDir, 'phpmyadmin.conf'), apacheConfigContent, 'utf-8');
                 logApp(`phpMyAdmin Apache config created (PHP ${shortVersion} :${phpPort})`, 'CONFIG');
 
+                // 4. Generate config.inc.php
+                const configIncPhpContent = `<?php
+
+$cfg['Servers'][$i]['auth_type'] = 'config';
+$cfg['Servers'][$i]['host'] = 'localhost';
+$cfg['Servers'][$i]['port'] = ${phpPort};
+$cfg['Servers'][$i]['socket'] = '';
+$cfg['Servers'][$i]['connect_type'] = 'tcp';
+$cfg['Servers'][$i]['compress'] = false;
+$cfg['Servers'][$i]['AllowNoPassword'] = true;
+
+?>`;
+                const configIncPhpPath = path.join(phpMyAdminRoot, 'config.inc.php');
+                await fsPromises.writeFile(configIncPhpPath, configIncPhpContent, 'utf-8');
+                logApp(`phpMyAdmin config.inc.php created (PHP ${shortVersion} :${phpPort})`, 'CONFIG');
             } else {
                 logApp('Could not determine default PHP version short code', 'WARNING');
             }
