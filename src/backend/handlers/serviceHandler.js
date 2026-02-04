@@ -240,7 +240,11 @@ async function startAppService(appId, execPath, args) {
 
         if (proc.exitCode !== null) {
             logApp(`Service ${appId} failed to start (exited with ${proc.exitCode})`, 'ERROR');
-            return { error: `Service exited immediately with code ${proc.exitCode}. Check logs.` };
+            // Check logs
+            const logs = serviceLogs.get(appId) || [];
+            const lastLogs = logs.slice(-5).map(l => `[${l.type}] ${l.message}`).join('\n');
+            const errorMsg = `Service exited immediately with code ${proc.exitCode}.\nLast output:\n${lastLogs}`;
+            return { error: errorMsg };
         }
 
         return { success: true, pid: proc.pid };
@@ -296,11 +300,26 @@ function register(ipcMain, context) {
     ipcMain.handle('app-service-restart', async (event, appId, execPath, startArgs, stopArgs) => {
         logApp(`Restarting service: ${appId}`, 'SERVICE');
 
-        if (runningProcesses.has(appId)) {
-            await stopAppService(appId, execPath, stopArgs);
-            // Wait a bit to ensure port is released
-            await new Promise(r => setTimeout(r, 1000));
+        // Fallback: If startArgs is missing, try to fetch from DB
+        if (!startArgs) {
+            const dbManager = getDbManager();
+            if (dbManager) {
+                try {
+                    const apps = dbManager.query('SELECT custom_args FROM installed_apps WHERE app_id = ?', [appId]);
+                    if (apps && apps.length > 0 && apps[0].custom_args) {
+                        startArgs = apps[0].custom_args;
+                        logApp(`Recovered start args for ${appId} from DB: ${startArgs}`, 'WARNING');
+                    }
+                } catch (err) {
+                    logApp(`Failed to fetch fallback args for ${appId}: ${err.message}`, 'ERROR');
+                }
+            }
         }
+
+        // Always try to stop first to ensure clean state
+        await stopAppService(appId, execPath, stopArgs);
+        // Wait a bit to ensure port is released
+        await new Promise(r => setTimeout(r, 1000));
 
         return await startAppService(appId, execPath, startArgs);
     });

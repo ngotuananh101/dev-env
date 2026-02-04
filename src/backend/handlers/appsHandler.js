@@ -9,6 +9,7 @@ const path = require('path');
 const https = require('https');
 const http = require('http');
 const { Worker } = require('worker_threads');
+const crypto = require('crypto');
 const serviceHandler = require('./serviceHandler');
 const { removeHosts } = require('./hostsHandler');
 const { runningNodeProcesses } = require('./sitesHandler');
@@ -283,20 +284,19 @@ async function configurePhpMyAdmin(dbManager, context) {
                 logApp(`phpMyAdmin Apache config created (PHP ${shortVersion} :${phpPort})`, 'CONFIG');
 
                 // 4. Generate config.inc.php
-                const configIncPhpContent = `<?php
-
-$cfg['Servers'][$i]['auth_type'] = 'cookie';
-$cfg['Servers'][$i]['host'] = 'localhost';
-$cfg['Servers'][$i]['port'] = 3306;
-$cfg['Servers'][$i]['socket'] = '';
-$cfg['Servers'][$i]['connect_type'] = 'tcp';
-$cfg['Servers'][$i]['compress'] = false;
-$cfg['Servers'][$i]['AllowNoPassword'] = true;
-
-?>`;
-                const configIncPhpPath = path.join(phpMyAdminRoot, 'config.inc.php');
-                await fsPromises.writeFile(configIncPhpPath, configIncPhpContent, 'utf-8');
+                // Copy config.sample.inc.php
+                await fsPromises.copyFile(path.join(phpMyAdminRoot, 'config.sample.inc.php'), path.join(phpMyAdminRoot, 'config.inc.php'));
                 logApp(`phpMyAdmin config.inc.php created (PHP ${shortVersion} :${phpPort})`, 'CONFIG');
+                // Read file
+                let configIncPhpContent = await fsPromises.readFile(path.join(phpMyAdminRoot, 'config.inc.php'), 'utf-8');
+                // replace $cfg['blowfish_secret'] = ''; /* YOU MUST FILL IN THIS FOR COOKIE AUTH! */
+                const blowfishSecret = crypto.randomBytes(32).toString('hex');
+                configIncPhpContent = configIncPhpContent.replace(`$cfg['blowfish_secret'] = '';`, `$cfg['blowfish_secret'] = '${blowfishSecret}';`);
+                // $cfg['Servers'][$i]['AllowNoPassword'] = false; to true
+                configIncPhpContent = configIncPhpContent.replace(`$cfg['Servers'][$i]['AllowNoPassword'] = false;`, `$cfg['Servers'][$i]['AllowNoPassword'] = true;`);
+                // Write file
+                await fsPromises.writeFile(path.join(phpMyAdminRoot, 'config.inc.php'), configIncPhpContent, 'utf-8');
+                logApp(`phpMyAdmin config.inc.php updated (PHP ${shortVersion} :${phpPort})`, 'CONFIG');
             } else {
                 logApp('Could not determine default PHP version short code', 'WARNING');
             }
