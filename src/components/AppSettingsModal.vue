@@ -404,6 +404,22 @@ const menuItems = computed(() => {
       }];
   }
 
+  if (props.app?.id === 'phpmyadmin') {
+      const configItems = [];
+      if (props.app?.configs) {
+        props.app.configs.forEach(conf => {
+          configItems.push({
+            id: conf.id,
+            label: conf.name,
+            tip: 'Manage ' + conf.name,
+            file: conf.file,
+            type: 'config'
+          });
+        });
+      }
+      return configItems;
+  }
+
   const items = [...baseMenuItems];
   
   // Add config files
@@ -447,7 +463,12 @@ const menuItems = computed(() => {
   return items;
 });
 
-const activePanel = ref(props.app?.id === 'nvm' ? 'versions' : 'service');
+const activePanel = ref('service');
+if (props.app?.id === 'phpmyadmin') {
+  activePanel.value = 'phpmyadmin_config';
+} else if (props.app?.id === 'nvm') {
+  activePanel.value = 'versions';
+}
 
 // Watch for tab changes to load data when user switches tabs
 watch(activePanel, async (newPanel) => {

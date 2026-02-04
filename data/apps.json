@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastUpdated": "2026-02-03T15:51:53.530Z",
+  "lastUpdated": "2026-02-04T16:02:02.485Z",
   "apps": [
     {
       "id": "nvm",
@@ -482,6 +482,54 @@
           "size": 34580983,
           "md5": "49adb917236ac7edd6e9f8e54f977062",
           "sha1": "65482d2cc30642e4f8056a6305373abbbb3da852"
+        }
+      ]
+    },
+    {
+      "id": "phpmyadmin",
+      "name": "phpMyAdmin",
+      "developer": "official",
+      "description": "phpMyAdmin is a free software tool for administering MySQL and MariaDB.",
+      "category": "deployment",
+      "icon": "FileCode",
+      "icon_file": "phpMyAdmin.svg",
+      "iconColor": "text-indigo-500",
+      "autostart": false,
+      "exec_file": "index.php",
+      "cli_file": "index.php",
+      "default_args": "",
+      "configs": [
+        {
+          "id": "phpmyadmin_config",
+          "name": "config.inc.php",
+          "file": "config.inc.php",
+          "type": "php"
+        }
+      ],
+      "versions": [
+        {
+          "version": "stable",
+          "filename": "phpMyAdmin-latest-all-languages.zip",
+          "download_url": "https://www.phpmyadmin.net/downloads/phpMyAdmin-latest-all-languages.zip",
+          "size": 16462643,
+          "md5": "",
+          "sha1": ""
+        },
+        {
+          "version": "5.2+snapshot",
+          "filename": "phpMyAdmin-5.2+snapshot-all-languages.zip",
+          "download_url": "https://files.phpmyadmin.net/snapshots/phpMyAdmin-5.2+snapshot-all-languages.zip",
+          "size": 16567500,
+          "md5": "",
+          "sha1": ""
+        },
+        {
+          "version": "6.0+snapshot",
+          "filename": "phpMyAdmin-6.0+snapshot-all-languages.zip",
+          "download_url": "https://files.phpmyadmin.net/snapshots/phpMyAdmin-6.0+snapshot-all-languages.zip",
+          "size": 20237516,
+          "md5": "",
+          "sha1": ""
         }
       ]
     }

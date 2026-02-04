@@ -125,7 +125,7 @@
               <span v-else class="text-gray-500">--</span>
             </td>
             <td class="px-2 py-2 text-center">
-              <label v-if="app.status === 'installed' && app.installPath" class="relative inline-flex items-center cursor-pointer" @click.prevent="togglePath(app)">
+              <label v-if="app.status === 'installed' && app.installPath && app.id !== 'phpmyadmin'" class="relative inline-flex items-center cursor-pointer" @click.prevent="togglePath(app)">
                 <input type="checkbox" :checked="app.inPath" class="sr-only peer">
                 <div class="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
               </label>
@@ -207,7 +207,7 @@
                   class="text-blue-500"
                 >
                 <div class="flex-1">
-                  <span class="text-white">v{{ ver.version }}</span>
+                  <span class="text-white">{{ ver.version }}</span>
                   <span class="text-gray-500 text-xs ml-2">{{ formatSize(ver.size) }}</span>
                 </div>
               </label>
@@ -490,6 +490,21 @@ const installApp = (app) => {
 };
 
 const openInstallModal = (app) => {
+  // Check dependencies for phpMyAdmin
+  if (app.id === 'phpmyadmin') {
+      const phpInstalled = apps.value.some(a => a.id.startsWith('php') && a.status === 'installed');
+      const webServerInstalled = apps.value.some(a => (a.id === 'apache' || a.id === 'nginx') && a.status === 'installed');
+
+      if (!phpInstalled || !webServerInstalled) {
+          const missing = [];
+          if (!phpInstalled) missing.push('PHP');
+          if (!webServerInstalled) missing.push('Web Server (Apache/Nginx)');
+          
+          toast.error(`Cannot install phpMyAdmin. Missing dependencies: ${missing.join(', ')}`);
+          return;
+      }
+  }
+
   installingApp.value = app;
   selectedVersion.value = app.versions && app.versions.length > 0 ? app.versions[0] : null;
   showInstallModal.value = true;

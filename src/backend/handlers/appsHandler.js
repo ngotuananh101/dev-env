@@ -644,11 +644,19 @@ function register(ipcMain, context) {
                                     }
                                     const sitesPathSlash = path.join(sitesDir, '*.conf').replace(/\\/g, '/');
 
+                                    // static app path
+                                    const staticAppPath = path.join(context.appDir, 'static', 'apache');
+                                    if (!fs.existsSync(staticAppPath)) {
+                                        await fsPromises.mkdir(staticAppPath, { recursive: true });
+                                    }
+                                    const staticAppPathSlash = path.join(staticAppPath, '*.conf').replace(/\\/g, '/');
+
                                     // Perform replacements
                                     configContent = configContent.replace(/\[execPath\]/g, serverRootSlash);
                                     configContent = configContent.replace(/\[htdocsPath\]/g, htdocsPathSlash);
                                     configContent = configContent.replace(/\[cgiBinPath\]/g, cgiBinPathSlash);
                                     configContent = configContent.replace(/\[siteEnablePath\]/g, `IncludeOptional "${sitesPathSlash}"`);
+                                    configContent = configContent.replace(/\[staticAppPath\]/g, `IncludeOptional "${staticAppPathSlash}"`);
 
                                     // Write config
                                     await fsPromises.writeFile(targetPath, configContent, 'utf-8');
@@ -677,8 +685,16 @@ function register(ipcMain, context) {
                                     }
                                     const sitesPathSlash = path.join(sitesDir, '*.conf').replace(/\\/g, '/');
 
+                                    // static app path
+                                    const staticAppPath = path.join(context.appDir, 'static', 'nginx');
+                                    if (!fs.existsSync(staticAppPath)) {
+                                        await fsPromises.mkdir(staticAppPath, { recursive: true });
+                                    }
+                                    const staticAppPathSlash = path.join(staticAppPath, '*.conf').replace(/\\/g, '/');
+
                                     // Perform replacement
                                     configContent = configContent.replace(/\[siteEnablePath\]/g, `include "${sitesPathSlash}";`);
+                                    configContent = configContent.replace(/\[staticAppPath\]/g, `include "${staticAppPathSlash}";`);
                                     // Update default root "root html;" -> "root newPath;"
                                     // We use a regex to ensure we match the 'root' directive inside location / or server block
                                     configContent = configContent.replace(/root\s+html;/g, `root "${htdocsPathSlash}";`);

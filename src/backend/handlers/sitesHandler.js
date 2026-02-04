@@ -673,11 +673,19 @@ function register(ipcMain, context) {
             }
             const sitesPathSlash = path.join(sitesDir, '*.conf').replace(/\\/g, '/');
 
+            // static app path
+            const staticAppPath = path.join(context.appDir, 'static', 'apache');
+            if (!fs.existsSync(staticAppPath)) {
+                await fsPromises.mkdir(staticAppPath, { recursive: true });
+            }
+            const staticAppPathSlash = path.join(staticAppPath, '*.conf').replace(/\\/g, '/');
+
             // Replacements
             configContent = configContent.replace(/\[execPath\]/g, serverRootSlash);
             configContent = configContent.replace(/\[htdocsPath\]/g, htdocsPathSlash);
             configContent = configContent.replace(/\[cgiBinPath\]/g, cgiBinPathSlash);
             configContent = configContent.replace(/\[siteEnablePath\]/g, `IncludeOptional "${sitesPathSlash}"`);
+            configContent = configContent.replace(/\[staticAppPath\]/g, `IncludeOptional "${staticAppPathSlash}"`);
 
             // Write to httpd.conf
             const targetPath = path.join(appPath, 'conf', 'httpd.conf');
@@ -731,10 +739,15 @@ function register(ipcMain, context) {
                 await fsPromises.mkdir(sitesDir, { recursive: true });
             }
             const sitesPathSlash = path.join(sitesDir, '*.conf').replace(/\\/g, '/');
-
-            // Replacements
-            // Update [siteEnablePath]
             configContent = configContent.replace(/\[siteEnablePath\]/g, `include "${sitesPathSlash}";`);
+
+            // static app path
+            const staticAppPath = path.join(context.appDir, 'static', 'nginx');
+            if (!fs.existsSync(staticAppPath)) {
+                await fsPromises.mkdir(staticAppPath, { recursive: true });
+            }
+            const staticAppPathSlash = path.join(staticAppPath, '*.conf').replace(/\\/g, '/');
+            configContent = configContent.replace(/\[staticAppPath\]/g, `include "${staticAppPathSlash}";`);
 
             // Update default root "root html;" -> "root newPath;"
             // We use a regex to ensure we match the 'root' directive inside location / or server block
