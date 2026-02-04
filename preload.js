@@ -79,6 +79,7 @@ const api = {
         deletePath: (path) => ipcRenderer.invoke('fs-delete-path', path),
         renamePath: (params) => ipcRenderer.invoke('fs-rename-path', params),
         selectFolder: () => ipcRenderer.invoke('fs-select-folder'),
+        findFile: (dirPath, targetFileName) => ipcRenderer.invoke('fs-find-file', { dirPath, targetFileName }),
         onDownloadProgress: (cb) => ipcRenderer.on('download-progress', (e, v) => cb(v)),
         onDownloadComplete: (cb) => ipcRenderer.on('download-complete', (e, v) => cb(v)),
         onDownloadError: (cb) => ipcRenderer.on('download-error', (e, v) => cb(v)),

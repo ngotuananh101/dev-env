@@ -206,6 +206,33 @@ function register(ipcMain, context) {
         }
     });
 
+    // Find file recursively
+    ipcMain.handle('fs-find-file', async (event, { dirPath, targetFileName }) => {
+        try {
+            const findFile = async (dir, target) => {
+                const entries = await fsPromises.readdir(dir, { withFileTypes: true });
+                for (const entry of entries) {
+                    const fullPath = path.join(dir, entry.name);
+                    if (entry.isDirectory()) {
+                        // Avoid scanning node_modules or overly deep structures if necessary, but for app dir it should be fine
+                        const found = await findFile(fullPath, target);
+                        if (found) return found;
+                    } else {
+                        if (entry.name.toLowerCase() === target.toLowerCase()) {
+                            return fullPath;
+                        }
+                    }
+                }
+                return null;
+            };
+
+            const result = await findFile(dirPath, targetFileName);
+            return { path: result };
+        } catch (error) {
+            return { error: error.message };
+        }
+    });
+
     // ========== System PATH Management (using PowerShell) ==========
 
     // Check if a path is in User PATH

@@ -48,6 +48,17 @@
               {{ currentDbApp.name }} {{ currentDbApp.version }}
             </span>
           </div>
+
+          <!-- pgAdmin Button -->
+          <button 
+            v-if="currentDbApp?.id === 'postgresql'"
+            @click="openPgAdmin"
+            class="flex items-center space-x-1 px-3 py-1.5 bg-blue-700 hover:bg-blue-600 rounded text-white text-xs border border-blue-600"
+            title="Open pgAdmin"
+          >
+            <ExternalLink class="w-3 h-3" />
+            <span>pgAdmin</span>
+          </button>
         </div>
 
         <div class="flex items-center space-x-2">
@@ -294,7 +305,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
-import { Plus, RefreshCw, Database, User, X, Loader2, Copy } from 'lucide-vue-next';
+import { Plus, RefreshCw, Database, User, X, Loader2, Copy, ExternalLink } from 'lucide-vue-next';
 import { useToast } from 'vue-toastification';
 
 const toast = useToast();
@@ -336,6 +347,7 @@ const loadDbApps = async () => {
         name: app.app_id === 'mysql' ? 'MySQL' : 
               app.app_id === 'mariadb' ? 'MariaDB' : 'PostgreSQL',
         version: app.installed_version,
+        installPath: app.install_path,
         iconColor: app.app_id === 'mysql' ? 'text-orange-500' : 
                    app.app_id === 'mariadb' ? 'text-cyan-500' : 'text-blue-600'
       }));
@@ -432,6 +444,40 @@ const createDatabase = async () => {
     toast.error(err.message);
   } finally {
     loading.value = false;
+  }
+};
+
+const openPgAdmin = async () => {
+  if (!currentDbApp.value || !currentDbApp.value.installPath) {
+    toast.error('PostgreSQL installation path not found');
+    return;
+  }
+  
+  try {
+    // Search for pgAdmin4.exe in the installation directory
+    const findResult = await window.sysapi.files.findFile(currentDbApp.value.installPath, 'pgAdmin4.exe');
+    
+    if (findResult.error) {
+       toast.error(`Search error: ${findResult.error}`);
+       return;
+    }
+    
+    if (!findResult.path) {
+      toast.error('pgAdmin4.exe not found in PostgreSQL directory');
+      return;
+    }
+
+    const pgAdminPath = findResult.path;
+    
+    const result = await window.sysapi.files.openFile(pgAdminPath);
+    if (result.error) {
+      toast.error(`Failed to open pgAdmin: ${result.error}`);
+    } else {
+      toast.success('Opening pgAdmin...');
+    }
+  } catch (err) {
+    console.error('Open pgAdmin error:', err);
+    toast.error(err.message);
   }
 };
 
