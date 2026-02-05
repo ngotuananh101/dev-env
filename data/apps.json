@@ -194,7 +194,7 @@
         {
           "id": "mariadb_main",
           "name": "MariaDB Config",
-          "file": "../my.ini",
+          "file": "../data/my.ini",
           "type": "mysql"
         }
       ],
