@@ -92,8 +92,6 @@ const loadLogFiles = async () => {
   logSize.value = 0;
 
   try {
-    console.log('Loading logs for app:', props.app);
-
     const result = await window.sysapi.apps.getAppLogs(props.app.id);
     if (result.error) {
       toast.error(`Failed to load logs: ${result.error}`);

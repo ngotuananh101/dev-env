@@ -131,7 +131,7 @@
     <!-- 5. Footer with Pagination -->
     <div class="p-2 border-t border-gray-700 bg-[#252526] flex items-center justify-between text-xs text-gray-400">
       <div>
-        Total {{ filteredApps.length }} apps ({{ installedCount }} installed)
+        Total {{ allFilteredApps.length }} apps ({{ installedCount }} installed)
       </div>
       <div class="flex items-center space-x-2">
         <span class="mr-2">Items per page:</span>
