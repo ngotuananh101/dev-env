@@ -503,7 +503,7 @@
           "id": "phpmyadmin_config",
           "name": "config.inc.php",
           "file": "config.inc.php",
-          "type": "php"
+          "type": "phpmyadmin"
         }
       ],
       "versions": [

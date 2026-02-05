@@ -367,6 +367,7 @@ import 'ace-builds/src-noconflict/mode-nginx';
 import 'ace-builds/src-noconflict/mode-pgsql';
 import 'ace-builds/src-noconflict/mode-ini';
 import 'ace-builds/src-noconflict/mode-apache_conf';
+import 'ace-builds/src-noconflict/mode-php';
 import 'ace-builds/src-noconflict/mode-text';
 import 'ace-builds/src-noconflict/theme-monokai';
 import { useToast } from 'vue-toastification';
@@ -464,14 +465,10 @@ const menuItems = computed(() => {
 });
 
 const activePanel = ref('service');
-if (props.app?.id === 'phpmyadmin') {
-  activePanel.value = 'phpmyadmin_config';
-} else if (props.app?.id === 'nvm') {
-  activePanel.value = 'versions';
-}
 
 // Watch for tab changes to load data when user switches tabs
 watch(activePanel, async (newPanel) => {
+  console.log(newPanel);
     if (newPanel === 'logs') {
         await loadLogFiles();
     } else if (newPanel === 'extensions') {
@@ -481,13 +478,23 @@ watch(activePanel, async (newPanel) => {
     } else if (newPanel === 'versions' && props.app?.id === 'nvm') {
         if (nvmInstalled.value.length === 0) await loadNvmInstalled();
     }
+    // Note: config panels (including phpmyadmin_config) are handled by the watcher below
 });
+if (props.app?.id === 'phpmyadmin') {
+  activePanel.value = 'phpmyadmin_config';
+} else if (props.app?.id === 'nvm') {
+  activePanel.value = 'versions';
+}
 
 // Load initial data on mount
 onMounted(async () => {
     // For NVM, load versions immediately
     if (props.app?.id === 'nvm') {
         await loadNvmInstalled();
+    } else if (props.app?.id === 'phpmyadmin') {
+        // For phpMyAdmin, load config and init editor after mount
+        await loadConfig();
+        await initEditor();
     } else if (props.app?.execPath) {
         // For other apps, check service status
         await checkServiceStatus();
@@ -997,13 +1004,30 @@ const restartService = async () => {
 // Load config
 const loadConfig = async () => {
   const menuItem = currentMenuItem.value;
-  if (!menuItem || !menuItem.file || !props.app?.execPath) return;
+  if (!menuItem || !menuItem.file) {
+    console.log('loadConfig: Missing menuItem or file');
+    return;
+  }
+  if (!props.app?.execPath) {
+    console.log('loadConfig: Missing execPath', props.app);
+    return;
+  }
   
   // Get app directory from execPath (parent directory of executable)
-  const appDir = props.app.execPath.substring(0, props.app.execPath.lastIndexOf('\\'));
+  // Support both forward slash and backslash
+  const lastBackslash = props.app.execPath.lastIndexOf('\\');
+  const lastForwardSlash = props.app.execPath.lastIndexOf('/');
+  const lastSlash = Math.max(lastBackslash, lastForwardSlash);
+  const appDir = lastSlash > 0 ? props.app.execPath.substring(0, lastSlash) : props.app.execPath;
   
   configLoading.value = true;
+
+  console.log('loadConfig appDir:', appDir, 'file:', menuItem.file);
+  
+
   const result = await window.sysapi.apps.readConfig(appDir, menuItem.file);
+
+  console.log(result);
   
   if (result.error) {
     configMessage.value = `Error: ${result.error}`;
@@ -1087,6 +1111,7 @@ const configModes = {
   postgres: 'ace/mode/ini',
   mysql: 'ace/mode/ini',
   php: 'ace/mode/ini',
+  phpmyadmin: 'ace/mode/php',
   redis: 'ace/mode/ini',
   apache: 'ace/mode/apache_conf',
   default: 'ace/mode/text'
