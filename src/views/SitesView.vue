@@ -4,15 +4,10 @@
     <div class="bg-[#252526] border-b border-gray-700">
       <!-- Tabs -->
       <div class="flex items-center px-4 pt-3 space-x-1">
-        <button 
-          v-for="tab in tabs" 
-          :key="tab.id"
-          @click="activeTab = tab.id"
-          class="px-4 py-2 text-sm rounded-t-md transition-colors"
-          :class="activeTab === tab.id 
-            ? 'bg-background text-white border-t border-l border-r border-gray-700' 
-            : 'text-gray-400 hover:text-white hover:bg-gray-800'"
-        >
+        <button v-for="tab in tabs" :key="tab.id" @click="activeTab = tab.id"
+          class="px-4 py-2 text-sm rounded-t-md transition-colors" :class="activeTab === tab.id
+            ? 'bg-background text-white border-t border-l border-r border-gray-700'
+            : 'text-gray-400 hover:text-white hover:bg-gray-800'">
           {{ tab.name }}
         </button>
       </div>
@@ -20,53 +15,43 @@
       <!-- Toolbar -->
       <div class="flex items-center justify-between p-3 bg-background border-t border-gray-700">
         <div class="flex items-center space-x-2">
-          <button 
-            @click="showAddModal = true"
-            class="flex items-center space-x-1 px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded text-white text-xs"
-          >
+          <button @click="showAddModal = true"
+            class="flex items-center space-x-1 px-3 py-2 bg-green-600 hover:bg-green-500 rounded text-white text-xs">
             <Plus class="w-3 h-3" />
             <span>Add site</span>
           </button>
 
-          <button 
-            v-if="activeTab === 'php' && webserver.apache"
-            @click="changeApacheRoot"
-            class="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs border border-gray-600"
-            title="Change Apache Root"
-          >
+          <button v-if="activeTab === 'php' && webserver.apache" @click="changeApacheRoot"
+            class="flex items-center space-x-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs border border-gray-600"
+            title="Change Apache Root">
             <FolderCog class="w-3 h-3 text-yellow-500" />
           </button>
-          
-          <button 
-            v-if="activeTab === 'php' && webserver.nginx && !webserver.apache"
-            @click="changeNginxRoot"
-            class="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs border border-gray-600"
-            title="Change Nginx Root"
-          >
+
+          <button v-if="activeTab === 'php' && webserver.nginx && !webserver.apache" @click="changeNginxRoot"
+            class="flex items-center space-x-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs border border-gray-600"
+            title="Change Nginx Root">
             <FolderCog class="w-3 h-3 text-yellow-500" />
           </button>
           <!-- Webserver indicator -->
-          <div class="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 rounded text-xs">
+          <div class="flex items-center space-x-1 px-3 py-2 bg-gray-700 rounded text-xs">
             <Server class="w-3 h-3 text-yellow-400" />
             <span v-if="webserver.nginx && webserver.nginx.installed_version" class="text-green-400">
               Nginx {{ webserver.nginx.installed_version }}
             </span>
             <span v-else-if="webserver.nginx">Nginx</span>
-            
+
             <template v-else-if="webserver.apache">
               <span v-if="webserver.apache.installed_version" class="text-green-400">
                 Apache {{ webserver.apache.installed_version }}
               </span>
               <span v-else>Apache</span>
             </template>
-            
+
             <span v-else class="text-gray-400">No webserver</span>
           </div>
 
-          <button 
-            @click="loadSites"
-            class="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs"
-          >
+          <button @click="loadSites"
+            class="flex items-center space-x-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs">
             <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': isLoading }" />
             <span>Reload</span>
           </button>
@@ -75,12 +60,8 @@
         <div class="flex items-center space-x-2">
           <div class="relative">
             <Search class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input 
-              v-model="searchQuery"
-              type="text" 
-              placeholder="Search domain..."
-              class="pl-9 pr-4 py-1.5 bg-gray-700 border border-gray-600 rounded text-sm text-white placeholder-gray-400 w-48"
-            />
+            <input v-model="searchQuery" type="text" placeholder="Search domain..."
+              class="pl-9 pr-4 py-1.5 bg-gray-700 border border-gray-600 rounded text-sm text-white placeholder-gray-400 w-48" />
           </div>
         </div>
       </div>
@@ -110,11 +91,7 @@
               </div>
             </td>
           </tr>
-          <tr 
-            v-for="site in filteredSites" 
-            :key="site.id"
-            class="border-b border-gray-800 hover:bg-gray-800/50"
-          >
+          <tr v-for="site in filteredSites" :key="site.id" class="border-b border-gray-800 hover:bg-gray-800/50">
             <!-- Site name -->
             <td class="px-3 py-2">
               <div class="flex items-center space-x-2">
@@ -122,10 +99,8 @@
                 <div>
                   <div class="flex items-center space-x-1">
                     <span class="text-white font-medium">{{ site.domain }}</span>
-                    <ExternalLink 
-                      class="w-3 h-3 text-gray-400 hover:text-blue-400 cursor-pointer" 
-                      @click="openInBrowser(site.domain)"
-                    />
+                    <ExternalLink class="w-3 h-3 text-gray-400 hover:text-blue-400 cursor-pointer"
+                      @click="openInBrowser(site.domain)" />
                   </div>
                   <div class="text-gray-500 text-[10px]">{{ site.name }}</div>
                 </div>
@@ -136,10 +111,7 @@
             <td class="px-3 py-2 text-center">
               <template v-if="site.type === 'node'">
                 <div class="flex items-center justify-center space-x-1">
-                  <div 
-                    class="w-2 h-2 rounded-full"
-                    :class="site.processRunning ? 'bg-green-500' : 'bg-gray-500'"
-                  ></div>
+                  <div class="w-2 h-2 rounded-full" :class="site.processRunning ? 'bg-green-500' : 'bg-gray-500'"></div>
                   <span :class="site.processRunning ? 'text-green-400' : 'text-gray-400'">
                     {{ site.processRunning ? 'Running' : 'Stopped' }}
                   </span>
@@ -147,12 +119,9 @@
               </template>
               <template v-else-if="site.type === 'php'">
                 <div class="inline-block text-left">
-                  <select 
-                    :value="site.php_version" 
-                    @change="changePhpVersion(site, $event.target.value)"
+                  <select :value="site.php_version" @change="changePhpVersion(site, $event.target.value)"
                     :disabled="site.updatingPhp"
-                    class="bg-gray-700 text-white text-xs rounded px-2 py-1 border border-gray-600 focus:outline-none focus:border-blue-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed appearance-none pr-4"
-                  >
+                    class="bg-gray-700 text-white text-xs rounded px-2 py-1 border border-gray-600 focus:outline-none focus:border-blue-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed appearance-none pr-4">
                     <option v-for="ver in phpVersions" :key="ver" :value="ver">{{ ver }}</option>
                   </select>
                   <div class="pointer-events-none inset-y-0 right-0 flex items-center px-1.5 text-gray-400">
@@ -170,42 +139,25 @@
               <div class="flex items-center justify-center space-x-2">
                 <!-- Node: Start/Stop -->
                 <template v-if="site.type === 'node'">
-                  <button 
-                    v-if="!site.processRunning"
-                    @click="startNodeSite(site)"
-                    :disabled="site.loading"
-                    class="p-1 hover:bg-green-500/20 rounded"
-                    title="Start"
-                  >
+                  <button v-if="!site.processRunning" @click="startNodeSite(site)" :disabled="site.loading"
+                    class="p-1 hover:bg-green-500/20 rounded" title="Start">
                     <Play class="w-3.5 h-3.5 text-green-500" />
                   </button>
-                  <button 
-                    v-else
-                    @click="stopNodeSite(site)"
-                    :disabled="site.loading"
-                    class="p-1 hover:bg-red-500/20 rounded"
-                    title="Stop"
-                  >
+                  <button v-else @click="stopNodeSite(site)" :disabled="site.loading"
+                    class="p-1 hover:bg-red-500/20 rounded" title="Stop">
                     <Square class="w-3.5 h-3.5 text-red-500" />
                   </button>
                 </template>
 
                 <!-- Open folder -->
-                <button 
-                  v-if="site.root_path"
-                  @click="openFolder(site.root_path)"
-                  class="p-1 hover:bg-yellow-500/20 rounded"
-                  title="Open folder"
-                >
+                <button v-if="site.root_path" @click="openFolder(site.root_path)"
+                  class="p-1 hover:bg-yellow-500/20 rounded" title="Open folder">
                   <Folder class="w-3.5 h-3.5 text-yellow-500" />
                 </button>
 
                 <!-- Open in browser -->
-                <button 
-                  @click="openInBrowser(site.domain)"
-                  class="p-1 hover:bg-blue-500/20 rounded"
-                  title="Open in browser"
-                >
+                <button @click="openInBrowser(site.domain)" class="p-1 hover:bg-blue-500/20 rounded"
+                  title="Open in browser">
                   <Globe class="w-3.5 h-3.5 text-blue-500" />
                 </button>
               </div>
@@ -219,22 +171,13 @@
             <!-- Operate -->
             <td class="px-3 py-2 text-center">
               <div class="flex items-center justify-center space-x-2">
-                <button 
-                  @click="openConfig(site)"
-                  class="text-blue-400 hover:text-blue-300 text-xs"
-                >
+                <button @click="openConfig(site)" class="text-blue-400 hover:text-blue-300 text-xs">
                   Conf
                 </button>
-                <button 
-                  @click="showLogs(site)"
-                  class="text-green-400 hover:text-green-300 text-xs"
-                >
+                <button @click="showLogs(site)" class="text-green-400 hover:text-green-300 text-xs">
                   Logs
                 </button>
-                <button 
-                  @click="deleteSite(site)"
-                  class="text-red-400 hover:text-red-300 text-xs"
-                >
+                <button @click="deleteSite(site)" class="text-red-400 hover:text-red-300 text-xs">
                   Delete
                 </button>
               </div>
@@ -255,34 +198,20 @@
     </div>
 
     <!-- Add Site Modal -->
-    <AddSiteModal 
-      v-if="showAddModal" 
-      :type="activeTab"
-      :webserver="webserver"
-      @close="showAddModal = false"
-      @created="onSiteCreated"
-    />
+    <AddSiteModal v-if="showAddModal" :type="activeTab" :webserver="webserver" @close="showAddModal = false"
+      @created="onSiteCreated" />
 
     <!-- Site Config Modal -->
-    <SiteConfigModal 
-      v-if="showConfigModal" 
-      :site="selectedSite"
-      @close="showConfigModal = false"
-      @saved="loadSites"
-    />
+    <SiteConfigModal v-if="showConfigModal" :site="selectedSite" @close="showConfigModal = false" @saved="loadSites" />
 
     <!-- Site Logs Modal -->
-    <SiteLogsModal 
-      v-if="showLogsModal" 
-      :site="selectedSite"
-      @close="showLogsModal = false"
-    />
+    <SiteLogsModal v-if="showLogsModal" :site="selectedSite" @close="showLogsModal = false" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { 
+import {
   Plus, RefreshCw, Search, Server, Globe2, Globe, ExternalLink,
   Folder, Play, Square, FileCode, Terminal, ArrowRightLeft, FolderCog,
   ChevronDown, RotateCw
@@ -319,7 +248,7 @@ const phpVersions = ref([]);
 const filteredSites = computed(() => {
   return sites.value.filter(site => {
     const matchesTab = site.type === activeTab.value;
-    const matchesSearch = !searchQuery.value || 
+    const matchesSearch = !searchQuery.value ||
       site.domain.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
       site.name.toLowerCase().includes(searchQuery.value.toLowerCase());
     return matchesTab && matchesSearch;
@@ -385,7 +314,7 @@ const loadPhpVersions = async () => {
 // Change PHP version
 const changePhpVersion = async (site, newVersion) => {
   if (site.php_version === newVersion) return;
-  
+
   site.updatingPhp = true;
   try {
     const result = await window.sysapi.sites.updatePhpVersion(site.id, newVersion);
@@ -511,12 +440,12 @@ const changeApacheRoot = async () => {
     // Select new folder
     const result = await window.sysapi.files.selectFolder();
     if (!result.path) return;
-    
+
     if (!confirm(`Change Apache DocumentRoot to:\n${result.path}\n\nThis will rewrite httpd.conf!`)) return;
 
     isLoading.value = true;
     const updateResult = await window.sysapi.sites.updateApacheRoot(result.path);
-    
+
     if (updateResult.error) {
       toast.error(`Failed to update: ${updateResult.error}`);
     } else {
@@ -535,12 +464,12 @@ const changeNginxRoot = async () => {
   try {
     const result = await window.sysapi.files.selectFolder();
     if (!result.path) return;
-    
+
     if (!confirm(`Change Nginx root to:\n${result.path}\n\nThis will rewrite nginx.conf!`)) return;
 
     isLoading.value = true;
     const updateResult = await window.sysapi.sites.updateNginxRoot(result.path);
-    
+
     if (updateResult.error) {
       toast.error(`Failed to update: ${updateResult.error}`);
     } else {

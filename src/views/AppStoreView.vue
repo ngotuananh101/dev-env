@@ -5,20 +5,13 @@
       <div class="flex items-center space-x-2">
         <span class="text-gray-400">Search App</span>
         <div class="relative">
-          <input 
-            v-model="searchQuery" 
-            type="text" 
-            placeholder="Supports fuzzy search by application name, field" 
-            class="w-96 bg-[#1e1e1e] border border-gray-600 rounded px-3 py-1.5 pl-8 focus:border-blue-500 focus:outline-none text-gray-200"
-          >
+          <input v-model="searchQuery" type="text" placeholder="Supports fuzzy search by application name, field"
+            class="w-96 bg-[#1e1e1e] border border-gray-600 rounded px-3 py-2 pl-8 focus:border-blue-500 focus:outline-none text-gray-200">
           <Search class="w-4 h-4 absolute left-2 top-1/2 -translate-y-1/2 text-gray-500" />
         </div>
       </div>
-      <button 
-        @click="updateAppList"
-        :disabled="isUpdating"
-        class="flex items-center space-x-1 px-4 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-white text-xs"
-      >
+      <button @click="updateAppList" :disabled="isUpdating"
+        class="flex items-center space-x-1 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-white text-xs">
         <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': isUpdating }" />
         <span>{{ isUpdating ? 'Updating...' : 'Update App List' }}</span>
       </button>
@@ -28,8 +21,8 @@
     <div class="flex items-center space-x-4 p-3 border-b border-gray-700 bg-[#252526]">
       <span class="text-gray-500 text-xs">Recently used</span>
       <div class="flex items-center space-x-3">
-        <div v-for="app in recentlyUsed" :key="app.id" 
-            class="flex items-center space-x-1.5 px-2 py-1 hover:bg-gray-700 rounded cursor-pointer text-xs">
+        <div v-for="app in recentlyUsed" :key="app.id"
+          class="flex items-center space-x-1.5 px-2 py-1 hover:bg-gray-700 rounded cursor-pointer text-xs">
           <img v-if="app.iconContent" :src="app.iconContent" class="w-4 h-4" />
           <component v-else :is="getAppIcon(app.icon)" class="w-4 h-4" :class="app.iconColor" />
           <span>{{ app.name }}</span>
@@ -40,16 +33,12 @@
     <!-- 3. Category Tabs -->
     <div class="flex items-center space-x-1 p-2 border-b border-gray-700 bg-[#252526]">
       <span class="text-gray-500 text-xs mr-2">App Sort</span>
-      <button 
-        v-for="cat in categories" :key="cat.id"
-        @click="activeCategory = cat.id"
-        :class="[
-          'px-3 py-1 rounded text-xs transition-colors',
-          activeCategory === cat.id 
-            ? 'bg-blue-600 text-white' 
-            : 'bg-[#333] text-gray-300 hover:bg-[#444]'
-        ]"
-      >
+      <button v-for="cat in categories" :key="cat.id" @click="activeCategory = cat.id" :class="[
+        'px-3 py-1 rounded text-xs transition-colors',
+        activeCategory === cat.id
+          ? 'bg-blue-600 text-white'
+          : 'bg-[#333] text-gray-300 hover:bg-[#444]'
+      ]">
         {{ cat.name }}
       </button>
     </div>
@@ -69,8 +58,8 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-800">
-          <tr v-for="app in filteredApps" :key="app.id" 
-              class="hover:bg-[#2a2d3e] transition-colors min-h-[50px] h-[50px]">
+          <tr v-for="app in filteredApps" :key="app.id"
+            class="hover:bg-[#2a2d3e] transition-colors min-h-[50px] h-[50px]">
             <td class="px-2 py-2">
               <div class="flex items-center space-x-2">
                 <img v-if="app.iconContent" :src="app.iconContent" class="w-4 h-4" />
@@ -83,40 +72,30 @@
               {{ app.description }}
             </td>
             <td class="px-2 py-2 text-gray-500 text-center">
-              <div v-if="app.status === 'installed'" class="flex items-center justify-center space-x-1 cursor-pointer" @click="openLocation(app)">
+              <div v-if="app.status === 'installed'" class="flex items-center justify-center space-x-1 cursor-pointer"
+                @click="openLocation(app)">
                 <Folder class="w-4 h-4 text-yellow-500" />
               </div>
               <span v-else class="text-gray-500">--</span>
             </td>
             <td class="px-2 py-2 text-center">
-              <div v-if="app.status === 'installed' && app.execPath && !['nvm', 'phpmyadmin'].includes(app.id)" class="flex items-center justify-center space-x-1">
+              <div v-if="app.status === 'installed' && app.execPath && !['nvm', 'phpmyadmin'].includes(app.id)"
+                class="flex items-center justify-center space-x-1">
                 <!-- Service is running -->
                 <template v-if="app.serviceRunning">
-                  <button 
-                    @click="stopService(app)" 
-                    :disabled="app.serviceLoading"
-                    class="p-1 hover:bg-red-500/20 rounded transition-colors" 
-                    title="Stop Service"
-                  >
+                  <button @click="stopService(app)" :disabled="app.serviceLoading"
+                    class="p-1 hover:bg-red-500/20 rounded transition-colors" title="Stop Service">
                     <Square class="w-4 h-4 text-red-500" />
                   </button>
-                  <button 
-                    @click="restartService(app)" 
-                    :disabled="app.serviceLoading"
-                    class="p-1 hover:bg-yellow-500/20 rounded transition-colors" 
-                    title="Restart Service"
-                  >
+                  <button @click="restartService(app)" :disabled="app.serviceLoading"
+                    class="p-1 hover:bg-yellow-500/20 rounded transition-colors" title="Restart Service">
                     <RotateCw class="w-4 h-4 text-yellow-500" :class="{ 'animate-spin': app.serviceLoading }" />
                   </button>
                 </template>
                 <!-- Service is not running -->
                 <template v-else>
-                  <button 
-                    @click="startService(app)" 
-                    :disabled="app.serviceLoading"
-                    class="p-1 hover:bg-green-500/20 rounded transition-colors" 
-                    title="Start Service"
-                  >
+                  <button @click="startService(app)" :disabled="app.serviceLoading"
+                    class="p-1 hover:bg-green-500/20 rounded transition-colors" title="Start Service">
                     <Play v-if="!app.serviceLoading" class="w-4 h-4 text-green-500" />
                     <RotateCw v-else class="w-4 h-4 text-green-500 animate-spin" />
                   </button>
@@ -125,9 +104,12 @@
               <span v-else class="text-gray-500">--</span>
             </td>
             <td class="px-2 py-2 text-center">
-              <label v-if="app.status === 'installed' && app.installPath && app.id !== 'phpmyadmin'" class="relative inline-flex items-center cursor-pointer" @click.prevent="togglePath(app)">
+              <label v-if="app.status === 'installed' && app.installPath && app.id !== 'phpmyadmin'"
+                class="relative inline-flex items-center cursor-pointer" @click.prevent="togglePath(app)">
                 <input type="checkbox" :checked="app.inPath" class="sr-only peer">
-                <div class="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                <div
+                  class="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600">
+                </div>
               </label>
               <span v-else class="text-gray-500">--</span>
             </td>
@@ -137,7 +119,8 @@
                   <button class="text-blue-400 hover:text-blue-300 text-xs" @click="openSettings(app)">Setting</button>
                   <button class="text-red-400 hover:text-red-300 text-xs" @click="uninstallApp(app)">Uninstall</button>
                 </template>
-                <button v-else class="text-green-400 hover:text-green-300 text-xs" @click="installApp(app)">Install</button>
+                <button v-else class="text-green-400 hover:text-green-300 text-xs"
+                  @click="installApp(app)">Install</button>
               </div>
             </td>
           </tr>
@@ -157,21 +140,22 @@
           <option :value="20">20</option>
           <option :value="50">50</option>
         </select>
-        <button @click="prevPage" :disabled="currentPage === 1" 
-            class="p-1 hover:bg-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed">
+        <button @click="prevPage" :disabled="currentPage === 1"
+          class="p-1 hover:bg-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed">
           <ChevronLeft class="w-3 h-3" />
         </button>
         <span class="bg-gray-700 px-2 py-0.5 rounded text-white">{{ currentPage }}</span>
         <span>/ {{ totalPages }}</span>
-        <button @click="nextPage" :disabled="currentPage === totalPages" 
-            class="p-1 hover:bg-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed">
+        <button @click="nextPage" :disabled="currentPage === totalPages"
+          class="p-1 hover:bg-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed">
           <ChevronRight class="w-3 h-3" />
         </button>
       </div>
     </div>
 
     <!-- Install Modal -->
-    <div v-if="showInstallModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50" @click.self="closeInstallModal">
+    <div v-if="showInstallModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+      @click.self="closeInstallModal">
       <div class="bg-[#2d2d2d] rounded-lg shadow-xl w-[500px] max-w-[90vw]">
         <!-- Header -->
         <div class="flex items-center justify-between p-4 border-b border-gray-700">
@@ -187,25 +171,17 @@
             <span class="text-xl">&times;</span>
           </button>
         </div>
-        
+
         <!-- Body -->
         <div class="p-4">
           <!-- Version Selection -->
           <div v-if="!isInstalling" class="space-y-3">
             <label class="text-gray-300 text-sm">Select Version:</label>
             <div class="space-y-2 max-h-48 overflow-y-auto">
-              <label 
-                v-for="ver in installingApp?.versions" 
-                :key="ver.version"
+              <label v-for="ver in installingApp?.versions" :key="ver.version"
                 class="flex items-center space-x-3 p-3 bg-[#1e1e1e] rounded cursor-pointer hover:bg-[#333] border border-transparent"
-                :class="{ 'border-blue-500 bg-[#333]': selectedVersion?.version === ver.version }"
-              >
-                <input 
-                  type="radio" 
-                  :value="ver" 
-                  v-model="selectedVersion"
-                  class="text-blue-500"
-                >
+                :class="{ 'border-blue-500 bg-[#333]': selectedVersion?.version === ver.version }">
+                <input type="radio" :value="ver" v-model="selectedVersion" class="text-blue-500">
                 <div class="flex-1">
                   <span class="text-white">{{ ver.version }}</span>
                   <span class="text-gray-500 text-xs ml-2">{{ formatSize(ver.size) }}</span>
@@ -213,7 +189,7 @@
               </label>
             </div>
           </div>
-          
+
           <!-- Progress & Logs -->
           <div v-else class="space-y-3">
             <div class="flex items-center justify-between text-sm">
@@ -221,17 +197,13 @@
               <span class="text-gray-400">{{ installProgress }}%</span>
             </div>
             <div class="w-full bg-gray-700 rounded-full h-2">
-              <div 
-                class="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                :style="{ width: installProgress + '%' }"
-              ></div>
+              <div class="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                :style="{ width: installProgress + '%' }"></div>
             </div>
-            
+
             <!-- Logs Container -->
-            <div 
-              ref="logsContainer"
-              class="mt-4 bg-black/50 rounded p-2 h-32 overflow-y-auto font-mono text-xs border border-gray-700"
-            >
+            <div ref="logsContainer"
+              class="mt-4 bg-black/50 rounded p-2 h-32 overflow-y-auto font-mono text-xs border border-gray-700">
               <div v-for="(log, index) in installLogs" :key="index" class="text-gray-400 whitespace-nowrap">
                 {{ log }}
               </div>
@@ -241,39 +213,30 @@
             </div>
           </div>
         </div>
-        
+
         <!-- Footer -->
         <div class="flex justify-end space-x-3 p-4 border-t border-gray-700">
-          <button 
-            @click="isInstalling ? cancelInstall() : closeInstallModal()" 
+          <button @click="isInstalling ? cancelInstall() : closeInstallModal()"
             class="px-4 py-2 bg-gray-600 hover:bg-gray-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-white text-sm"
-            :disabled="isCancelling"
-          >
+            :disabled="isCancelling">
             {{ isCancelling ? 'Cancelling...' : (isInstalling ? 'Cancel' : 'Close') }}
           </button>
-          <button 
-            @click="confirmInstall" 
+          <button @click="confirmInstall"
             class="px-4 py-2 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-white text-sm"
-            :disabled="!selectedVersion || isInstalling"
-          >
+            :disabled="!selectedVersion || isInstalling">
             {{ isInstalling ? 'Installing...' : 'Install' }}
           </button>
         </div>
       </div>
     </div>
     <!-- App Settings Modal -->
-    <AppSettingsModal 
-      v-if="showSettingsModal"
-      :show="showSettingsModal" 
-      :app="settingsApp"
-      @close="closeSettings"
-    />
+    <AppSettingsModal v-if="showSettingsModal" :show="showSettingsModal" :app="settingsApp" @close="closeSettings" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import { 
+import {
   Search, Shield, Database, Server, Globe, Box, Activity,
   Folder, Play, Settings, Terminal, HardDrive, Cpu, FileCode,
   ChevronLeft, ChevronRight, RefreshCw, Square, RotateCw
@@ -314,7 +277,7 @@ onMounted(async () => {
       { id: 'linux-tools', name: 'Linux Tools', icon: 'Terminal', iconColor: 'text-purple-400' }
     ];
   }
-  
+
   // Load apps from JSON file
   await loadApps();
 });
@@ -350,7 +313,7 @@ const loadApps = async () => {
     }
     apps.value = result.apps || [];
     appListVersion.value = result.version || '';
-    
+
     // Check PATH status for installed apps
     for (const app of apps.value) {
       if (app.status === 'installed' && app.installPath) {
@@ -366,7 +329,7 @@ const loadApps = async () => {
         } else if (app.execPath) {
           cliDir = app.execPath.substring(0, app.execPath.lastIndexOf('\\'));
         }
-        
+
         if (cliDir) {
           try {
             const pathResult = await window.sysapi.files.checkPath(cliDir);
@@ -381,19 +344,19 @@ const loadApps = async () => {
       } else {
         app.inPath = false;
       }
-      
+
       // Load icon if available
       if (app.icon_file) {
         window.sysapi.apps.readIcon(app.icon_file).then(iconResult => {
-             if (iconResult && !iconResult.error && iconResult.data) {
-                 app.iconContent = `data:${iconResult.mime};base64,${iconResult.data}`;
-                 
-                 // Update recently used if match
-                 const recent = recentlyUsed.value.find(r => r.id === app.id);
-                 if (recent) {
-                     recent.iconContent = app.iconContent;
-                 }
-             }
+          if (iconResult && !iconResult.error && iconResult.data) {
+            app.iconContent = `data:${iconResult.mime};base64,${iconResult.data}`;
+
+            // Update recently used if match
+            const recent = recentlyUsed.value.find(r => r.id === app.id);
+            if (recent) {
+              recent.iconContent = app.iconContent;
+            }
+          }
         }).catch(err => console.error('Icon load error:', err));
       }
     }
@@ -406,7 +369,7 @@ const loadApps = async () => {
 // Update apps list from remote XML
 const updateAppList = async () => {
   if (isUpdating.value) return;
-  
+
   isUpdating.value = true;
   try {
     const result = await window.sysapi.apps.updateList();
@@ -439,23 +402,23 @@ watch([activeCategory, searchQuery], () => {
 // Filtered Apps (before pagination)
 const allFilteredApps = computed(() => {
   let result = apps.value;
-  
+
   // Filter by category
   if (activeCategory.value === 'installed') {
     result = result.filter(app => app.status === 'installed');
   } else if (activeCategory.value !== 'all') {
     result = result.filter(app => app.category === activeCategory.value);
   }
-  
+
   // Filter by search
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase();
-    result = result.filter(app => 
-      app.name.toLowerCase().includes(query) || 
+    result = result.filter(app =>
+      app.name.toLowerCase().includes(query) ||
       app.description.toLowerCase().includes(query)
     );
   }
-  
+
   return result;
 });
 
@@ -492,17 +455,17 @@ const installApp = (app) => {
 const openInstallModal = (app) => {
   // Check dependencies for phpMyAdmin
   if (app.id === 'phpmyadmin') {
-      const phpInstalled = apps.value.some(a => a.id.startsWith('php') && a.status === 'installed');
-      const webServerInstalled = apps.value.some(a => (a.id === 'apache' || a.id === 'nginx') && a.status === 'installed');
+    const phpInstalled = apps.value.some(a => a.id.startsWith('php') && a.status === 'installed');
+    const webServerInstalled = apps.value.some(a => (a.id === 'apache' || a.id === 'nginx') && a.status === 'installed');
 
-      if (!phpInstalled || !webServerInstalled) {
-          const missing = [];
-          if (!phpInstalled) missing.push('PHP');
-          if (!webServerInstalled) missing.push('Web Server (Apache/Nginx)');
-          
-          toast.error(`Cannot install phpMyAdmin. Missing dependencies: ${missing.join(', ')}`);
-          return;
-      }
+    if (!phpInstalled || !webServerInstalled) {
+      const missing = [];
+      if (!phpInstalled) missing.push('PHP');
+      if (!webServerInstalled) missing.push('Web Server (Apache/Nginx)');
+
+      toast.error(`Cannot install phpMyAdmin. Missing dependencies: ${missing.join(', ')}`);
+      return;
+    }
   }
 
   installingApp.value = app;
@@ -547,18 +510,18 @@ const closeSettings = () => {
 
 const cancelInstall = async () => {
   if (!installingApp.value || isCancelling.value) return;
-  
+
   isCancelling.value = true;
   installStatus.value = 'Cancelling...';
   installLogs.value.push(`[${new Date().toLocaleTimeString()}] Cancelling installation...`);
-  
+
   try {
     const result = await window.sysapi.apps.cancelInstall(installingApp.value.id);
     if (result.success) {
       installLogs.value.push(`[${new Date().toLocaleTimeString()}] Installation cancelled.`);
       installStatus.value = 'Cancelled';
       isInstalling.value = false;
-      
+
       // Close modal after a short delay
       setTimeout(() => {
         showInstallModal.value = false;
@@ -583,18 +546,18 @@ const cancelInstall = async () => {
 
 const confirmInstall = async () => {
   if (!selectedVersion.value || !installingApp.value) return;
-  
+
   isInstalling.value = true;
   installProgress.value = 0;
   installStatus.value = 'Starting...';
   installLogs.value.push(`[${new Date().toLocaleTimeString()}] Starting installation of ${installingApp.value.name}...`);
-  
+
   // Listen for progress updates
   progressCleanup = window.sysapi.apps.onInstallProgress((data) => {
     if (data.appId === installingApp.value.id) {
       installProgress.value = data.progress;
       installStatus.value = data.status;
-      
+
       // Add detailed log if available
       if (data.logDetail) {
         const lastLog = installLogs.value[installLogs.value.length - 1];
@@ -626,11 +589,11 @@ const confirmInstall = async () => {
       }
     }
   });
-  
+
   try {
     const app = installingApp.value;
     const ver = selectedVersion.value;
-    
+
     const result = await window.sysapi.apps.install(
       app.id,
       ver.version,
@@ -642,7 +605,7 @@ const confirmInstall = async () => {
       app.autostart || false,
       app.cli_file || null
     );
-    
+
     if (result.error) {
       // Check if cancelled
       if (result.cancelled) {
@@ -657,24 +620,24 @@ const confirmInstall = async () => {
         }, 1000);
         return;
       }
-      
+
       console.error('Install result error:', result.error);
       installStatus.value = 'Installation Failed';
       installLogs.value.push(`[${new Date().toLocaleTimeString()}] [ERROR] ${result.error}`);
-      
+
       // Show toast error
       toast.error(result.error);
-      
+
       isInstalling.value = false;
       // Scroll to bottom
       if (logsContainer.value) {
         setTimeout(() => {
-            logsContainer.value.scrollTop = logsContainer.value.scrollHeight;
+          logsContainer.value.scrollTop = logsContainer.value.scrollHeight;
         }, 0);
       }
       return;
     }
-    
+
     // Update app status
     app.status = 'installed';
     app.installedVersion = ver.version;
@@ -683,12 +646,12 @@ const confirmInstall = async () => {
     app.cliPath = result.cliPath; // CLI path for PATH operations
     app.customArgs = app.default_args || '';
     addToRecentlyUsed(app);
-    
+
     // Auto-start service if autostart is enabled
     if (app.autostart && result.execPath) {
       installLogs.value.push(`[${new Date().toLocaleTimeString()}] Auto-starting service...`);
       installStatus.value = 'Starting service...';
-      
+
       try {
         const startArgs = app.service_commands?.start || app.default_args || '';
         const startResult = await window.sysapi.apps.startService(app.id, result.execPath, startArgs);
@@ -702,7 +665,7 @@ const confirmInstall = async () => {
         installLogs.value.push(`[${new Date().toLocaleTimeString()}] [WARNING] Failed to start service: ${startErr.message}`);
       }
     }
-    
+
     // Close modal after short delay to show 100%
     setTimeout(() => {
       showInstallModal.value = false;
@@ -714,7 +677,7 @@ const confirmInstall = async () => {
         progressCleanup = null;
       }
     }, 1000);
-    
+
   } catch (error) {
     console.error('Install error:', error);
     alert(`Error: ${error.message}`);
@@ -731,14 +694,14 @@ const formatSize = (bytes) => {
 
 const uninstallApp = async (app) => {
   if (!confirm(`Uninstall ${app.name}?`)) return;
-  
+
   try {
     const result = await window.sysapi.apps.uninstall(app.id);
     if (result.error) {
       alert(`Failed to uninstall ${app.name}: ${result.error}`);
       return;
     }
-    
+
     app.status = 'not_installed';
     app.showOnDashboard = false;
   } catch (error) {
@@ -760,27 +723,27 @@ const togglePath = async (app) => {
       cliDir = app.execPath.substring(0, app.execPath.lastIndexOf('\\'));
     }
   }
-  
+
   if (!cliDir) return;
-  
+
   try {
     const newValue = !app.inPath;
-    
+
     // Show info toast immediately
     toast.info(newValue ? `Adding ${app.name} to PATH...` : `Removing ${app.name} from PATH...`);
-    
+
     let result;
     if (newValue) {
       result = await window.sysapi.files.addToPath(cliDir);
     } else {
       result = await window.sysapi.files.removeFromPath(cliDir);
     }
-    
+
     if (result.error) {
       toast.error(`Failed to update PATH: ${result.error}`);
       return;
     }
-    
+
     app.inPath = newValue;
     toast.success(newValue ? `Added ${cliDir} to PATH` : `Removed from PATH`);
   } catch (error) {
@@ -791,7 +754,7 @@ const togglePath = async (app) => {
 
 const openLocation = async (app) => {
   if (!app.installPath || app.installPath === '--') return;
-  
+
   try {
     const result = await window.sysapi.files.openFile(app.installPath);
     if (result.error) {
@@ -805,12 +768,12 @@ const openLocation = async (app) => {
 const addToRecentlyUsed = (app) => {
   const exists = recentlyUsed.value.find(a => a.id === app.id);
   if (!exists) {
-    recentlyUsed.value.unshift({ 
-        id: app.id, 
-        name: app.name, 
-        icon: app.icon, 
-        iconColor: app.iconColor,
-        iconContent: app.iconContent 
+    recentlyUsed.value.unshift({
+      id: app.id,
+      name: app.name,
+      icon: app.icon,
+      iconColor: app.iconColor,
+      iconContent: app.iconContent
     });
     if (recentlyUsed.value.length > 5) recentlyUsed.value.pop();
     localStorage.setItem('recentlyUsedApps', JSON.stringify(recentlyUsed.value));
@@ -820,11 +783,11 @@ const addToRecentlyUsed = (app) => {
 // ========== Service Controls ==========
 import { useServiceControl } from '../composables/useServiceControl';
 
-const { 
-  startService: startServiceApi, 
-  stopService: stopServiceApi, 
-  restartService: restartServiceApi, 
-  checkServiceStatus 
+const {
+  startService: startServiceApi,
+  stopService: stopServiceApi,
+  restartService: restartServiceApi,
+  checkServiceStatus
 } = useServiceControl();
 
 let statusCheckInterval = null;
@@ -843,13 +806,13 @@ const checkServiceStatuses = async () => {
 const startService = async (app) => {
   if (!app.execPath) return;
   app.serviceLoading = true;
-  
+
   const startArgs = app.serviceCommands?.start || app.customArgs || '';
   const success = await startServiceApi(app, startArgs);
   if (success) {
     app.serviceRunning = true;
   }
-  
+
   app.serviceLoading = false;
 };
 
@@ -857,13 +820,13 @@ const startService = async (app) => {
 const stopService = async (app) => {
   if (!app.execPath) return;
   app.serviceLoading = true;
-  
+
   const stopArgs = app.serviceCommands?.stop || '';
   const success = await stopServiceApi(app, stopArgs);
   if (success) {
     app.serviceRunning = false;
   }
-  
+
   app.serviceLoading = false;
 };
 
@@ -871,14 +834,14 @@ const stopService = async (app) => {
 const restartService = async (app) => {
   if (!app.execPath) return;
   app.serviceLoading = true;
-  
+
   const startArgs = app.serviceCommands?.start || app.customArgs || '';
   const stopArgs = app.serviceCommands?.stop || '';
   const success = await restartServiceApi(app, startArgs, stopArgs);
   if (success) {
     app.serviceRunning = true;
   }
-  
+
   app.serviceLoading = false;
 };
 
@@ -891,13 +854,13 @@ onMounted(async () => {
     // Demo data
     recentlyUsed.value = [];
   }
-  
+
   // Load apps from JSON file
   await loadApps();
-  
+
   // Initial service status check
   await checkServiceStatuses();
-  
+
   // Check service status every 5 seconds
   statusCheckInterval = setInterval(checkServiceStatuses, 5000);
 });

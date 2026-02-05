@@ -8,25 +8,18 @@
         <span class="text-gray-500 text-xs">C:\Windows\System32\drivers\etc\hosts</span>
       </div>
       <div class="flex items-center space-x-2">
-        <button 
-          @click="refreshHosts"
-          class="flex items-center space-x-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded text-white text-xs"
-        >
+        <button @click="refreshHosts"
+          class="flex items-center space-x-1 px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded text-white text-xs">
           <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': isLoading }" />
           <span>Refresh</span>
         </button>
-        <button 
-          @click="saveHosts"
-          :disabled="!hasChanges || isSaving"
-          class="flex items-center space-x-1 px-3 py-1.5 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-white text-xs"
-        >
+        <button @click="saveHosts" :disabled="!hasChanges || isSaving"
+          class="flex items-center space-x-1 px-3 py-2 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-white text-xs">
           <Save class="w-3 h-3" />
           <span>{{ isSaving ? 'Saving...' : 'Save' }}</span>
         </button>
-        <button 
-          @click="openInExplorer"
-          class="flex items-center space-x-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-500 rounded text-white text-xs"
-        >
+        <button @click="openInExplorer"
+          class="flex items-center space-x-1 px-3 py-2 bg-gray-600 hover:bg-gray-500 rounded text-white text-xs">
           <FolderOpen class="w-3 h-3" />
           <span>Open Folder</span>
         </button>
@@ -34,7 +27,8 @@
     </div>
 
     <!-- Info Banner -->
-    <div class="px-4 py-2 bg-yellow-900/30 border-b border-yellow-700/50 text-yellow-300 text-xs flex items-center space-x-2">
+    <div
+      class="px-4 py-2 bg-yellow-900/30 border-b border-yellow-700/50 text-yellow-300 text-xs flex items-center space-x-2">
       <AlertTriangle class="w-4 h-4" />
       <span>Editing hosts file requires Administrator privileges. Save may fail if app is not running as Admin.</span>
     </div>
@@ -92,7 +86,7 @@ const lineCount = computed(() => {
 // Initialize Ace Editor
 const initEditor = () => {
   if (!editorContainer.value) return;
-  
+
   editor = ace.edit(editorContainer.value);
   editor.setTheme('ace/theme/monokai');
   editor.session.setMode('ace/mode/text');
@@ -106,12 +100,12 @@ const initEditor = () => {
     tabSize: 4,
     useSoftTabs: true
   });
-  
+
   // Track changes for reactivity
   editor.session.on('change', () => {
     editorContent.value = editor.getValue();
   });
-  
+
   // Add Ctrl+S shortcut
   editor.commands.addCommand({
     name: 'save',
@@ -148,10 +142,10 @@ const loadHosts = async () => {
 // Save hosts file
 const saveHosts = async () => {
   if (!editor || !hasChanges.value) return;
-  
+
   const content = editor.getValue();
   isSaving.value = true;
-  
+
   try {
     const result = await window.sysapi.hosts.write(content);
     if (result.error) {

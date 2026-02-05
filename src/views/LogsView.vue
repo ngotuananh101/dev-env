@@ -8,24 +8,17 @@
       </div>
       <div class="flex items-center space-x-2">
         <!-- Date Selector -->
-        <select 
-          v-model="selectedDate" 
-          @change="loadLog"
-          class="bg-[#333] border border-gray-600 rounded px-3 py-1.5 text-gray-200 text-sm"
-        >
+        <select v-model="selectedDate" @change="loadLog"
+          class="bg-[#333] border border-gray-600 rounded px-3 py-1.5 text-gray-200 text-sm">
           <option v-for="date in availableDates" :key="date" :value="date">{{ date }}</option>
         </select>
-        <button 
-          @click="refreshLogs"
-          class="flex items-center space-x-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded text-white text-xs"
-        >
+        <button @click="refreshLogs"
+          class="flex items-center space-x-1 px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded text-white text-xs">
           <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': isLoading }" />
           <span>Refresh</span>
         </button>
-        <button 
-          @click="clearLog"
-          class="flex items-center space-x-1 px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded text-white text-xs"
-        >
+        <button @click="clearLog"
+          class="flex items-center space-x-1 px-3 py-2 bg-red-600 hover:bg-red-500 rounded text-white text-xs">
           <Trash2 class="w-3 h-3" />
           <span>Clear</span>
         </button>
@@ -105,7 +98,7 @@ const initDates = async () => {
 // Initialize Ace Editor
 const initEditor = () => {
   if (!editorContainer.value) return;
-  
+
   editor = ace.edit(editorContainer.value);
   editor.setTheme('ace/theme/monokai');
   editor.session.setMode('ace/mode/text');
@@ -119,7 +112,7 @@ const initEditor = () => {
     wrap: false,
     scrollPastEnd: 0.5
   });
-  
+
   // Custom highlighting for log types
   editor.session.setUseWorker(false);
 };
@@ -129,14 +122,14 @@ const updateEditor = () => {
   if (editor) {
     editor.setValue(logContent.value || '// No logs found for this date', -1);
     // Scroll to bottom to see latest logs
-    editor.scrollToLine(editor.session.getLength(), true, true, () => {});
+    editor.scrollToLine(editor.session.getLength(), true, true, () => { });
   }
 };
 
 // Load log file
 const loadLog = async () => {
   if (!selectedDate.value) return;
-  
+
   isLoading.value = true;
   try {
     const result = await window.sysapi.logs.read(selectedDate.value);
@@ -164,7 +157,7 @@ const refreshLogs = async () => {
 // Clear current log
 const clearLog = async () => {
   if (!confirm(`Clear log for ${selectedDate.value}?`)) return;
-  
+
   try {
     const result = await window.sysapi.logs.clear(selectedDate.value);
     if (result.error) {
