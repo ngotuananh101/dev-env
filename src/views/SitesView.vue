@@ -15,11 +15,12 @@
       <!-- Toolbar -->
       <div class="flex items-center justify-between p-3 bg-background border-t border-gray-700">
         <div class="flex items-center space-x-2">
-          <button @click="showAddModal = true"
-            class="flex items-center space-x-1 px-3 py-2 bg-green-600 hover:bg-green-500 rounded text-white text-xs">
-            <Plus class="w-3 h-3" />
-            <span>Add site</span>
-          </button>
+          <BaseButton variant="success" size="sm" @click="showAddModal = true">
+            <template #icon>
+              <Plus class="w-3 h-3" />
+            </template>
+            Add site
+          </BaseButton>
 
           <button v-if="activeTab === 'php' && webserver.apache" @click="changeApacheRoot"
             class="flex items-center space-x-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs border border-gray-600"
@@ -50,11 +51,12 @@
             <span v-else class="text-gray-400">No webserver</span>
           </div>
 
-          <button @click="loadSites"
-            class="flex items-center space-x-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs">
-            <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': isLoading }" />
-            <span>Reload</span>
-          </button>
+          <BaseButton variant="secondary" size="sm" @click="loadSites">
+            <template #icon>
+              <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': isLoading }" />
+            </template>
+            Reload
+          </BaseButton>
         </div>
 
         <div class="flex items-center space-x-2">
@@ -220,6 +222,7 @@ import { useToast } from 'vue-toastification';
 import AddSiteModal from '../components/AddSiteModal.vue';
 import SiteConfigModal from '../components/SiteConfigModal.vue';
 import SiteLogsModal from '../components/SiteLogsModal.vue';
+import BaseButton from '../components/BaseButton.vue';
 
 const toast = useToast();
 

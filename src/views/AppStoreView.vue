@@ -10,11 +10,12 @@
           <Search class="w-4 h-4 absolute left-2 top-1/2 -translate-y-1/2 text-gray-500" />
         </div>
       </div>
-      <button @click="updateAppList" :disabled="isUpdating"
-        class="flex items-center space-x-1 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-white text-xs">
-        <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': isUpdating }" />
-        <span>{{ isUpdating ? 'Updating...' : 'Update App List' }}</span>
-      </button>
+      <BaseButton :disabled="isUpdating" @click="updateAppList" size="sm">
+        <template #icon>
+          <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': isUpdating }" />
+        </template>
+        {{ isUpdating ? 'Updating...' : 'Update App List' }}
+      </BaseButton>
     </div>
 
     <!-- 2. Recently Used -->
@@ -216,16 +217,13 @@
 
         <!-- Footer -->
         <div class="flex justify-end space-x-3 p-4 border-t border-gray-700">
-          <button @click="isInstalling ? cancelInstall() : closeInstallModal()"
-            class="px-4 py-2 bg-gray-600 hover:bg-gray-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-white text-sm"
-            :disabled="isCancelling">
+          <BaseButton variant="secondary" :disabled="isCancelling"
+            @click="isInstalling ? cancelInstall() : closeInstallModal()">
             {{ isCancelling ? 'Cancelling...' : (isInstalling ? 'Cancel' : 'Close') }}
-          </button>
-          <button @click="confirmInstall"
-            class="px-4 py-2 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-white text-sm"
-            :disabled="!selectedVersion || isInstalling">
+          </BaseButton>
+          <BaseButton variant="success" :disabled="!selectedVersion || isInstalling" @click="confirmInstall">
             {{ isInstalling ? 'Installing...' : 'Install' }}
-          </button>
+          </BaseButton>
         </div>
       </div>
     </div>
@@ -242,6 +240,7 @@ import {
   ChevronLeft, ChevronRight, RefreshCw, Square, RotateCw
 } from 'lucide-vue-next';
 import AppSettingsModal from '../components/AppSettingsModal.vue';
+import BaseButton from '../components/BaseButton.vue';
 
 import { useToast } from 'vue-toastification';
 
