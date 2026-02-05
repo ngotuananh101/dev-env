@@ -166,8 +166,6 @@ if (process.contextIsolated) {
     } catch (e) {
         console.error("Failed to expose sysapi via contextBridge:", e);
     }
-} else {
-    window.sysapi = api;
 }
 
 window.addEventListener('DOMContentLoaded', () => {

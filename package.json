@@ -7,8 +7,6 @@
   "scripts": {
     "start": "electron .",
     "dev": "concurrently \"vite\" \"electron .\"",
-    "build:css": "tailwindcss -i ./src/main.css -o ./dist/output.css",
-    "watch:css": "tailwindcss -i ./src/main.css -o ./dist/output.css --watch",
     "build": "vite build && electron-builder"
   },
   "keywords": [],

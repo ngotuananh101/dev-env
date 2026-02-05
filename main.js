@@ -36,8 +36,9 @@ function createWindow() {
     icon: path.join(__dirname, 'build', 'icon.ico'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
-      nodeIntegration: true,
-      contextIsolation: false
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: false
     }
   });
 
@@ -131,7 +132,10 @@ app.whenReady().then(async () => {
       if (Array.isArray(autoStartApps) && autoStartApps.length > 0) {
         console.log(`Found ${autoStartApps.length} apps to auto-start`);
         // Use a small delay to ensure everything is initialized
-        setTimeout(async () => {
+        // Wait for window to be ready before starting services
+        // Use a single-fire listener for when the page finishes loading
+        win.webContents.once('did-finish-load', async () => {
+          console.log('[AUTO-START] Window loaded, starting apps...');
           for (const appInfo of autoStartApps) {
             if (appInfo.exec_path) {
               console.log(`Auto-starting: ${appInfo.app_id}`);
@@ -141,7 +145,7 @@ app.whenReady().then(async () => {
               }
             }
           }
-        }, 1000);
+        });
       }
     } catch (e) {
       console.error('Auto-start error:', e);
