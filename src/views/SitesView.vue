@@ -22,19 +22,22 @@
             Add site
           </BaseButton>
 
-          <button v-if="activeTab === 'php' && webserver.apache" @click="changeApacheRoot"
-            class="flex items-center space-x-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs border border-gray-600"
-            title="Change Apache Root">
-            <FolderCog class="w-3 h-3 text-yellow-500" />
-          </button>
+          <BaseButton v-if="activeTab === 'php' && webserver.apache" @click="changeApacheRoot" variant="secondary"
+            size="sm" class="border border-gray-600" title="Change Apache Root">
+            <template #icon>
+              <FolderCog class="w-3 h-3 text-yellow-500" />
+            </template>
+          </BaseButton>
 
-          <button v-if="activeTab === 'php' && webserver.nginx && !webserver.apache" @click="changeNginxRoot"
-            class="flex items-center space-x-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs border border-gray-600"
-            title="Change Nginx Root">
-            <FolderCog class="w-3 h-3 text-yellow-500" />
-          </button>
+          <BaseButton v-if="activeTab === 'php' && webserver.nginx && !webserver.apache" @click="changeNginxRoot"
+            variant="secondary" size="sm" class="border border-gray-600" title="Change Nginx Root">
+            <template #icon>
+              <FolderCog class="w-3 h-3 text-yellow-500" />
+            </template>
+          </BaseButton>
           <!-- Webserver indicator -->
-          <div class="flex items-center space-x-1 px-3 py-2 bg-gray-700 rounded text-xs">
+          <!-- Webserver indicator -->
+          <div class="flex items-center space-x-1 h-8 px-3 bg-gray-700 rounded text-xs select-none">
             <Server class="w-3 h-3 text-yellow-400" />
             <span v-if="webserver.nginx && webserver.nginx.installed_version" class="text-green-400">
               Nginx {{ webserver.nginx.installed_version }}

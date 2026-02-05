@@ -1,6 +1,6 @@
 <template>
     <button :class="[
-        'flex items-center justify-center space-x-2 rounded-lg transition-colors font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background',
+        'flex items-center justify-center space-x-2 rounded transition-colors font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background',
         variantClasses,
         sizeClasses,
         disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
@@ -54,11 +54,11 @@ const variantClasses = computed(() => {
 const sizeClasses = computed(() => {
     switch (props.size) {
         case 'sm':
-            return 'px-3 py-1.5 text-xs';
+            return 'h-8 px-3 text-xs';
         case 'lg':
-            return 'px-6 py-3 text-lg';
+            return 'h-12 px-6 text-lg';
         default: // md
-            return 'px-4 py-2 text-sm';
+            return 'h-10 px-4 text-sm';
     }
 });
 </script>

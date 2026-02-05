@@ -2,12 +2,16 @@
     <div class="flex flex-col h-full bg-[#1e1e1e] text-gray-300 font-sans text-sm">
         <!-- 1. Breadcrumb Bar -->
         <div class="flex items-center space-x-2 p-2 border-b border-gray-700 bg-[#252526]">
-            <button class="p-1 hover:bg-gray-700 rounded" @click="goHome" title="Go Home">
-                <Home class="w-4 h-4" />
-            </button>
-            <button class="p-1 hover:bg-gray-700 rounded" @click="goUp" title="Go Up">
-                <ArrowUp class="w-4 h-4" />
-            </button>
+            <BaseButton variant="ghost" size="sm" @click="goHome" title="Go Home" class="p-1">
+                <template #icon>
+                    <Home class="w-4 h-4" />
+                </template>
+            </BaseButton>
+            <BaseButton variant="ghost" size="sm" @click="goUp" title="Go Up" class="p-1">
+                <template #icon>
+                    <ArrowUp class="w-4 h-4" />
+                </template>
+            </BaseButton>
             <select v-model="selectedDrive" @change="onDriveChange"
                 class="bg-[#333] border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 focus:outline-none focus:border-blue-500">
                 <option v-for="drive in drives" :key="drive" :value="drive">{{ drive }}</option>
@@ -16,37 +20,43 @@
                 <span class="text-white font-medium select-text">{{ filesStore.currentPath }}</span>
             </div>
             <div class="flex-1"></div>
-            <button class="p-1 hover:bg-gray-700 rounded" @click="refresh">
-                <RefreshCw class="w-4 h-4" />
-            </button>
+            <BaseButton variant="ghost" size="sm" @click="refresh" class="p-1">
+                <template #icon>
+                    <RefreshCw class="w-4 h-4" />
+                </template>
+            </BaseButton>
         </div>
 
         <!-- 2. Toolbar -->
         <div class="flex items-center space-x-2 p-2 border-b border-gray-700 bg-[#252526]">
-            <button @click="openDownloadModal"
-                class="flex items-center space-x-1 px-3 py-2 bg-[#333] hover:bg-[#444] rounded border border-gray-600 text-xs">
-                <Download class="w-3 h-3" />
-                <span>Remote Download</span>
-            </button>
+            <BaseButton variant="secondary" size="sm" @click="openDownloadModal">
+                <template #icon>
+                    <Download class="w-3 h-3" />
+                </template>
+                Remote Download
+            </BaseButton>
             <div class="h-6 w-px bg-gray-600 mx-2"></div>
-            <button
-                class="flex items-center space-x-1 px-3 py-2 bg-[#eab308]/10 text-[#eab308] hover:bg-[#eab308]/20 rounded border border-[#eab308]/30 text-xs"
-                @click="openNewFolderModal">
-                <FolderPlus class="w-3 h-3" />
-                <span>New</span>
-            </button>
-            <button
-                class="flex items-center space-x-1 px-3 py-2 bg-[#333] hover:bg-[#444] rounded border border-gray-600 text-xs"
-                @click="openTerminalModal">
-                <Terminal class="w-3 h-3" />
-                <span>Terminal</span>
-            </button>
+            <BaseButton variant="secondary" size="sm" @click="openNewFolderModal"
+                class="!bg-[#eab308]/10 !text-[#eab308] !border-[#eab308]/30 hover:!bg-[#eab308]/20">
+                <template #icon>
+                    <FolderPlus class="w-3 h-3" />
+                </template>
+                New
+            </BaseButton>
+            <BaseButton variant="secondary" size="sm" @click="openTerminalModal">
+                <template #icon>
+                    <Terminal class="w-3 h-3" />
+                </template>
+                Terminal
+            </BaseButton>
             <!-- Delete Selected Button -->
-            <button v-if="selectedFiles.length > 0" @click="deleteSelected"
-                class="flex items-center space-x-1 px-3 py-2 bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded border border-red-600/30 text-xs">
-                <Trash2 class="w-3 h-3" />
-                <span>Delete ({{ selectedFiles.length }})</span>
-            </button>
+            <BaseButton v-if="selectedFiles.length > 0" variant="danger" size="sm" @click="deleteSelected"
+                class="!bg-red-600/20 !text-red-400 !border-red-600/30 hover:!bg-red-600/30">
+                <template #icon>
+                    <Trash2 class="w-3 h-3" />
+                </template>
+                Delete ({{ selectedFiles.length }})
+            </BaseButton>
         </div>
 
         <!-- 3. File Table -->
@@ -165,14 +175,10 @@
                         </div>
                     </div>
                     <div class="flex justify-end space-x-2">
-                        <button @click="closeDownloadModal"
-                            class="px-4 py-2 rounded bg-gray-600 hover:bg-gray-500 text-white text-xs">Cancel</button>
-                        <button @click="startDownload"
-                            class="px-4 py-2 rounded bg-green-600 hover:bg-green-500 text-white text-xs"
-                            :disabled="downloading">
-                            <span v-if="downloading">Downloading...</span>
-                            <span v-else>Confirm</span>
-                        </button>
+                        <BaseButton variant="secondary" size="sm" @click="closeDownloadModal">Cancel</BaseButton>
+                        <BaseButton variant="success" size="sm" @click="startDownload" :disabled="downloading">
+                            {{ downloading ? 'Downloading...' : 'Confirm' }}
+                        </BaseButton>
                     </div>
                 </div>
             </template>
@@ -190,10 +196,10 @@
             </div>
 
             <template #footer>
-                <button @click="showNewFolderModal = false"
-                    class="px-4 py-2 rounded bg-gray-600 hover:bg-gray-500 text-white text-xs">Cancel</button>
-                <button @click="createFolder"
-                    class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 text-white text-xs">Create</button>
+                <div class="flex justify-end space-x-2">
+                    <BaseButton variant="secondary" size="sm" @click="showNewFolderModal = false">Cancel</BaseButton>
+                    <BaseButton variant="primary" size="sm" @click="createFolder">Create</BaseButton>
+                </div>
             </template>
         </BaseModal>
 
@@ -212,10 +218,8 @@
 
             <template #footer>
                 <div class="flex justify-end space-x-2 w-full">
-                    <button @click="showRenameModal = false"
-                        class="px-3 py-1.5 rounded bg-gray-600 hover:bg-gray-500 text-white text-xs border border-gray-500">Cancel</button>
-                    <button @click="performRename"
-                        class="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white text-xs text-center min-w-[60px]">Rename</button>
+                    <BaseButton variant="secondary" size="sm" @click="showRenameModal = false">Cancel</BaseButton>
+                    <BaseButton variant="primary" size="sm" @click="performRename">Rename</BaseButton>
                 </div>
             </template>
         </BaseModal>
@@ -238,6 +242,7 @@ import {
     FileText, Image as ImageIcon, File, Unlock, Edit2, Trash2, X
 } from 'lucide-vue-next';
 import BaseModal from '../components/BaseModal.vue';
+import BaseButton from '../components/BaseButton.vue';
 
 const filesStore = useFilesStore();
 
