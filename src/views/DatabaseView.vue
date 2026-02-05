@@ -5,9 +5,9 @@
       <!-- Tabs -->
       <div class="flex items-center px-4 pt-3 space-x-1">
         <button v-for="tab in availableTabs" :key="tab.id" @click="activeTab = tab.id"
-          class="px-4 py-2 text-sm rounded-t-md transition-colors" :class="activeTab === tab.id
-            ? 'bg-background text-white border-t border-l border-r border-gray-700'
-            : 'text-gray-400 hover:text-white hover:bg-gray-800'">
+          class="px-4 py-2 text-sm rounded-t-md transition-colors border-t border-l border-r" :class="activeTab === tab.id
+            ? 'bg-background text-white border-gray-700'
+            : 'text-gray-400 hover:text-white hover:bg-gray-800 border-transparent'">
           {{ tab.name }}
         </button>
         <div v-if="availableTabs.length === 0" class="text-gray-500 text-sm py-2">
@@ -18,20 +18,22 @@
       <!-- Toolbar -->
       <div class="flex items-center justify-between p-3 bg-background border-t border-gray-700">
         <div class="flex items-center space-x-2">
-          <button @click="openCreateModal" :disabled="loading || !activeTab"
-            class="flex items-center space-x-1 px-3 py-2 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 rounded text-white text-xs">
-            <Plus class="w-3 h-3" />
-            <span>Add Database</span>
-          </button>
+          <BaseButton :disabled="loading || !activeTab" @click="openCreateModal" variant="success" size="sm">
+            <template #icon>
+              <Plus class="w-3 h-3" />
+            </template>
+            Add Database
+          </BaseButton>
 
-          <button @click="refreshAll" :disabled="loading || !activeTab"
-            class="flex items-center space-x-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs">
-            <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': loading }" />
-            <span>Reload</span>
-          </button>
+          <BaseButton :disabled="loading || !activeTab" @click="refreshAll" variant="secondary" size="sm">
+            <template #icon>
+              <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': loading }" />
+            </template>
+            Reload
+          </BaseButton>
 
           <!-- Database indicator -->
-          <div v-if="currentDbApp" class="flex items-center space-x-1 px-3 py-2 bg-gray-700 rounded text-xs">
+          <div v-if="currentDbApp" class="flex items-center space-x-1 h-8 px-3 bg-gray-700 rounded text-xs select-none">
             <Database class="w-3 h-3" :class="currentDbApp.iconColor || 'text-blue-400'" />
             <span class="text-green-400">
               {{ currentDbApp.name }} {{ currentDbApp.version }}
@@ -39,21 +41,23 @@
           </div>
 
           <!-- pgAdmin Button -->
-          <button v-if="currentDbApp?.id === 'postgresql'" @click="openPgAdmin"
-            class="flex items-center space-x-1 px-3 py-2 bg-blue-700 hover:bg-blue-600 rounded text-white text-xs border border-blue-600"
-            title="Open pgAdmin">
-            <ExternalLink class="w-3 h-3" />
-            <span>pgAdmin</span>
-          </button>
+          <BaseButton v-if="currentDbApp?.id === 'postgresql'" @click="openPgAdmin" variant="primary" size="sm"
+            class="border border-blue-600" title="Open pgAdmin">
+            <template #icon>
+              <ExternalLink class="w-3 h-3" />
+            </template>
+            pgAdmin
+          </BaseButton>
 
           <!-- phpMyAdmin Button -->
-          <button v-if="(currentDbApp?.id === 'mysql' || currentDbApp?.id === 'mariadb') && isPhpMyAdminInstalled"
-            @click="openPhpMyAdmin"
-            class="flex items-center space-x-1 px-3 py-2 bg-yellow-600 hover:bg-yellow-500 rounded text-white text-xs border border-yellow-500"
-            title="Open phpMyAdmin">
-            <ExternalLink class="w-3 h-3" />
-            <span>phpMyAdmin</span>
-          </button>
+          <BaseButton v-if="(currentDbApp?.id === 'mysql' || currentDbApp?.id === 'mariadb') && isPhpMyAdminInstalled"
+            @click="openPhpMyAdmin" variant="secondary" size="sm"
+            class="!bg-yellow-600 hover:!bg-yellow-500 border border-yellow-500" title="Open phpMyAdmin">
+            <template #icon>
+              <ExternalLink class="w-3 h-3" />
+            </template>
+            phpMyAdmin
+          </BaseButton>
         </div>
 
         <div class="flex items-center space-x-2">
@@ -122,8 +126,10 @@
             <td class="px-3 py-2 text-gray-400 text-xs font-mono">
               <div class="flex items-center space-x-2">
                 <span>{{ db.password ? '******' : '-' }}</span>
+                <span>{{ db.password ? '******' : '-' }}</span>
                 <button v-if="db.password" @click="copyToClipboard(db.password)"
-                  class="text-gray-500 hover:text-white transition-colors" title="Copy Password">
+                  class="text-gray-500 hover:text-white transition-colors p-1 rounded hover:bg-gray-700"
+                  title="Copy Password">
                   <Copy class="w-3 h-3" />
                 </button>
               </div>
@@ -132,7 +138,7 @@
               {{ db.host || 'localhost' }}
             </td>
             <td class="px-3 py-2 text-center">
-              <button @click="dropDatabase(db.name)" class="text-red-400 hover:text-red-300 text-xs">
+              <button @click="dropDatabase(db.name)" class="text-red-400 hover:text-red-300 hover:underline text-xs">
                 Delete
               </button>
             </td>
@@ -183,8 +189,8 @@
               <div class="flex items-center justify-center space-x-2">
                 <input v-model="userPasswords[user.user]" type="password" placeholder="New password"
                   class="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-xs w-32" />
-                <button @click="changePassword(user.user, user.host)" :disabled="!userPasswords[user.user]"
-                  class="px-2 py-1 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 rounded text-white text-xs">Change</button>
+                <BaseButton @click="changePassword(user.user, user.host)" :disabled="!userPasswords[user.user]"
+                  size="sm" class="h-7 px-2">Change</BaseButton>
               </div>
             </td>
           </tr>
@@ -203,54 +209,47 @@
     </div>
 
     <!-- Create Database Modal -->
-    <div v-if="showCreateModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div class="bg-[#1e1e1e] rounded-lg shadow-xl w-[450px] border border-gray-700">
-        <div class="flex items-center justify-between px-4 py-3 border-b border-gray-700">
-          <h3 class="font-medium text-white">Add Database</h3>
-          <button @click="showCreateModal = false" class="text-gray-400 hover:text-white">
-            <X class="w-4 h-4" />
-          </button>
+    <BaseModal :show="showCreateModal" @close="showCreateModal = false" max-width="450px">
+      <template #title>Add Database</template>
+
+      <div class="space-y-4 p-6">
+        <div class="grid grid-cols-[100px_1fr] gap-4 items-center">
+          <label class="text-gray-400 text-right text-xs">Database name</label>
+          <input v-model="newDbName" placeholder="New database name"
+            class="w-full bg-[#252526] border border-gray-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
         </div>
 
-        <div class="p-4 space-y-4">
-          <div class="grid grid-cols-[100px_1fr] gap-4 items-center">
-            <label class="text-gray-400 text-right text-xs">Database name</label>
-            <input v-model="newDbName" placeholder="New database name"
-              class="w-full bg-[#252526] border border-gray-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
-          </div>
-
-          <div class="grid grid-cols-[100px_1fr] gap-4 items-center">
-            <label class="text-gray-400 text-right text-xs">Username</label>
-            <input v-model="newUsername" placeholder="Database user"
-              class="w-full bg-[#252526] border border-gray-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
-          </div>
-
-          <div class="grid grid-cols-[100px_1fr] gap-4 items-center">
-            <label class="text-gray-400 text-right text-xs">Password</label>
-            <div class="relative flex items-center">
-              <input v-model="newPassword" type="text" placeholder="Password"
-                class="w-full bg-[#252526] border border-gray-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 pr-9" />
-              <button @click="generatePassword" class="absolute right-2 text-gray-400 hover:text-white"
-                title="Generate Password">
-                <RefreshCw class="w-3 h-3" />
-              </button>
-            </div>
-          </div>
+        <div class="grid grid-cols-[100px_1fr] gap-4 items-center">
+          <label class="text-gray-400 text-right text-xs">Username</label>
+          <input v-model="newUsername" placeholder="Database user"
+            class="w-full bg-[#252526] border border-gray-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
         </div>
 
-        <div class="flex justify-end space-x-2 px-4 py-3 bg-[#252526] rounded-b-lg border-t border-gray-700">
-          <button @click="showCreateModal = false"
-            class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs border border-gray-600">
-            Cancel
-          </button>
-          <button @click="createDatabase" :disabled="loading || !newDbName"
-            class="flex items-center space-x-1 px-3 py-2 bg-green-600 hover:bg-green-500 rounded text-white text-xs disabled:opacity-50">
-            <Loader2 v-if="loading" class="w-3 h-3 animate-spin" />
-            <span>Confirm</span>
-          </button>
+        <div class="grid grid-cols-[100px_1fr] gap-4 items-center">
+          <label class="text-gray-400 text-right text-xs">Password</label>
+          <div class="relative flex items-center">
+            <input v-model="newPassword" type="text" placeholder="Password"
+              class="w-full bg-[#252526] border border-gray-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 pr-9" />
+            <button @click="generatePassword" class="absolute right-2 text-gray-400 hover:text-white"
+              title="Generate Password">
+              <RefreshCw class="w-3 h-3" />
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+
+      <template #footer>
+        <div class="flex justify-end space-x-2">
+          <BaseButton variant="secondary" size="sm" @click="showCreateModal = false">Cancel</BaseButton>
+          <BaseButton variant="success" size="sm" @click="createDatabase" :disabled="loading || !newDbName">
+            <template #icon>
+              <Loader2 v-if="loading" class="w-3 h-3 animate-spin" />
+            </template>
+            Confirm
+          </BaseButton>
+        </div>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
@@ -258,6 +257,8 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { Plus, RefreshCw, Database, User, X, Loader2, Copy, ExternalLink } from 'lucide-vue-next';
 import { useToast } from 'vue-toastification';
+import BaseButton from '../components/BaseButton.vue';
+import BaseModal from '../components/BaseModal.vue';
 
 const toast = useToast();
 

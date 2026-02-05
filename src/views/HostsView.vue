@@ -8,21 +8,26 @@
         <span class="text-gray-500 text-xs">C:\Windows\System32\drivers\etc\hosts</span>
       </div>
       <div class="flex items-center space-x-2">
-        <button @click="refreshHosts"
-          class="flex items-center space-x-1 px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded text-white text-xs">
-          <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': isLoading }" />
-          <span>Refresh</span>
-        </button>
-        <button @click="saveHosts" :disabled="!hasChanges || isSaving"
-          class="flex items-center space-x-1 px-3 py-2 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-white text-xs">
-          <Save class="w-3 h-3" />
-          <span>{{ isSaving ? 'Saving...' : 'Save' }}</span>
-        </button>
-        <button @click="openInExplorer"
-          class="flex items-center space-x-1 px-3 py-2 bg-gray-600 hover:bg-gray-500 rounded text-white text-xs">
-          <FolderOpen class="w-3 h-3" />
-          <span>Open Folder</span>
-        </button>
+        <div class="flex items-center space-x-2">
+          <BaseButton @click="refreshHosts" size="sm">
+            <template #icon>
+              <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': isLoading }" />
+            </template>
+            Refresh
+          </BaseButton>
+          <BaseButton @click="saveHosts" :disabled="!hasChanges || isSaving" variant="success" size="sm">
+            <template #icon>
+              <Save class="w-3 h-3" />
+            </template>
+            {{ isSaving ? 'Saving...' : 'Save' }}
+          </BaseButton>
+          <BaseButton @click="openInExplorer" variant="secondary" size="sm">
+            <template #icon>
+              <FolderOpen class="w-3 h-3" />
+            </template>
+            Open Folder
+          </BaseButton>
+        </div>
       </div>
     </div>
 
@@ -58,6 +63,7 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { Globe, RefreshCw, Save, FolderOpen, AlertTriangle } from 'lucide-vue-next';
+import BaseButton from '../components/BaseButton.vue';
 import { useToast } from 'vue-toastification';
 import ace from 'ace-builds';
 import 'ace-builds/src-noconflict/theme-monokai';

@@ -9,78 +9,82 @@
     <!-- Navigation -->
     <nav class="flex-1 overflow-y-auto py-4">
       <div class="px-2 space-y-1">
-        
-        <router-link to="/" class="flex items-center space-x-3 px-3 py-2 rounded-md transition-colors" 
-            :class="$route.path === '/' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
-            <Home class="w-5 h-5" />
-            <span>Home</span>
+
+        <router-link to="/" class="flex items-center space-x-3 px-3 py-2 rounded-md transition-colors"
+          :class="$route.path === '/' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
+          <Home class="w-5 h-5" />
+          <span>Home</span>
         </router-link>
 
         <router-link to="/apps" class="flex items-center space-x-3 px-3 py-2 rounded-md transition-colors"
-            :class="$route.path === '/apps' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
-            <Package class="w-5 h-5" />
-            <span>Apps</span>
+          :class="$route.path === '/apps' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
+          <Package class="w-5 h-5" />
+          <span>Apps</span>
         </router-link>
 
         <router-link to="/sites" class="flex items-center space-x-3 px-3 py-2 rounded-md transition-colors"
-            :class="$route.path === '/sites' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
-            <Globe2 class="w-5 h-5" />
-            <span>Sites</span>
+          :class="$route.path === '/sites' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
+          <Globe2 class="w-5 h-5" />
+          <span>Sites</span>
         </router-link>
 
         <router-link to="/database" class="flex items-center space-x-3 px-3 py-2 rounded-md transition-colors"
-            :class="$route.path === '/database' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
-            <Database class="w-5 h-5" />
-            <span>Database</span>
+          :class="$route.path === '/database' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
+          <Database class="w-5 h-5" />
+          <span>Database</span>
         </router-link>
 
         <router-link to="/hosts" class="flex items-center space-x-3 px-3 py-2 rounded-md transition-colors"
-            :class="$route.path === '/hosts' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
-            <Globe class="w-5 h-5" />
-            <span>Hosts</span>
+          :class="$route.path === '/hosts' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
+          <Globe class="w-5 h-5" />
+          <span>Hosts</span>
         </router-link>
 
         <router-link to="/files" class="flex items-center space-x-3 px-3 py-2 rounded-md transition-colors"
-            :class="$route.path === '/files' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
-            <Folder class="w-5 h-5" />
-            <span>Files</span>
+          :class="$route.path === '/files' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
+          <Folder class="w-5 h-5" />
+          <span>Files</span>
         </router-link>
 
         <router-link to="/terminal" class="flex items-center space-x-3 px-3 py-2 rounded-md transition-colors"
-            :class="$route.path === '/terminal' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
-            <TerminalSquare class="w-5 h-5" />
-            <span>Terminal</span>
+          :class="$route.path === '/terminal' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
+          <TerminalSquare class="w-5 h-5" />
+          <span>Terminal</span>
         </router-link>
 
         <router-link to="/logs" class="flex items-center space-x-3 px-3 py-2 rounded-md transition-colors"
-            :class="$route.path === '/logs' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
-            <FileText class="w-5 h-5" />
-            <span>Logs</span>
+          :class="$route.path === '/logs' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
+          <FileText class="w-5 h-5" />
+          <span>Logs</span>
         </router-link>
 
         <router-link to="/settings" class="flex items-center space-x-3 px-3 py-2 rounded-md transition-colors"
-            :class="$route.path === '/settings' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
-            <Settings class="w-5 h-5" />
-            <span>Settings</span>
+          :class="$route.path === '/settings' ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'">
+          <Settings class="w-5 h-5" />
+          <span>Settings</span>
         </router-link>
       </div>
     </nav>
 
     <!-- Quit App -->
     <div class="p-4 border-t border-gray-800">
-      <button @click="quitApp" class="flex items-center space-x-3 px-3 py-2 w-full hover:text-white transition-colors hover:bg-red-500/20 rounded-md text-gray-400">
-        <Power class="w-5 h-5" />
-        <span>Quit App</span>
-      </button>
+      <BaseButton @click="quitApp" variant="danger"
+        class="w-full justify-start !bg-red-500/10 !text-gray-400 hover:!bg-red-500/20 hover:!text-white border-none">
+        <template #icon>
+          <Power class="w-5 h-5" />
+        </template>
+        Quit App
+      </BaseButton>
     </div>
   </aside>
 </template>
 
 <script setup>
 import { useSystemStore } from '../stores/system';
-import { 
-    Home, TerminalSquare, Folder, Power, Package, FileText, Globe, Globe2, Settings, Database 
+import {
+  Home, TerminalSquare, Folder, Power, Package, FileText, Globe, Globe2, Settings, Database
 } from 'lucide-vue-next';
+import BaseButton from './BaseButton.vue';
 
 const systemStore = useSystemStore();
 

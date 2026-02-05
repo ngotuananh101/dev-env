@@ -1,69 +1,54 @@
 <template>
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-    <div class="bg-[#1a1a1a] rounded-lg shadow-2xl w-[800px] h-[500px] flex flex-col border border-gray-700">
-      <!-- Header -->
-      <div class="flex items-center justify-between p-4 border-b border-gray-700">
+  <BaseModal :show="true" @close="$emit('close')" max-width="800px" body-class="p-0 h-[500px] flex flex-col">
+    <template #title>
+      <div class="flex items-center justify-between w-full">
         <div>
-          <h2 class="text-white font-medium">{{ site.domain }} - Configuration</h2>
-          <p class="text-gray-500 text-xs">{{ configPath }}</p>
+          <span>{{ site.domain }} - Configuration</span>
+          <p class="text-gray-500 text-xs font-normal mt-0.5">{{ configPath }}</p>
         </div>
-        <div class="flex items-center space-x-3">
-          <!-- Rewrite Template Dropdown -->
-          <div v-if="site.webserver !== 'apache' && site.type === 'php'" class="flex items-center space-x-2">
-            <span class="text-xs text-gray-400">Rewrite:</span>
-            <select 
-              :value="currentTemplate" 
-              @change="changeTemplate($event.target.value)"
-              class="bg-gray-700 text-white text-xs rounded px-2 py-1 border border-gray-600 focus:outline-none focus:border-blue-500"
-            >
-              <option v-for="(tpl, key) in rewriteTemplates" :key="key" :value="key">{{ tpl.name }}</option>
-            </select>
-          </div>
 
-          <button @click="$emit('close')" class="text-gray-400 hover:text-white">
-            <X class="w-5 h-5" />
-          </button>
+        <!-- Rewrite Template Dropdown -->
+        <div v-if="site.webserver !== 'apache' && site.type === 'php'" class="flex items-center space-x-2 mr-4">
+          <span class="text-xs text-gray-400">Rewrite:</span>
+          <select :value="currentTemplate" @change="changeTemplate($event.target.value)"
+            class="bg-gray-700 text-white text-xs rounded px-2 py-1 border border-gray-600 focus:outline-none focus:border-blue-500">
+            <option v-for="(tpl, key) in rewriteTemplates" :key="key" :value="key">{{ tpl.name }}</option>
+          </select>
         </div>
       </div>
+    </template>
 
-      <!-- Editor -->
-      <div class="flex-1 overflow-hidden">
-        <div v-if="isLoading" class="flex items-center justify-center h-full text-gray-500">
-          <RefreshCw class="w-6 h-6 animate-spin mr-2" />
-          Loading config...
-        </div>
-        <div v-else ref="editorContainer" class="w-full h-full"></div>
+    <!-- Editor -->
+    <div class="flex-1 overflow-hidden relative">
+      <div v-if="isLoading" class="absolute inset-0 flex items-center justify-center text-gray-500">
+        <RefreshCw class="w-6 h-6 animate-spin mr-2" />
+        Loading config...
       </div>
+      <div ref="editorContainer" class="w-full h-full"></div>
+    </div>
 
-      <!-- Footer -->
-      <div class="flex items-center justify-between p-3 border-t border-gray-700">
+    <template #footer>
+      <div class="flex items-center justify-between w-full">
         <div class="text-xs text-gray-500">
           {{ site.webserver === 'apache' ? 'Apache VirtualHost' : 'Nginx Server Block' }}
         </div>
         <div class="flex items-center space-x-2">
-          <button 
-            @click="$emit('close')"
-            class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-white text-sm"
-          >
-            Cancel
-          </button>
-          <button 
-            @click="saveConfig"
-            :disabled="isSaving"
-            class="px-4 py-2 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 rounded text-white text-sm"
-          >
+          <BaseButton variant="secondary" @click="$emit('close')">Cancel</BaseButton>
+          <BaseButton variant="success" @click="saveConfig" :disabled="isSaving">
             {{ isSaving ? 'Saving...' : 'Save' }}
-          </button>
+          </BaseButton>
         </div>
       </div>
-    </div>
-  </div>
+    </template>
+  </BaseModal>
 </template>
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { X, RefreshCw } from 'lucide-vue-next';
 import { useToast } from 'vue-toastification';
+import BaseModal from './BaseModal.vue';
+import BaseButton from './BaseButton.vue';
 import ace from 'ace-builds';
 import 'ace-builds/src-noconflict/theme-monokai';
 import 'ace-builds/src-noconflict/mode-nginx';
@@ -95,10 +80,10 @@ const loadConfig = async () => {
       emit('close');
       return;
     }
-    
+
     configPath.value = result.path;
     isLoading.value = false;
-    
+
     await nextTick();
     initEditor(result.content);
   } catch (error) {
@@ -112,7 +97,7 @@ const loadConfig = async () => {
 // Load rewrite templates
 const loadRewriteTemplates = async () => {
   if (props.site.webserver === 'apache' || props.site.type !== 'php') return;
-  
+
   try {
     const result = await window.sysapi.sites.getRewriteTemplates();
     if (result.templates) {
@@ -133,13 +118,13 @@ const changeTemplate = async (newTemplate) => {
       toast.error(`Failed to get template content: ${result.error}`);
       return;
     }
-    
+
     // Update editor content using regex
     if (editor) {
       const currentContent = editor.getValue();
       const content = result.content || '';
       const REWRITE_BLOCK_REGEX = /(# Rewrite Rules[\r\n]+)([\s\S]*?)([\r\n]+\s*# End Rewrite Rules)/;
-      
+
       let newContent;
       if (REWRITE_BLOCK_REGEX.test(currentContent)) {
         newContent = currentContent.replace(REWRITE_BLOCK_REGEX, `$1${content}$3`);
@@ -149,17 +134,17 @@ const changeTemplate = async (newTemplate) => {
         // Simple fallback: append to end of server block?
         // Let's try to find index index.php... line
         if (currentContent.includes('index index.php index.html index.htm;')) {
-             newContent = currentContent.replace('index index.php index.html index.htm;', `index index.php index.html index.htm;\n\n    # Rewrite Rules\n    ${content}\n    # End Rewrite Rules`);
+          newContent = currentContent.replace('index index.php index.html index.htm;', `index index.php index.html index.htm;\n\n    # Rewrite Rules\n    ${content}\n    # End Rewrite Rules`);
         } else {
-             newContent = currentContent; // No change if structure unknown
-             toast.warning('Could not find location to insert rewrite rules automatically.');
+          newContent = currentContent; // No change if structure unknown
+          toast.warning('Could not find location to insert rewrite rules automatically.');
         }
       }
-      
+
       if (newContent !== currentContent) {
-          editor.setValue(newContent, -1); // -1 moves cursor to start
-          currentTemplate.value = newTemplate;
-          toast.info(`Applied ${rewriteTemplates.value[newTemplate]?.name} rules. Click Save to persist.`);
+        editor.setValue(newContent, -1); // -1 moves cursor to start
+        currentTemplate.value = newTemplate;
+        toast.info(`Applied ${rewriteTemplates.value[newTemplate]?.name} rules. Click Save to persist.`);
       }
     }
   } catch (error) {
@@ -174,11 +159,11 @@ const initEditor = (content) => {
 
   editor = ace.edit(editorContainer.value);
   editor.setTheme('ace/theme/monokai');
-  
+
   // Set mode based on webserver
   const mode = props.site.webserver === 'apache' ? 'ace/mode/apache_conf' : 'ace/mode/nginx';
   editor.session.setMode(mode);
-  
+
   editor.setShowPrintMargin(false);
   editor.setOptions({
     fontSize: '13px',
@@ -189,9 +174,9 @@ const initEditor = (content) => {
     tabSize: 4,
     useSoftTabs: true
   });
-  
+
   editor.setValue(content, -1);
-  
+
   // Ctrl+S to save
   editor.commands.addCommand({
     name: 'save',
@@ -203,25 +188,25 @@ const initEditor = (content) => {
 // Save config
 const saveConfig = async () => {
   if (!editor) return;
-  
+
   isSaving.value = true;
   try {
     const content = editor.getValue();
-    
+
     // 1. Save file content
     const result = await window.sysapi.sites.saveConfig(props.site.id, content);
-    
+
     if (result.error) {
       toast.error(`Failed to save config: ${result.error}`);
     } else {
       // 2. Save rewrite template setting if changed
       if (currentTemplate.value !== props.site.rewrite_template) {
-         const dbResult = await window.sysapi.sites.updateRewrite(props.site.id, currentTemplate.value, true);
-         if (!dbResult.error) {
-             props.site.rewrite_template = currentTemplate.value;
-         }
+        const dbResult = await window.sysapi.sites.updateRewrite(props.site.id, currentTemplate.value, true);
+        if (!dbResult.error) {
+          props.site.rewrite_template = currentTemplate.value;
+        }
       }
-    
+
       toast.success('Config saved!');
       emit('saved');
     }

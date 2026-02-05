@@ -4,9 +4,10 @@
       <div v-if="show" class="fixed inset-0 z-50 flex items-center justify-center p-4" @click.self="onOverlayClick">
         <!-- Overlay -->
         <div class="absolute inset-0 bg-black/60"></div>
-        
+
         <!-- Modal Content -->
-        <div class="relative bg-[#252526] rounded-lg shadow-xl border border-gray-700 w-full" :style="{ maxWidth: maxWidth }">
+        <div class="relative bg-[#252526] rounded-lg shadow-xl border border-gray-700 w-full"
+          :style="{ maxWidth: maxWidth }">
           <!-- Header -->
           <div class="flex items-center justify-between p-3 border-b border-gray-700">
             <h3 class="font-medium text-gray-200">
@@ -16,14 +17,15 @@
               <X class="w-4 h-4" />
             </button>
           </div>
-          
+
           <!-- Body -->
           <div :class="bodyClass ?? 'p-6'">
             <slot></slot>
           </div>
-          
+
           <!-- Footer (optional) -->
-          <div v-if="$slots.footer" class="p-3 border-t border-gray-700 bg-[#2b2b2b] rounded-b-lg flex justify-end space-x-2">
+          <div v-if="$slots.footer"
+            class="p-3 border-t border-gray-700 bg-[#2b2b2b] rounded-b-lg flex justify-end space-x-2">
             <slot name="footer"></slot>
           </div>
         </div>

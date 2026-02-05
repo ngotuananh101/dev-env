@@ -12,16 +12,18 @@
           class="bg-[#333] border border-gray-600 rounded px-3 py-1.5 text-gray-200 text-sm">
           <option v-for="date in availableDates" :key="date" :value="date">{{ date }}</option>
         </select>
-        <button @click="refreshLogs"
-          class="flex items-center space-x-1 px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded text-white text-xs">
-          <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': isLoading }" />
-          <span>Refresh</span>
-        </button>
-        <button @click="clearLog"
-          class="flex items-center space-x-1 px-3 py-2 bg-red-600 hover:bg-red-500 rounded text-white text-xs">
-          <Trash2 class="w-3 h-3" />
-          <span>Clear</span>
-        </button>
+        <BaseButton @click="refreshLogs" size="sm">
+          <template #icon>
+            <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': isLoading }" />
+          </template>
+          Refresh
+        </BaseButton>
+        <BaseButton @click="clearLog" variant="danger" size="sm">
+          <template #icon>
+            <Trash2 class="w-3 h-3" />
+          </template>
+          Clear
+        </BaseButton>
       </div>
     </div>
 
@@ -51,6 +53,7 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
 import { FileText, RefreshCw, Trash2 } from 'lucide-vue-next';
+import BaseButton from '../components/BaseButton.vue';
 import { useToast } from 'vue-toastification';
 import ace from 'ace-builds';
 import 'ace-builds/src-noconflict/theme-monokai';
