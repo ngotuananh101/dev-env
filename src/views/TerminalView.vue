@@ -1,11 +1,14 @@
 <template>
-  <div class="h-full w-full bg-black p-2 flex flex-col">
-    <div ref="terminalContainer" class="flex-1 w-full rounded overflow-hidden"></div>
-  </div>
+    <div class="h-full w-full bg-black p-2 flex flex-col">
+        <div ref="terminalContainer" class="flex-1 w-full rounded overflow-hidden"></div>
+    </div>
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
+import { Terminal } from 'xterm';
+import { FitAddon } from 'xterm-addon-fit';
+import 'xterm/css/xterm.css';
 
 const terminalContainer = ref(null);
 let term = null;
@@ -27,10 +30,8 @@ onUnmounted(() => {
 });
 
 async function initTerminal() {
-    const { Terminal } = require('xterm');
-    const { FitAddon } = require('xterm-addon-fit');
     // Ensure styles are loaded via global or <style>
-    
+
     term = new Terminal({
         theme: {
             background: '#000000',
@@ -41,12 +42,12 @@ async function initTerminal() {
         fontSize: 14,
         cursorBlink: true
     });
-    
+
     fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
 
     term.open(terminalContainer.value);
-    
+
     // Resize Observer to handle fit
     const resizeObserver = new ResizeObserver(() => {
         if (fitAddon && term) {
@@ -55,16 +56,16 @@ async function initTerminal() {
         }
     });
     resizeObserver.observe(terminalContainer.value);
-    
+
     // Init Backend
     if (window.sysapi) {
         window.sysapi.initTerminal();
-        
+
         term.onData(data => window.sysapi.writeTerminal(data));
         // Capture cleanup function
         cleanupTerminalData = window.sysapi.onTerminalData(data => term.write(data));
     }
-    
+
     // Initial Fit
     setTimeout(() => {
         fitAddon.fit();
@@ -74,7 +75,5 @@ async function initTerminal() {
 </script>
 
 <style>
-/* Import via main.js or here if loader supports it. 
-   For Electron+Vite, CSS imports usually work in script or style tag */
-@import 'xterm/css/xterm.css'; 
+/* CSS imported in script */
 </style>
