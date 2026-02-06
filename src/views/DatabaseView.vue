@@ -259,7 +259,6 @@ import { useToast } from 'vue-toastification';
 import BaseButton from '../components/BaseButton.vue';
 import BaseModal from '../components/BaseModal.vue';
 import BaseInput from '../components/BaseInput.vue';
-import BaseInput from '../components/BaseInput.vue';
 import { generatePassword, copyToClipboard } from '../utils/helpers';
 import { useDatabaseStore } from '../stores/database';
 
