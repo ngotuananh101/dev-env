@@ -1,5 +1,36 @@
 <template>
     <div class="flex-1 overflow-y-auto p-6 animate-fade-in">
+        <!-- Quick Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="bg-background-secondary rounded-lg p-4 flex items-center space-x-4">
+                <div class="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                    <Box class="w-6 h-6 text-blue-400" />
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-white">{{ installedAppsCount }}</div>
+                    <div class="text-sm text-gray-400">Apps Installed</div>
+                </div>
+            </div>
+            <div class="bg-background-secondary rounded-lg p-4 flex items-center space-x-4">
+                <div class="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
+                    <Globe class="w-6 h-6 text-green-400" />
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-white">{{ sitesCount }}</div>
+                    <div class="text-sm text-gray-400">Sites Configured</div>
+                </div>
+            </div>
+            <div class="bg-background-secondary rounded-lg p-4 flex items-center space-x-4">
+                <div class="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                    <Database class="w-6 h-6 text-purple-400" />
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-white">{{ databasesCount }}</div>
+                    <div class="text-sm text-gray-400">Databases</div>
+                </div>
+            </div>
+        </div>
+
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
 
             <!-- CPU Load -->
@@ -92,15 +123,76 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted } from 'vue';
+import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useSystemStore } from '../stores/system';
+import { useAppsStore } from '../stores/apps';
+import { useSitesStore } from '../stores/sites';
 import BaseCard from '../components/BaseCard.vue';
 import { formatBytes } from '../utils/helpers';
+import { Box, Globe, Database } from 'lucide-vue-next';
 
 const systemStore = useSystemStore();
+const appsStore = useAppsStore();
+const sitesStore = useSitesStore();
 
-onMounted(() => {
+// Stats
+const databasesCount = ref(0);
+
+const installedAppsCount = computed(() =>
+    appsStore.apps.filter(app => app.status === 'installed').length
+);
+
+const sitesCount = computed(() => sitesStore.sites.length);
+
+// Load databases count
+const loadDatabasesCount = async () => {
+    try {
+        // First, check which database apps are installed
+        const result = await window.sysapi.db.query(
+            "SELECT * FROM installed_apps WHERE app_id IN ('mysql', 'mariadb', 'postgresql')"
+        );
+
+        if (!result || !Array.isArray(result) || result.length === 0) {
+            databasesCount.value = 0;
+            return;
+        }
+
+        // Count databases from ALL installed database apps
+        let totalCount = 0;
+
+        for (const dbApp of result) {
+            try {
+                const dbs = await window.sysapi.db.listDatabases(dbApp.app_id);
+                if (dbs && !dbs.error && Array.isArray(dbs)) {
+                    totalCount += dbs.length;
+                }
+            } catch (e) {
+                console.error(`Failed to list databases for ${dbApp.app_id}:`, e);
+            }
+        }
+
+        databasesCount.value = totalCount;
+    } catch (e) {
+        console.error('Load databases count error:', e);
+        databasesCount.value = 0;
+    }
+};
+
+onMounted(async () => {
     systemStore.startPolling();
+
+    // Load apps if not already loaded
+    if (appsStore.apps.length === 0) {
+        await appsStore.loadApps();
+    }
+
+    // Load sites if not already loaded
+    if (sitesStore.sites.length === 0) {
+        await sitesStore.loadSites();
+    }
+
+    // Load databases count
+    await loadDatabasesCount();
 });
 
 onUnmounted(() => {
