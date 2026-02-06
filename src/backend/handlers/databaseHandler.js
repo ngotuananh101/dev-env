@@ -1,7 +1,7 @@
 /**
  * Database Handler - IPC handlers for database management operations
  * Handles: List databases, create/drop database, list users, change passwords
- * Supports: MySQL, MariaDB, PostgreSQL
+ * Supports: MySQL, MariaDB, PostgreSQL, Redis
  */
 
 const { spawn } = require('child_process');
@@ -83,6 +83,8 @@ function getDbCliPaths(appId, execPath) {
         result = { client: path.join(binDir, 'mariadb.exe') };
     } else if (appId === 'postgresql') {
         result = { client: path.join(binDir, 'psql.exe') };
+    } else if (appId === 'redis') {
+        result = { client: path.join(binDir, 'redis-cli.exe') };
     }
 
 
@@ -427,6 +429,292 @@ function register(ipcMain, context) {
             return { error: 'Unsupported database type' };
         } catch (error) {
             console.error('Failed to change password:', error);
+            return { error: error.message };
+        }
+    });
+
+    // =====================
+    // Redis Handlers
+    // =====================
+
+    // Get Redis info (server stats, db sizes)
+    ipcMain.handle('redis-info', async (event) => {
+        try {
+            const dbManager = getDbManager();
+            if (!dbManager) return { error: 'Database not initialized' };
+
+            const apps = dbManager.query('SELECT * FROM installed_apps WHERE app_id = ?', ['redis']);
+            if (!apps || apps.length === 0) return { error: 'Redis not installed' };
+
+            const app = apps[0];
+            const cliPaths = getDbCliPaths('redis', app.exec_path);
+
+            const result = await execCommand(
+                `"${cliPaths.client}" INFO`,
+                { cwd: path.dirname(cliPaths.client) }
+            );
+
+            if (result.error) {
+                return { error: result.error };
+            }
+
+            // Parse INFO output to get db sizes
+            const dbSizes = {};
+            const lines = result.stdout.split('\n');
+            for (const line of lines) {
+                const match = line.match(/^db(\d+):keys=(\d+)/);
+                if (match) {
+                    dbSizes[parseInt(match[1])] = parseInt(match[2]);
+                }
+            }
+
+            return { info: result.stdout, dbSizes };
+        } catch (error) {
+            console.error('Failed to get Redis info:', error);
+            return { error: error.message };
+        }
+    });
+
+    // Get keys from a specific Redis database
+    ipcMain.handle('redis-get-keys', async (event, dbIndex = 0, pattern = '*', cursor = 0, count = 100) => {
+        try {
+            const dbManager = getDbManager();
+            if (!dbManager) return { error: 'Database not initialized' };
+
+            const apps = dbManager.query('SELECT * FROM installed_apps WHERE app_id = ?', ['redis']);
+            if (!apps || apps.length === 0) return { error: 'Redis not installed' };
+
+            const app = apps[0];
+            const cliPaths = getDbCliPaths('redis', app.exec_path);
+
+            // Use SCAN for pagination
+            const result = await execCommand(
+                `"${cliPaths.client}" -n ${dbIndex} SCAN ${cursor} MATCH "${pattern}" COUNT ${count}`,
+                { cwd: path.dirname(cliPaths.client) }
+            );
+
+            if (result.error) {
+                return { error: result.error };
+            }
+
+            // Parse SCAN output: first line is next cursor, rest are keys
+            const lines = result.stdout.trim().split('\n').filter(l => l.trim());
+            const nextCursor = parseInt(lines[0]) || 0;
+            const keys = lines.slice(1).map(k => k.trim()).filter(Boolean);
+
+            return { keys, nextCursor, cursor };
+        } catch (error) {
+            console.error('Failed to get Redis keys:', error);
+            return { error: error.message };
+        }
+    });
+
+    // Get key details (value, type, ttl)
+    ipcMain.handle('redis-get-key-info', async (event, dbIndex, key) => {
+        try {
+            const dbManager = getDbManager();
+            if (!dbManager) return { error: 'Database not initialized' };
+
+            const apps = dbManager.query('SELECT * FROM installed_apps WHERE app_id = ?', ['redis']);
+            if (!apps || apps.length === 0) return { error: 'Redis not installed' };
+
+            const app = apps[0];
+            const cliPaths = getDbCliPaths('redis', app.exec_path);
+            const cwd = path.dirname(cliPaths.client);
+
+            // Get type
+            const typeResult = await execCommand(
+                `"${cliPaths.client}" -n ${dbIndex} TYPE "${key}"`,
+                { cwd }
+            );
+            const type = typeResult.stdout?.trim() || 'unknown';
+
+            // Get TTL
+            const ttlResult = await execCommand(
+                `"${cliPaths.client}" -n ${dbIndex} TTL "${key}"`,
+                { cwd }
+            );
+            const ttl = parseInt(ttlResult.stdout?.trim()) || -1;
+
+            // Get value based on type
+            let value = '';
+            let length = 0;
+
+            if (type === 'string') {
+                const valResult = await execCommand(
+                    `"${cliPaths.client}" -n ${dbIndex} GET "${key}"`,
+                    { cwd }
+                );
+                value = valResult.stdout?.trim() || '';
+                length = value.length;
+            } else if (type === 'list') {
+                const lenResult = await execCommand(
+                    `"${cliPaths.client}" -n ${dbIndex} LLEN "${key}"`,
+                    { cwd }
+                );
+                length = parseInt(lenResult.stdout?.trim()) || 0;
+                const valResult = await execCommand(
+                    `"${cliPaths.client}" -n ${dbIndex} LRANGE "${key}" 0 99`,
+                    { cwd }
+                );
+                value = valResult.stdout?.trim() || '';
+            } else if (type === 'set') {
+                const lenResult = await execCommand(
+                    `"${cliPaths.client}" -n ${dbIndex} SCARD "${key}"`,
+                    { cwd }
+                );
+                length = parseInt(lenResult.stdout?.trim()) || 0;
+                const valResult = await execCommand(
+                    `"${cliPaths.client}" -n ${dbIndex} SMEMBERS "${key}"`,
+                    { cwd }
+                );
+                value = valResult.stdout?.trim() || '';
+            } else if (type === 'zset') {
+                const lenResult = await execCommand(
+                    `"${cliPaths.client}" -n ${dbIndex} ZCARD "${key}"`,
+                    { cwd }
+                );
+                length = parseInt(lenResult.stdout?.trim()) || 0;
+                const valResult = await execCommand(
+                    `"${cliPaths.client}" -n ${dbIndex} ZRANGE "${key}" 0 99 WITHSCORES`,
+                    { cwd }
+                );
+                value = valResult.stdout?.trim() || '';
+            } else if (type === 'hash') {
+                const lenResult = await execCommand(
+                    `"${cliPaths.client}" -n ${dbIndex} HLEN "${key}"`,
+                    { cwd }
+                );
+                length = parseInt(lenResult.stdout?.trim()) || 0;
+                const valResult = await execCommand(
+                    `"${cliPaths.client}" -n ${dbIndex} HGETALL "${key}"`,
+                    { cwd }
+                );
+                value = valResult.stdout?.trim() || '';
+            }
+
+            return { key, type, ttl, value, length };
+        } catch (error) {
+            console.error('Failed to get Redis key info:', error);
+            return { error: error.message };
+        }
+    });
+
+    // Set a key value
+    ipcMain.handle('redis-set-key', async (event, dbIndex, key, value, ttl = -1) => {
+        try {
+            const dbManager = getDbManager();
+            if (!dbManager) return { error: 'Database not initialized' };
+
+            const apps = dbManager.query('SELECT * FROM installed_apps WHERE app_id = ?', ['redis']);
+            if (!apps || apps.length === 0) return { error: 'Redis not installed' };
+
+            const app = apps[0];
+            const cliPaths = getDbCliPaths('redis', app.exec_path);
+            const cwd = path.dirname(cliPaths.client);
+
+            // Escape value for command line
+            const escapedValue = value.replace(/"/g, '\\"');
+
+            let command = `"${cliPaths.client}" -n ${dbIndex} SET "${key}" "${escapedValue}"`;
+            if (ttl > 0) {
+                command += ` EX ${ttl}`;
+            }
+
+            const result = await execCommand(command, { cwd });
+
+            if (result.error) {
+                return { error: result.error };
+            }
+
+            return { success: true };
+        } catch (error) {
+            console.error('Failed to set Redis key:', error);
+            return { error: error.message };
+        }
+    });
+
+    // Delete a key
+    ipcMain.handle('redis-delete-key', async (event, dbIndex, key) => {
+        try {
+            const dbManager = getDbManager();
+            if (!dbManager) return { error: 'Database not initialized' };
+
+            const apps = dbManager.query('SELECT * FROM installed_apps WHERE app_id = ?', ['redis']);
+            if (!apps || apps.length === 0) return { error: 'Redis not installed' };
+
+            const app = apps[0];
+            const cliPaths = getDbCliPaths('redis', app.exec_path);
+
+            const result = await execCommand(
+                `"${cliPaths.client}" -n ${dbIndex} DEL "${key}"`,
+                { cwd: path.dirname(cliPaths.client) }
+            );
+
+            if (result.error) {
+                return { error: result.error };
+            }
+
+            return { success: true };
+        } catch (error) {
+            console.error('Failed to delete Redis key:', error);
+            return { error: error.message };
+        }
+    });
+
+    // Delete multiple keys
+    ipcMain.handle('redis-delete-keys', async (event, dbIndex, keys) => {
+        try {
+            const dbManager = getDbManager();
+            if (!dbManager) return { error: 'Database not initialized' };
+
+            const apps = dbManager.query('SELECT * FROM installed_apps WHERE app_id = ?', ['redis']);
+            if (!apps || apps.length === 0) return { error: 'Redis not installed' };
+
+            const app = apps[0];
+            const cliPaths = getDbCliPaths('redis', app.exec_path);
+
+            const keysList = keys.map(k => `"${k}"`).join(' ');
+            const result = await execCommand(
+                `"${cliPaths.client}" -n ${dbIndex} DEL ${keysList}`,
+                { cwd: path.dirname(cliPaths.client) }
+            );
+
+            if (result.error) {
+                return { error: result.error };
+            }
+
+            return { success: true, deleted: parseInt(result.stdout?.trim()) || 0 };
+        } catch (error) {
+            console.error('Failed to delete Redis keys:', error);
+            return { error: error.message };
+        }
+    });
+
+    // Flush a database
+    ipcMain.handle('redis-flush-db', async (event, dbIndex) => {
+        try {
+            const dbManager = getDbManager();
+            if (!dbManager) return { error: 'Database not initialized' };
+
+            const apps = dbManager.query('SELECT * FROM installed_apps WHERE app_id = ?', ['redis']);
+            if (!apps || apps.length === 0) return { error: 'Redis not installed' };
+
+            const app = apps[0];
+            const cliPaths = getDbCliPaths('redis', app.exec_path);
+
+            const result = await execCommand(
+                `"${cliPaths.client}" -n ${dbIndex} FLUSHDB`,
+                { cwd: path.dirname(cliPaths.client) }
+            );
+
+            if (result.error) {
+                return { error: result.error };
+            }
+
+            return { success: true };
+        } catch (error) {
+            console.error('Failed to flush Redis db:', error);
             return { error: error.message };
         }
     });

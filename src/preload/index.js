@@ -48,7 +48,8 @@ api.database = {
     createDatabase: db.createDatabase,
     dropDatabase: db.dropDatabase,
     listUsers: db.listUsers,
-    changePassword: db.changePassword
+    changePassword: db.changePassword,
+    redis: db.redis
 };
 
 if (process.contextIsolated) {

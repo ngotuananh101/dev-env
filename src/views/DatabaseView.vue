@@ -15,8 +15,8 @@
         </div>
       </div>
 
-      <!-- Toolbar -->
-      <div class="flex items-center justify-between p-3 bg-background border-t border-gray-700">
+      <!-- Toolbar (hide for Redis - it has its own) -->
+      <div v-if="!isRedisTab" class="flex items-center justify-between p-3 bg-background border-t border-gray-700">
         <div class="flex items-center space-x-2">
           <BaseButton :disabled="loading || !activeTab" @click="openCreateModal" variant="success" size="sm">
             <template #icon>
@@ -79,12 +79,15 @@
       <div class="text-center">
         <Database class="w-16 h-16 mx-auto text-gray-600 mb-4" />
         <p class="text-gray-400 text-lg">No database applications installed</p>
-        <p class="text-gray-500 text-sm mt-2">Install MySQL, MariaDB, or PostgreSQL from the App Store</p>
+        <p class="text-gray-500 text-sm mt-2">Install MySQL, MariaDB, PostgreSQL or Redis from the App Store</p>
       </div>
     </div>
 
-    <!-- Databases Table -->
-    <div v-else-if="subTab === 'databases'" class="flex-1 overflow-auto">
+    <!-- Redis Manager (separate view) -->
+    <RedisManager v-else-if="isRedisTab" />
+
+    <!-- Databases Table (not for Redis) -->
+    <div v-else-if="!isRedisTab && subTab === 'databases'" class="flex-1 overflow-auto">
       <table class="w-full text-xs">
         <thead class="bg-[#252526] sticky top-0">
           <tr class="text-gray-400">
@@ -147,8 +150,8 @@
       </table>
     </div>
 
-    <!-- Users Table -->
-    <div v-else-if="subTab === 'users'" class="flex-1 overflow-auto">
+    <!-- Users Table (not for Redis) -->
+    <div v-else-if="!isRedisTab && subTab === 'users'" class="flex-1 overflow-auto">
       <table class="w-full text-xs">
         <thead class="bg-[#252526] sticky top-0">
           <tr class="text-gray-400">
@@ -199,8 +202,8 @@
       </table>
     </div>
 
-    <!-- Footer -->
-    <div class="p-2 border-t border-gray-700 bg-[#252526] flex items-center justify-between text-xs text-gray-400">
+    <!-- Footer (not for Redis - it has its own) -->
+    <div v-if="!isRedisTab && availableTabs.length > 0" class="p-2 border-t border-gray-700 bg-[#252526] flex items-center justify-between text-xs text-gray-400">
       <div>
         Total {{ subTab === 'databases' ? databases.length + ' databases' : users.length + ' users' }}
       </div>
@@ -259,6 +262,7 @@ import { useToast } from 'vue-toastification';
 import BaseButton from '../components/BaseButton.vue';
 import BaseModal from '../components/BaseModal.vue';
 import BaseInput from '../components/BaseInput.vue';
+import RedisManager from '../components/RedisManager.vue';
 import { generatePassword, copyToClipboard } from '../utils/helpers';
 import { useDatabaseStore } from '../stores/database';
 
@@ -276,6 +280,9 @@ const newDbName = ref('');
 const userPasswords = ref({});
 const isPhpMyAdminInstalled = ref(false);
 
+// Check if current tab is Redis
+const isRedisTab = computed(() => activeTab.value === 'redis');
+
 // Available tabs based on installed DB apps
 const availableTabs = computed(() => {
   return dbApps.value.map(app => ({
@@ -292,9 +299,9 @@ const currentDbApp = computed(() => {
 // Load installed database apps
 const loadDbApps = async () => {
   try {
-    // Query installed_apps table directly
+    // Query installed_apps table directly (including Redis)
     const result = await window.sysapi.db.query(
-      "SELECT * FROM installed_apps WHERE app_id IN ('mysql', 'mariadb', 'postgresql')"
+      "SELECT * FROM installed_apps WHERE app_id IN ('mysql', 'mariadb', 'postgresql', 'redis')"
     );
 
     // Check for phpMyAdmin
@@ -304,15 +311,27 @@ const loadDbApps = async () => {
     isPhpMyAdminInstalled.value = pmaResult && pmaResult.length > 0;
 
     if (result && Array.isArray(result)) {
-      dbApps.value = result.map(app => ({
-        id: app.app_id,
-        name: app.app_id === 'mysql' ? 'MySQL' :
-          app.app_id === 'mariadb' ? 'MariaDB' : 'PostgreSQL',
-        version: app.installed_version,
-        installPath: app.install_path,
-        iconColor: app.app_id === 'mysql' ? 'text-orange-500' :
-          app.app_id === 'mariadb' ? 'text-cyan-500' : 'text-blue-600'
-      }));
+      dbApps.value = result.map(app => {
+        const nameMap = {
+          'mysql': 'MySQL',
+          'mariadb': 'MariaDB',
+          'postgresql': 'PostgreSQL',
+          'redis': 'Redis'
+        };
+        const colorMap = {
+          'mysql': 'text-orange-500',
+          'mariadb': 'text-cyan-500',
+          'postgresql': 'text-blue-600',
+          'redis': 'text-red-500'
+        };
+        return {
+          id: app.app_id,
+          name: nameMap[app.app_id] || app.app_id,
+          version: app.installed_version,
+          installPath: app.install_path,
+          iconColor: colorMap[app.app_id] || 'text-gray-400'
+        };
+      });
 
       // Auto-select first tab
       if (dbApps.value.length > 0 && !activeTab.value) {
@@ -503,7 +522,7 @@ const changePassword = async (username, host) => {
 
 // Watch tab change to reload data
 watch(activeTab, (newTab) => {
-  if (newTab) {
+  if (newTab && newTab !== 'redis') {
     databases.value = [];
     users.value = [];
     userPasswords.value = {};

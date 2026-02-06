@@ -123,7 +123,7 @@ app.whenReady().then(async () => {
   }
 
   // Create main window
-  createWindow();
+  const win = createWindow();
 
   // Auto-start apps that were running before
   if (dbManager) {
