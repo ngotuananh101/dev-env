@@ -87,135 +87,131 @@
     </div>
 
     <!-- Table -->
-    <div class="flex-1 overflow-auto">
-      <table class="w-full text-xs">
-        <thead class="bg-[#252526] sticky top-0">
-          <tr class="text-gray-400">
-            <th class="px-3 py-2 text-left font-medium">Site name</th>
-            <th class="px-3 py-2 text-center font-medium w-20">Status</th>
-            <th class="px-3 py-2 text-center font-medium w-20">SSL</th>
-            <th class="px-3 py-2 text-center font-medium w-28">Quick action</th>
-            <th class="px-3 py-2 text-center font-medium w-32">Created</th>
-            <th class="px-3 py-2 text-center font-medium w-40">Operate</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="filteredSites.length === 0">
-            <td colspan="6" class="px-3 py-8 text-center text-gray-500">
-              <div class="flex flex-col items-center space-y-2">
-                <Globe2 class="w-8 h-8" />
-                <span>No {{ activeTabName }} sites found</span>
-                <button @click="showAddModal = true" class="text-green-400 hover:underline">
-                  Add your first site
-                </button>
-              </div>
-            </td>
-          </tr>
-          <tr v-for="site in filteredSites" :key="site.id" class="border-b border-gray-800 hover:bg-gray-800/50">
-            <!-- Site name -->
-            <td class="px-3 py-2">
-              <div class="flex items-center space-x-2">
-                <component :is="getTypeIcon(site.type)" class="w-4 h-4" :class="getTypeColor(site.type)" />
-                <div>
-                  <div class="flex items-center space-x-1">
-                    <span class="text-white font-medium">{{ site.domain }}</span>
-                    <ExternalLink class="w-3 h-3 text-gray-400 hover:text-blue-400 cursor-pointer"
-                      @click="openInBrowser(site.domain)" />
-                  </div>
-                  <div class="text-gray-500 text-[10px]">{{ site.name }}</div>
-                </div>
-              </div>
-            </td>
+    <div class="flex-1 overflow-hidden flex flex-col">
+      <!-- Table Header -->
+      <div class="bg-[#252526] flex text-gray-400 text-xs font-medium border-b border-gray-700">
+        <div class="px-3 py-2 text-left flex-1">Site name</div>
+        <div class="px-3 py-2 text-center w-20">Status</div>
+        <div class="px-3 py-2 text-center w-20">SSL</div>
+        <div class="px-3 py-2 text-center w-28">Quick action</div>
+        <div class="px-3 py-2 text-center w-32">Created</div>
+        <div class="px-3 py-2 text-center w-40">Operate</div>
+      </div>
 
-            <!-- Status -->
-            <td class="px-3 py-2 text-center">
+      <!-- Empty State -->
+      <div v-if="filteredSites.length === 0" class="flex-1 flex items-center justify-center">
+        <div class="flex flex-col items-center space-y-2 text-gray-500">
+          <Globe2 class="w-8 h-8" />
+          <span>No {{ activeTabName }} sites found</span>
+          <button @click="showAddModal = true" class="text-green-400 hover:underline">
+            Add your first site
+          </button>
+        </div>
+      </div>
+
+      <!-- Virtual Scroller for Sites -->
+      <RecycleScroller
+        v-else
+        class="flex-1"
+        :items="filteredSites"
+        :item-size="50"
+        key-field="id"
+        v-slot="{ item: site }"
+      >
+        <div class="flex items-center border-b border-gray-800 hover:bg-gray-800/50 h-12.5 text-xs">
+          <!-- Site name -->
+          <div class="px-3 py-2 flex-1">
+            <div class="flex items-center space-x-2">
+              <component :is="getTypeIcon(site.type)" class="w-4 h-4" :class="getTypeColor(site.type)" />
+              <div>
+                <div class="flex items-center space-x-1">
+                  <span class="text-white font-medium">{{ site.domain }}</span>
+                  <ExternalLink class="w-3 h-3 text-gray-400 hover:text-blue-400 cursor-pointer"
+                    @click="openInBrowser(site.domain)" />
+                </div>
+                <div class="text-gray-500 text-[10px]">{{ site.name }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Status -->
+          <div class="px-3 py-2 text-center w-20">
+            <template v-if="site.type === 'node'">
+              <div class="flex items-center justify-center space-x-1">
+                <div class="w-2 h-2 rounded-full" :class="site.processRunning ? 'bg-green-500' : 'bg-gray-500'"></div>
+                <span :class="site.processRunning ? 'text-green-400' : 'text-gray-400'" class="text-[10px]">
+                  {{ site.processRunning ? 'Running' : 'Stopped' }}
+                </span>
+              </div>
+            </template>
+            <template v-else-if="site.type === 'php'">
+              <select :value="site.php_version" @change="sitesStore.updatePhpVersion(site, $event.target.value)"
+                :disabled="site.updatingPhp"
+                class="bg-gray-700 text-white text-[10px] rounded px-1 py-0.5 border border-gray-600 focus:outline-none cursor-pointer disabled:opacity-50">
+                <option v-for="ver in sitesStore.phpVersions" :key="ver" :value="ver">{{ ver }}</option>
+              </select>
+            </template>
+            <template v-else>
+              <span class="text-gray-500">--</span>
+            </template>
+          </div>
+
+          <!-- SSL Status -->
+          <div class="px-2 py-2 w-20 text-center">
+            <StatusBadge v-if="site.ssl" status="success" class="text-[10px]">SSL</StatusBadge>
+            <StatusBadge v-else status="inactive" class="text-[10px]">OFF</StatusBadge>
+          </div>
+
+          <!-- Quick action -->
+          <div class="px-2 py-2 w-28 text-center">
+            <ActionButtonGroup>
+              <!-- Node: Start/Stop -->
               <template v-if="site.type === 'node'">
-                <div class="flex items-center justify-center space-x-1">
-                  <div class="w-2 h-2 rounded-full" :class="site.processRunning ? 'bg-green-500' : 'bg-gray-500'"></div>
-                  <span :class="site.processRunning ? 'text-green-400' : 'text-gray-400'">
-                    {{ site.processRunning ? 'Running' : 'Stopped' }}
-                  </span>
-                </div>
+                <button v-if="!site.processRunning" @click="sitesStore.startNodeSite(site)" :disabled="site.loading"
+                  class="p-1 hover:bg-green-500/20 rounded" title="Start">
+                  <Play class="w-3.5 h-3.5 text-green-500" />
+                </button>
+                <button v-else @click="sitesStore.stopNodeSite(site)" :disabled="site.loading"
+                  class="p-1 hover:bg-red-500/20 rounded" title="Stop">
+                  <Square class="w-3.5 h-3.5 text-red-500" />
+                </button>
               </template>
-              <template v-else-if="site.type === 'php'">
-                <div class="inline-block text-left">
-                  <select :value="site.php_version" @change="sitesStore.updatePhpVersion(site, $event.target.value)"
-                    :disabled="site.updatingPhp"
-                    class="bg-gray-700 text-white text-xs rounded px-2 py-1 border border-gray-600 focus:outline-none focus:border-blue-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed appearance-none pr-4">
-                    <option v-for="ver in sitesStore.phpVersions" :key="ver" :value="ver">{{ ver }}</option>
-                  </select>
-                  <div class="pointer-events-none inset-y-0 right-0 flex items-center px-1.5 text-gray-400">
-                    <RotateCw v-if="site.updatingPhp" class="h-3 w-3 animate-spin" />
-                  </div>
-                </div>
-              </template>
-              <template v-else>
-                <span class="text-gray-500">--</span>
-              </template>
-            </td>
 
-            <!-- SSL Status -->
-            <td class="px-2 py-2 w-[100px] text-center">
-              <StatusBadge :status="site.status.toLowerCase()">
-                {{ site.status.toUpperCase() }}
-              </StatusBadge>
-            </td>
-            <td class="px-2 py-2 w-[120px] text-center">
-              <StatusBadge v-if="site.ssl" status="success">ENABLED</StatusBadge>
-              <StatusBadge v-else status="inactive">DISABLED</StatusBadge>
-            </td>
+              <!-- Open folder -->
+              <button v-if="site.root_path" @click="openFolder(site.root_path)"
+                class="p-1 hover:bg-yellow-500/20 rounded" title="Open folder">
+                <Folder class="w-3.5 h-3.5 text-yellow-500" />
+              </button>
 
-            <!-- Quick action -->
-            <td class="px-2 py-2 text-center">
-              <ActionButtonGroup>
-                <!-- Node: Start/Stop -->
-                <template v-if="site.type === 'node'">
-                  <button v-if="!site.processRunning" @click="sitesStore.startNodeSite(site)" :disabled="site.loading"
-                    class="p-1 hover:bg-green-500/20 rounded" title="Start">
-                    <Play class="w-3.5 h-3.5 text-green-500" />
-                  </button>
-                  <button v-else @click="sitesStore.stopNodeSite(site)" :disabled="site.loading"
-                    class="p-1 hover:bg-red-500/20 rounded" title="Stop">
-                    <Square class="w-3.5 h-3.5 text-red-500" />
-                  </button>
-                </template>
+              <!-- Open in browser -->
+              <button @click="openInBrowser(site.domain)" class="p-1 hover:bg-blue-500/20 rounded"
+                title="Open in browser">
+                <Globe class="w-3.5 h-3.5 text-blue-500" />
+              </button>
+            </ActionButtonGroup>
+          </div>
 
-                <!-- Open folder -->
-                <button v-if="site.root_path" @click="openFolder(site.root_path)"
-                  class="p-1 hover:bg-yellow-500/20 rounded" title="Open folder">
-                  <Folder class="w-3.5 h-3.5 text-yellow-500" />
-                </button>
+          <!-- Created -->
+          <div class="px-3 py-2 text-center w-32 text-gray-400">
+            {{ formatDate(site.created_at) }}
+          </div>
 
-                <!-- Open in browser -->
-                <button @click="openInBrowser(site.domain)" class="p-1 hover:bg-blue-500/20 rounded"
-                  title="Open in browser">
-                  <Globe class="w-3.5 h-3.5 text-blue-500" />
-                </button>
-              </ActionButtonGroup>
-            </td>
-
-            <!-- Created -->
-            <td class="px-3 py-2 text-center text-gray-400">
-              {{ formatDate(site.created_at) }}
-            </td>
-
-            <!-- Operate -->
-            <td class="px-3 py-2 text-center">
-              <div class="flex items-center justify-center space-x-2">
-                <button @click="openConfig(site)" class="text-blue-400 hover:text-blue-300 text-xs">
-                  Conf
-                </button>
-                <button @click="showLogs(site)" class="text-green-400 hover:text-green-300 text-xs">
-                  Logs
-                </button>
-                <button @click="sitesStore.deleteSite(site)" class="text-red-400 hover:text-red-300 text-xs">
-                  Delete
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+          <!-- Operate -->
+          <div class="px-3 py-2 text-center w-40">
+            <div class="flex items-center justify-center space-x-2">
+              <button @click="openConfig(site)" class="text-blue-400 hover:text-blue-300 text-xs">
+                Conf
+              </button>
+              <button @click="showLogs(site)" class="text-green-400 hover:text-green-300 text-xs">
+                Logs
+              </button>
+              <button @click="sitesStore.deleteSite(site)" class="text-red-400 hover:text-red-300 text-xs">
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      </RecycleScroller>
     </div>
 
     <!-- Footer -->
@@ -249,12 +245,14 @@ import {
   RotateCw
 } from 'lucide-vue-next';
 import { useToast } from 'vue-toastification';
-import { useSitesStore } from '../stores/sites';
-import { useDebouncedRef } from '../composables/useDebouncedRef';
+import { useSitesStore } from '@/stores/sites';
+import { useDebouncedRef } from '@/composables/useDebouncedRef';
 import BaseButton from '../components/BaseButton.vue';
 import StatusBadge from '../components/StatusBadge.vue';
 import ActionButtonGroup from '../components/ActionButtonGroup.vue';
 import BaseInput from '../components/BaseInput.vue';
+import { RecycleScroller } from 'vue3-virtual-scroller';
+import 'vue3-virtual-scroller/dist/vue3-virtual-scroller.css';
 
 // Lazy load heavy modal components
 const AddSiteModal = defineAsyncComponent(() =>
