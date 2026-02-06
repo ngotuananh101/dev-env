@@ -600,8 +600,8 @@ function register(ipcMain, context) {
         }
     });
 
-    // Set a key value
-    ipcMain.handle('redis-set-key', async (event, dbIndex, key, value, ttl = -1) => {
+    // Set a key value (supports multiple data types)
+    ipcMain.handle('redis-set-key', async (event, dbIndex, key, value, ttl = -1, dataType = 'string') => {
         try {
             const dbManager = getDbManager();
             if (!dbManager) return { error: 'Database not initialized' };
@@ -613,18 +613,82 @@ function register(ipcMain, context) {
             const cliPaths = getDbCliPaths('redis', app.exec_path);
             const cwd = path.dirname(cliPaths.client);
 
-            // Escape value for command line
-            const escapedValue = value.replace(/"/g, '\\"');
+            // Delete existing key first (to change type if needed)
+            await execCommand(`"${cliPaths.client}" -n ${dbIndex} DEL "${key}"`, { cwd });
 
-            let command = `"${cliPaths.client}" -n ${dbIndex} SET "${key}" "${escapedValue}"`;
-            if (ttl > 0) {
-                command += ` EX ${ttl}`;
+            let result;
+
+            if (dataType === 'string') {
+                // String: SET key value
+                const escapedValue = value.replace(/"/g, '\\"');
+                let command = `"${cliPaths.client}" -n ${dbIndex} SET "${key}" "${escapedValue}"`;
+                if (ttl > 0) {
+                    command += ` EX ${ttl}`;
+                }
+                result = await execCommand(command, { cwd });
+            } else if (dataType === 'list') {
+                // List: RPUSH key value1 value2 ...
+                const items = value.split('\n').filter(item => item.trim());
+                if (items.length > 0) {
+                    const escapedItems = items.map(item => `"${item.trim().replace(/"/g, '\\"')}"`).join(' ');
+                    result = await execCommand(`"${cliPaths.client}" -n ${dbIndex} RPUSH "${key}" ${escapedItems}`, { cwd });
+                } else {
+                    return { error: 'List cannot be empty' };
+                }
+            } else if (dataType === 'set') {
+                // Set: SADD key member1 member2 ...
+                const members = value.split('\n').filter(item => item.trim());
+                if (members.length > 0) {
+                    const escapedMembers = members.map(m => `"${m.trim().replace(/"/g, '\\"')}"`).join(' ');
+                    result = await execCommand(`"${cliPaths.client}" -n ${dbIndex} SADD "${key}" ${escapedMembers}`, { cwd });
+                } else {
+                    return { error: 'Set cannot be empty' };
+                }
+            } else if (dataType === 'zset') {
+                // Sorted Set: ZADD key score1 member1 score2 member2 ...
+                const lines = value.split('\n').filter(item => item.trim());
+                const args = [];
+                for (const line of lines) {
+                    const parts = line.trim().split(/\s+/);
+                    if (parts.length >= 2) {
+                        const score = parseFloat(parts[0]) || 0;
+                        const member = parts.slice(1).join(' ');
+                        args.push(`${score} "${member.replace(/"/g, '\\"')}"`);
+                    }
+                }
+                if (args.length > 0) {
+                    result = await execCommand(`"${cliPaths.client}" -n ${dbIndex} ZADD "${key}" ${args.join(' ')}`, { cwd });
+                } else {
+                    return { error: 'Sorted set cannot be empty' };
+                }
+            } else if (dataType === 'hash') {
+                // Hash: HSET key field1 value1 field2 value2 ...
+                const lines = value.split('\n').filter(item => item.trim());
+                const args = [];
+                for (const line of lines) {
+                    const parts = line.trim().split(/\s+/);
+                    if (parts.length >= 2) {
+                        const field = parts[0];
+                        const val = parts.slice(1).join(' ');
+                        args.push(`"${field.replace(/"/g, '\\"')}" "${val.replace(/"/g, '\\"')}"`);
+                    }
+                }
+                if (args.length > 0) {
+                    result = await execCommand(`"${cliPaths.client}" -n ${dbIndex} HSET "${key}" ${args.join(' ')}`, { cwd });
+                } else {
+                    return { error: 'Hash cannot be empty' };
+                }
+            } else {
+                return { error: 'Unsupported data type' };
             }
-
-            const result = await execCommand(command, { cwd });
 
             if (result.error) {
                 return { error: result.error };
+            }
+
+            // Set TTL if specified (for non-string types)
+            if (ttl > 0 && dataType !== 'string') {
+                await execCommand(`"${cliPaths.client}" -n ${dbIndex} EXPIRE "${key}" ${ttl}`, { cwd });
             }
 
             return { success: true };

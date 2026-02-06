@@ -124,9 +124,19 @@
               </div>
             </td>
             <td class="px-3 py-2 text-gray-400 font-mono text-xs">
-              <span class="truncate block max-w-xs" :title="keyData.value">
-                {{ truncateValue(keyData.value) }}
-              </span>
+              <div class="flex items-center space-x-2">
+                <span class="truncate block max-w-xs">
+                  {{ truncateValue(keyData.value, 50) }}
+                </span>
+                <button
+                  v-if="keyData.value && String(keyData.value).length > 50"
+                  @click="viewKeyDetail(keyData)"
+                  class="text-blue-400 hover:text-blue-300 text-xs whitespace-nowrap"
+                  title="View full value"
+                >
+                  [view]
+                </button>
+              </div>
             </td>
             <td class="px-3 py-2 text-center">
               <span
@@ -180,6 +190,20 @@
         <span v-else>Select keys to delete</span>
       </div>
       <div class="flex items-center space-x-4">
+        <!-- Page Size Selector -->
+        <div class="flex items-center space-x-2">
+          <select
+            v-model="pageSize"
+            @change="onPageSizeChange"
+            class="h-7 px-2 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500"
+          >
+            <option :value="20">20 / page</option>
+            <option :value="50">50 / page</option>
+            <option :value="100">100 / page</option>
+          </select>
+        </div>
+
+        <!-- Pagination Controls -->
         <div class="flex items-center space-x-2">
           <button
             @click="prevPage"
@@ -188,7 +212,7 @@
           >
             &lt;
           </button>
-          <span>Page {{ currentPage }}</span>
+          <span class="px-2">{{ currentPage }}</span>
           <button
             @click="nextPage"
             :disabled="!canGoNext"
@@ -197,21 +221,40 @@
             &gt;
           </button>
         </div>
-        <span>Total {{ totalKeys }}</span>
+
+        <!-- Total Info -->
+        <span>Total {{ totalKeys }} keys</span>
       </div>
     </div>
 
     <!-- Add/Edit Key Modal -->
-    <BaseModal :show="showAddKeyModal" @close="showAddKeyModal = false" max-width="500px">
+    <BaseModal :show="showAddKeyModal" @close="showAddKeyModal = false" max-width="550px">
       <template #title>{{ editingKey ? 'Edit Key' : 'Add Key' }}</template>
 
       <div class="space-y-4 p-6">
+        <!-- Key Name -->
         <div class="grid grid-cols-[80px_1fr] gap-4 items-center">
           <label class="text-gray-400 text-right text-xs">Key</label>
           <BaseInput v-model="newKeyName" placeholder="Key name" :disabled="!!editingKey" />
         </div>
 
-        <div class="grid grid-cols-[80px_1fr] gap-4 items-start">
+        <!-- Data Type (only for new keys) -->
+        <div v-if="!editingKey" class="grid grid-cols-[80px_1fr] gap-4 items-center">
+          <label class="text-gray-400 text-right text-xs">Type</label>
+          <select
+            v-model="newKeyType"
+            class="h-9 px-3 text-sm bg-gray-800 border border-gray-700 rounded text-white focus:outline-none focus:border-blue-500"
+          >
+            <option value="string">String</option>
+            <option value="list">List</option>
+            <option value="set">Set</option>
+            <option value="zset">Sorted Set</option>
+            <option value="hash">Hash</option>
+          </select>
+        </div>
+
+        <!-- String Value -->
+        <div v-if="newKeyType === 'string'" class="grid grid-cols-[80px_1fr] gap-4 items-start">
           <label class="text-gray-400 text-right text-xs pt-2">Value</label>
           <textarea
             v-model="newKeyValue"
@@ -221,6 +264,63 @@
           ></textarea>
         </div>
 
+        <!-- List Value -->
+        <div v-else-if="newKeyType === 'list'" class="grid grid-cols-[80px_1fr] gap-4 items-start">
+          <label class="text-gray-400 text-right text-xs pt-2">Items</label>
+          <div class="space-y-2">
+            <textarea
+              v-model="newKeyValue"
+              placeholder="One item per line"
+              rows="5"
+              class="w-full px-3 py-2 text-sm bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 font-mono"
+            ></textarea>
+            <div class="text-xs text-gray-500">Enter one item per line</div>
+          </div>
+        </div>
+
+        <!-- Set Value -->
+        <div v-else-if="newKeyType === 'set'" class="grid grid-cols-[80px_1fr] gap-4 items-start">
+          <label class="text-gray-400 text-right text-xs pt-2">Members</label>
+          <div class="space-y-2">
+            <textarea
+              v-model="newKeyValue"
+              placeholder="One member per line"
+              rows="5"
+              class="w-full px-3 py-2 text-sm bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 font-mono"
+            ></textarea>
+            <div class="text-xs text-gray-500">Enter one member per line (duplicates will be ignored)</div>
+          </div>
+        </div>
+
+        <!-- Sorted Set Value -->
+        <div v-else-if="newKeyType === 'zset'" class="grid grid-cols-[80px_1fr] gap-4 items-start">
+          <label class="text-gray-400 text-right text-xs pt-2">Members</label>
+          <div class="space-y-2">
+            <textarea
+              v-model="newKeyValue"
+              placeholder="score member&#10;1 item1&#10;2 item2"
+              rows="5"
+              class="w-full px-3 py-2 text-sm bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 font-mono"
+            ></textarea>
+            <div class="text-xs text-gray-500">Format: score member (one per line)</div>
+          </div>
+        </div>
+
+        <!-- Hash Value -->
+        <div v-else-if="newKeyType === 'hash'" class="grid grid-cols-[80px_1fr] gap-4 items-start">
+          <label class="text-gray-400 text-right text-xs pt-2">Fields</label>
+          <div class="space-y-2">
+            <textarea
+              v-model="newKeyValue"
+              placeholder="field value&#10;name John&#10;age 30"
+              rows="5"
+              class="w-full px-3 py-2 text-sm bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 font-mono"
+            ></textarea>
+            <div class="text-xs text-gray-500">Format: field value (one per line)</div>
+          </div>
+        </div>
+
+        <!-- TTL -->
         <div class="grid grid-cols-[80px_1fr] gap-4 items-center">
           <label class="text-gray-400 text-right text-xs">TTL (s)</label>
           <BaseInput v-model.number="newKeyTtl" type="number" placeholder="-1 for no expiry" />
@@ -241,33 +341,144 @@
     </BaseModal>
 
     <!-- View Key Detail Modal -->
-    <BaseModal :show="showDetailModal" @close="showDetailModal = false" max-width="600px">
-      <template #title>Key Detail</template>
-
-      <div class="space-y-4 p-6">
-        <div class="grid grid-cols-[80px_1fr] gap-4 items-center">
-          <label class="text-gray-400 text-right text-xs">Key</label>
-          <div class="text-white font-mono text-sm">{{ viewingKey?.key }}</div>
-        </div>
-
-        <div class="grid grid-cols-[80px_1fr] gap-4 items-center">
-          <label class="text-gray-400 text-right text-xs">Type</label>
+    <BaseModal :show="showDetailModal" @close="showDetailModal = false" max-width="700px">
+      <template #title>
+        <div class="flex items-center space-x-2">
+          <span>Key Detail</span>
           <span
-            class="px-2 py-0.5 rounded text-xs w-fit"
+            class="px-2 py-0.5 rounded text-xs"
             :class="getTypeClass(viewingKey?.type)"
           >
             {{ viewingKey?.type }}
           </span>
         </div>
+      </template>
 
+      <div class="space-y-4 p-6">
+        <!-- Key Name -->
         <div class="grid grid-cols-[80px_1fr] gap-4 items-center">
-          <label class="text-gray-400 text-right text-xs">TTL</label>
-          <div class="text-gray-300 text-sm">{{ formatTtl(viewingKey?.ttl) }}</div>
+          <label class="text-gray-400 text-right text-xs">Key</label>
+          <div class="flex items-center space-x-2">
+            <code class="text-white font-mono text-sm bg-gray-800 px-2 py-1 rounded">{{ viewingKey?.key }}</code>
+            <button
+              @click="copyToClipboard(viewingKey?.key)"
+              class="text-gray-400 hover:text-white"
+              title="Copy key"
+            >
+              <Copy class="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
+        <!-- TTL & Length -->
+        <div class="grid grid-cols-[80px_1fr] gap-4 items-center">
+          <label class="text-gray-400 text-right text-xs">Info</label>
+          <div class="flex items-center space-x-4 text-sm">
+            <span class="text-gray-400">TTL: <span class="text-white">{{ formatTtl(viewingKey?.ttl) }}</span></span>
+            <span class="text-gray-400">Length: <span class="text-white">{{ viewingKey?.length }}</span></span>
+          </div>
+        </div>
+
+        <!-- Value Section - Different display based on type -->
         <div class="grid grid-cols-[80px_1fr] gap-4 items-start">
           <label class="text-gray-400 text-right text-xs pt-2">Value</label>
-          <pre class="w-full px-3 py-2 text-xs bg-gray-800 border border-gray-700 rounded text-gray-300 overflow-auto max-h-64 font-mono whitespace-pre-wrap">{{ viewingKey?.value }}</pre>
+
+          <!-- String Type -->
+          <div v-if="viewingKey?.type === 'string'" class="space-y-2">
+            <div class="flex items-center space-x-2">
+              <button
+                @click="copyToClipboard(viewingKey?.value)"
+                class="text-xs text-blue-400 hover:text-blue-300"
+              >
+                Copy Value
+              </button>
+            </div>
+            <pre class="w-full px-3 py-2 text-xs bg-gray-800 border border-gray-700 rounded text-gray-300 overflow-auto max-h-80 font-mono whitespace-pre-wrap break-all">{{ viewingKey?.value }}</pre>
+          </div>
+
+          <!-- List Type -->
+          <div v-else-if="viewingKey?.type === 'list'" class="space-y-2">
+            <div class="text-xs text-gray-500">List items (showing first 100):</div>
+            <div class="w-full max-h-80 overflow-auto bg-gray-800 border border-gray-700 rounded">
+              <div
+                v-for="(item, index) in parseListValue(viewingKey?.value)"
+                :key="index"
+                class="flex items-center px-3 py-1.5 border-b border-gray-700 last:border-b-0 hover:bg-gray-700/50"
+              >
+                <span class="text-gray-500 w-10 text-xs">{{ index }}</span>
+                <span class="text-gray-300 font-mono text-xs break-all">{{ item }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Set Type -->
+          <div v-else-if="viewingKey?.type === 'set'" class="space-y-2">
+            <div class="text-xs text-gray-500">Set members:</div>
+            <div class="w-full max-h-80 overflow-auto bg-gray-800 border border-gray-700 rounded">
+              <div
+                v-for="(member, index) in parseListValue(viewingKey?.value)"
+                :key="index"
+                class="flex items-center px-3 py-1.5 border-b border-gray-700 last:border-b-0 hover:bg-gray-700/50"
+              >
+                <span class="text-gray-300 font-mono text-xs break-all">{{ member }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sorted Set (zset) Type -->
+          <div v-else-if="viewingKey?.type === 'zset'" class="space-y-2">
+            <div class="text-xs text-gray-500">Sorted set members with scores:</div>
+            <div class="w-full max-h-80 overflow-auto bg-gray-800 border border-gray-700 rounded">
+              <table class="w-full text-xs">
+                <thead class="bg-gray-700 sticky top-0">
+                  <tr>
+                    <th class="px-3 py-1.5 text-left text-gray-400">Member</th>
+                    <th class="px-3 py-1.5 text-right text-gray-400 w-24">Score</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="(item, index) in parseZsetValue(viewingKey?.value)"
+                    :key="index"
+                    class="border-b border-gray-700 last:border-b-0 hover:bg-gray-700/50"
+                  >
+                    <td class="px-3 py-1.5 text-gray-300 font-mono break-all">{{ item.member }}</td>
+                    <td class="px-3 py-1.5 text-right text-blue-400">{{ item.score }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Hash Type -->
+          <div v-else-if="viewingKey?.type === 'hash'" class="space-y-2">
+            <div class="text-xs text-gray-500">Hash fields:</div>
+            <div class="w-full max-h-80 overflow-auto bg-gray-800 border border-gray-700 rounded">
+              <table class="w-full text-xs">
+                <thead class="bg-gray-700 sticky top-0">
+                  <tr>
+                    <th class="px-3 py-1.5 text-left text-gray-400">Field</th>
+                    <th class="px-3 py-1.5 text-left text-gray-400">Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="(item, index) in parseHashValue(viewingKey?.value)"
+                    :key="index"
+                    class="border-b border-gray-700 last:border-b-0 hover:bg-gray-700/50"
+                  >
+                    <td class="px-3 py-1.5 text-yellow-400 font-mono">{{ item.field }}</td>
+                    <td class="px-3 py-1.5 text-gray-300 font-mono break-all">{{ item.value }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Stream or Unknown Type -->
+          <div v-else class="space-y-2">
+            <pre class="w-full px-3 py-2 text-xs bg-gray-800 border border-gray-700 rounded text-gray-300 overflow-auto max-h-80 font-mono whitespace-pre-wrap">{{ viewingKey?.value }}</pre>
+          </div>
         </div>
       </div>
 
@@ -285,7 +496,7 @@
 
 <script setup>
 import { ref, onMounted, watch } from 'vue';
-import { Plus, RefreshCw, Search, Trash2, Eye, Key, Database, Loader2 } from 'lucide-vue-next';
+import { Plus, RefreshCw, Search, Trash2, Eye, Key, Database, Loader2, Copy } from 'lucide-vue-next';
 import { useToast } from 'vue-toastification';
 import BaseButton from './BaseButton.vue';
 import BaseModal from './BaseModal.vue';
@@ -301,6 +512,7 @@ const keys = ref([]);
 const selectedKeys = ref([]);
 const searchPattern = ref('*');
 const currentPage = ref(1);
+const pageSize = ref(20);
 const totalKeys = ref(0);
 const cursors = ref([0]); // Store cursors for pagination
 
@@ -310,6 +522,7 @@ const showDetailModal = ref(false);
 const editingKey = ref(null);
 const viewingKey = ref(null);
 const newKeyName = ref('');
+const newKeyType = ref('string');
 const newKeyValue = ref('');
 const newKeyTtl = ref(-1);
 
@@ -349,7 +562,7 @@ const refreshKeys = async () => {
     const pattern = searchPattern.value || '*';
     const cursor = cursors.value[currentPage.value - 1] || 0;
 
-    const result = await window.sysapi.database.redis.getKeys(activeDb.value, pattern, cursor, 20);
+    const result = await window.sysapi.database.redis.getKeys(activeDb.value, pattern, cursor, pageSize.value);
 
     if (result.error) {
       toast.error(`Failed to load keys: ${result.error}`);
@@ -398,6 +611,13 @@ const prevPage = () => {
   }
 };
 
+// Handle page size change
+const onPageSizeChange = () => {
+  currentPage.value = 1;
+  cursors.value = [0];
+  refreshKeys();
+};
+
 // Selection
 const toggleSelectAll = () => {
   if (selectedKeys.value.length === keys.value.length) {
@@ -420,6 +640,7 @@ const toggleSelectKey = (key) => {
 const openAddKeyModal = () => {
   editingKey.value = null;
   newKeyName.value = '';
+  newKeyType.value = 'string';
   newKeyValue.value = '';
   newKeyTtl.value = -1;
   showAddKeyModal.value = true;
@@ -434,11 +655,15 @@ const saveKey = async () => {
 
   loading.value = true;
   try {
+    // Use editing key's type if editing, otherwise use selected type
+    const dataType = editingKey.value ? 'string' : newKeyType.value;
+
     const result = await window.sysapi.database.redis.setKey(
       activeDb.value,
       newKeyName.value,
       newKeyValue.value,
-      newKeyTtl.value > 0 ? newKeyTtl.value : -1
+      newKeyTtl.value > 0 ? newKeyTtl.value : -1,
+      dataType
     );
 
     if (result.error) {
@@ -523,10 +748,57 @@ const editFromDetail = () => {
 };
 
 // Helpers
-const truncateValue = (value) => {
+const truncateValue = (value, maxLength = 50) => {
   if (!value) return '-';
   const str = String(value);
-  return str.length > 50 ? str.substring(0, 50) + '...' : str;
+  if (str.length <= maxLength) return str;
+  return str.substring(0, maxLength) + '...';
+};
+
+// Parse list/set value (newline separated)
+const parseListValue = (value) => {
+  if (!value) return [];
+  return String(value).split('\n').filter(item => item.trim());
+};
+
+// Parse zset value (alternating member/score lines from ZRANGE WITHSCORES)
+const parseZsetValue = (value) => {
+  if (!value) return [];
+  const lines = String(value).split('\n').filter(item => item.trim());
+  const result = [];
+  for (let i = 0; i < lines.length; i += 2) {
+    result.push({
+      member: lines[i] || '',
+      score: lines[i + 1] || '0'
+    });
+  }
+  return result;
+};
+
+// Parse hash value (alternating field/value lines from HGETALL)
+const parseHashValue = (value) => {
+  if (!value) return [];
+  const lines = String(value).split('\n').filter(item => item.trim());
+  const result = [];
+  for (let i = 0; i < lines.length; i += 2) {
+    result.push({
+      field: lines[i] || '',
+      value: lines[i + 1] || ''
+    });
+  }
+  return result;
+};
+
+// Copy to clipboard
+const copyToClipboard = async (text) => {
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    toast.success('Copied to clipboard');
+  } catch (err) {
+    console.error('Copy failed:', err);
+    toast.error('Failed to copy');
+  }
 };
 
 const formatTtl = (ttl) => {
