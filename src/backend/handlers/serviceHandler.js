@@ -364,11 +364,12 @@ function setMainWindow(win) {
  */
 async function stopAppService(appId, execPath, stopArgs) {
     try {
+        // First try graceful stop with stopArgs if provided
         if (stopArgs) {
             const execDir = path.dirname(execPath);
             const cmdArgs = stopArgs.split(' ').filter(a => a);
 
-            return new Promise((resolve) => {
+            await new Promise((resolve) => {
                 const proc = spawn(execPath, cmdArgs, {
                     cwd: execDir,
                     stdio: 'ignore'
@@ -380,34 +381,22 @@ async function stopAppService(appId, execPath, stopArgs) {
                         runningProcesses.delete(appId);
                         logApp(`Stopped service: ${appId}`, 'SERVICE');
                         resolved = true;
-                        resolve({ success: true });
+                        resolve();
                     }
                 };
 
-                proc.on('close', (code) => {
-                    cleanup();
-                });
+                proc.on('close', () => cleanup());
+                proc.on('error', () => cleanup());
 
-                proc.on('error', (err) => {
-                    if (!resolved) {
-                        logApp(`Stop command failed for ${appId}: ${err.message}`, 'ERROR');
-                        runningProcesses.delete(appId);
-                        resolved = true;
-                        resolve({ error: err.message });
-                    }
-                });
-
-                setTimeout(() => {
-                    if (!resolved) {
-                        logApp(`Stop command timed out for ${appId}, forcing cleanup`, 'WARNING');
-                        runningProcesses.delete(appId);
-                        resolved = true;
-                        resolve({ success: true });
-                    }
-                }, 5000);
+                // Timeout after 3 seconds
+                setTimeout(cleanup, 3000);
             });
+
+            // Wait a bit for graceful shutdown
+            await new Promise(r => setTimeout(r, 500));
         }
 
+        // Always force kill to ensure process is stopped
         const proc = runningProcesses.get(appId);
         if (proc) {
             if (process.platform === 'win32') {
@@ -415,26 +404,26 @@ async function stopAppService(appId, execPath, stopArgs) {
                     execSync(`taskkill /PID ${proc.pid} /T /F`, { stdio: 'ignore' });
                     logApp(`Taskkilled service: ${appId} (PID: ${proc.pid})`, 'SERVICE');
                 } catch (e) {
-                    proc.kill();
+                    // Process might already be dead
                 }
             } else {
-                proc.kill();
+                try { proc.kill(); } catch (e) { }
             }
             runningProcesses.delete(appId);
-            logApp(`Killed service: ${appId}`, 'SERVICE');
-            notifyServiceChange();
-            return { success: true };
         }
 
+        // Also kill by executable name to catch any orphaned processes
         try {
             const exeName = path.basename(execPath);
             execSync(`taskkill /IM ${exeName} /F`, { stdio: 'ignore' });
-            logApp(`Force killed: ${exeName}`, 'SERVICE');
-            notifyServiceChange();
-            return { success: true };
+            logApp(`Force killed all: ${exeName}`, 'SERVICE');
         } catch (e) {
-            return { error: 'Process not found' };
+            // No process found, that's fine
         }
+
+        logApp(`Stopped service: ${appId}`, 'SERVICE');
+        notifyServiceChange();
+        return { success: true };
     } catch (err) {
         logApp(`Failed to stop service: ${err.message}`, 'ERROR');
         return { error: err.message };

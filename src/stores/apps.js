@@ -264,10 +264,8 @@ export const useAppsStore = defineStore('apps', () => {
         if (!app.execPath) return { error: 'No exec path' };
         app.serviceLoading = true;
         try {
-            // stop command? backend usually takes app id or we pass stop args?
-            // Looking at useServiceControl.js would verify, but assuming standard API
             const stopArgs = app.service_commands?.stop || '';
-            const result = await window.sysapi.apps.stopService(app.id, stopArgs); // check sysapi signature
+            const result = await window.sysapi.apps.stopService(app.id, app.execPath, stopArgs);
             if (result.success) {
                 app.serviceRunning = false;
             }
