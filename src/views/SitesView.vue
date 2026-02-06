@@ -242,21 +242,30 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, defineAsyncComponent } from 'vue';
 import {
   Plus, RefreshCw, Search, Server, Globe2, Globe, ExternalLink,
   Folder, Play, Square, FileCode, Terminal, ArrowRightLeft, FolderCog,
-  ChevronDown, RotateCw
+  RotateCw
 } from 'lucide-vue-next';
 import { useToast } from 'vue-toastification';
 import { useSitesStore } from '../stores/sites';
-import AddSiteModal from '../components/AddSiteModal.vue';
-import SiteConfigModal from '../components/SiteConfigModal.vue';
-import SiteLogsModal from '../components/SiteLogsModal.vue';
+import { useDebouncedRef } from '../composables/useDebouncedRef';
 import BaseButton from '../components/BaseButton.vue';
 import StatusBadge from '../components/StatusBadge.vue';
 import ActionButtonGroup from '../components/ActionButtonGroup.vue';
 import BaseInput from '../components/BaseInput.vue';
+
+// Lazy load heavy modal components
+const AddSiteModal = defineAsyncComponent(() =>
+  import('../components/AddSiteModal.vue')
+);
+const SiteConfigModal = defineAsyncComponent(() =>
+  import('../components/SiteConfigModal.vue')
+);
+const SiteLogsModal = defineAsyncComponent(() =>
+  import('../components/SiteLogsModal.vue')
+);
 
 const toast = useToast();
 const sitesStore = useSitesStore();
@@ -270,15 +279,15 @@ const tabs = [
 
 const activeTabName = computed(() => tabs.find(t => t.id === sitesStore.activeTab)?.name || 'PHP');
 
-// State
-const searchQuery = ref('');
+// State - use debounced search for better performance
+const { value: searchQuery, debouncedValue: debouncedSearchQuery } = useDebouncedRef('', 300);
 const showAddModal = ref(false);
 const showConfigModal = ref(false);
 const showLogsModal = ref(false);
 const selectedSite = ref(null);
 
-// Filtered sites by tab and search
-const filteredSites = computed(() => sitesStore.filteredSites(searchQuery.value));
+// Filtered sites by tab and search - uses debounced value
+const filteredSites = computed(() => sitesStore.filteredSites(debouncedSearchQuery.value));
 
 // Get type icon
 const getTypeIcon = (type) => {

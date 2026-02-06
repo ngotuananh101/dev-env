@@ -236,7 +236,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, defineAsyncComponent } from 'vue';
 import {
   Search, Shield, Database, Server, Globe, Box, Activity,
   Folder, Play, Settings, Terminal, HardDrive, Cpu, FileCode,
@@ -244,16 +244,16 @@ import {
 } from 'lucide-vue-next';
 import { useToast } from 'vue-toastification';
 import { useAppsStore } from '../stores/apps';
-import AppSettingsModal from '../components/AppSettingsModal.vue';
 import BaseButton from '../components/BaseButton.vue';
-import StatusBadge from '../components/StatusBadge.vue';
 import ActionButtonGroup from '../components/ActionButtonGroup.vue';
 import BaseInput from '../components/BaseInput.vue';
-import BaseInput from '../components/BaseInput.vue';
-// import { useServiceControl } from '../composables/useServiceControl'; // Removed, moving to store
+import { useDebouncedRef } from '../composables/useDebouncedRef';
 import { formatBytes } from '../utils/helpers';
 
-
+// Lazy load heavy modal component
+const AppSettingsModal = defineAsyncComponent(() =>
+  import('../components/AppSettingsModal.vue')
+);
 
 const toast = useToast();
 const appsStore = useAppsStore();
@@ -268,7 +268,8 @@ const categories = [
   { id: 'professional', name: 'Professional' }
 ];
 
-const searchQuery = ref('');
+// Debounced search for better performance
+const { value: searchQuery, debouncedValue: debouncedSearchQuery } = useDebouncedRef('', 300);
 
 // Recently Used (from localStorage)
 const recentlyUsed = ref([]);
@@ -318,13 +319,13 @@ const settingsApp = ref(null);
 const currentPage = ref(1);
 const itemsPerPage = ref(10);
 
-// Reset page when filter changes
-watch([() => appsStore.activeCategory, searchQuery], () => {
+// Reset page when filter changes - use debounced value
+watch([() => appsStore.activeCategory, debouncedSearchQuery], () => {
   currentPage.value = 1;
 });
 
-// Filtered Apps (before pagination)
-const allFilteredApps = computed(() => appsStore.allFilteredApps(searchQuery.value));
+// Filtered Apps (before pagination) - uses debounced search for better performance
+const allFilteredApps = computed(() => appsStore.allFilteredApps(debouncedSearchQuery.value));
 
 // Paginated Apps
 const filteredApps = computed(() => {
@@ -609,27 +610,18 @@ const openLocation = async (app) => {
 
 let statusCheckInterval = null;
 
-// Check service status for all installed apps
-// Check service statuses
-// Check service statuses
+// Check service statuses in parallel for better performance
 const checkServiceStatuses = async () => {
-  // Use a helper from store potentially? Or just iterate here calling generic status.
-  // For now we used useServiceControl.checkServiceStatus.
-  // We can keep useServiceControl if it's purely a helper, OR move to store.
-  // I preferred store. So let's implement checkStatus in store or skip.
-  // Actually, let's keep it simple. If we remove useServiceControl, we need to implement check here.
-  for (const app of appsStore.apps) {
-    if (app.status === 'installed' && app.execPath) {
-      if (['nvm'].includes(app.id)) continue;
-      // app.serviceRunning = await checkServiceStatus(app);
-      // Re-implement basic check using sysapi directly since we removed composable import?
-      // Wait, I removed the import. So I must replace this.
-      try {
-        const status = await window.sysapi.apps.getServiceStatus(app.id);
-        app.serviceRunning = status.running;
-      } catch (e) { /* ignore */ }
-    }
-  }
+  const installedApps = appsStore.apps.filter(
+    app => app.status === 'installed' && app.execPath && !['nvm'].includes(app.id)
+  );
+
+  await Promise.all(installedApps.map(async (app) => {
+    try {
+      const status = await window.sysapi.apps.getServiceStatus(app.id);
+      app.serviceRunning = status.running;
+    } catch (e) { /* ignore */ }
+  }));
 };
 
 // Start service (wrapper to handle loading state)

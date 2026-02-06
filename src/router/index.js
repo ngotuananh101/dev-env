@@ -1,13 +1,15 @@
 import { createRouter, createWebHashHistory } from 'vue-router';
-import HomeView from '../views/HomeView.vue';
-import TerminalView from '../views/TerminalView.vue';
-import FilesView from '../views/FilesView.vue';
-import AppStoreView from '../views/AppStoreView.vue';
-import LogsView from '../views/LogsView.vue';
-import HostsView from '../views/HostsView.vue';
-import SitesView from '../views/SitesView.vue';
-import SettingsView from '../views/SettingsView.vue';
-import DatabaseView from '../views/DatabaseView.vue';
+
+// Lazy load views for better initial bundle size
+const HomeView = () => import('../views/HomeView.vue');
+const TerminalView = () => import('../views/TerminalView.vue');
+const FilesView = () => import('../views/FilesView.vue');
+const AppStoreView = () => import('../views/AppStoreView.vue');
+const LogsView = () => import('../views/LogsView.vue');
+const HostsView = () => import('../views/HostsView.vue');
+const SitesView = () => import('../views/SitesView.vue');
+const SettingsView = () => import('../views/SettingsView.vue');
+const DatabaseView = () => import('../views/DatabaseView.vue');
 
 const routes = [
     {

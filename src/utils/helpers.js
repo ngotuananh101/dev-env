@@ -56,3 +56,35 @@ export const formatDate = (date) => {
     const d = new Date(date);
     return d.toLocaleString();
 };
+
+/**
+ * Debounce function - delays execution until after wait ms have elapsed since last call
+ * @param {Function} fn - Function to debounce
+ * @param {number} wait - Delay in milliseconds
+ * @returns {Function}
+ */
+export const debounce = (fn, wait = 300) => {
+    let timeout;
+    return function (...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => fn.apply(this, args), wait);
+    };
+};
+
+/**
+ * Throttle function - limits function execution to once per wait ms
+ * @param {Function} fn - Function to throttle
+ * @param {number} wait - Minimum time between calls in milliseconds
+ * @returns {Function}
+ */
+export const throttle = (fn, wait = 300) => {
+    let lastTime = 0;
+    return function (...args) {
+        const now = Date.now();
+        if (now - lastTime >= wait) {
+            lastTime = now;
+            fn.apply(this, args);
+        }
+    };
+};
+

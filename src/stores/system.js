@@ -8,7 +8,8 @@ export const useSystemStore = defineStore('system', {
         disks: [],
         ipAddress: '127.0.0.1',
         isLoaded: false,
-        pollingInterval: null
+        pollingInterval: null,
+        visibilityHandler: null
     }),
 
     actions: {
@@ -49,15 +50,32 @@ export const useSystemStore = defineStore('system', {
 
             this.fetchStats();
             this.fetchIp();
+
+            // Poll every 5 seconds (increased from 3s for better performance)
             this.pollingInterval = setInterval(() => {
-                this.fetchStats();
-            }, 3000);
+                // Only fetch when document is visible
+                if (!document.hidden) {
+                    this.fetchStats();
+                }
+            }, 5000);
+
+            // Pause polling when tab is hidden for better performance
+            this.visibilityHandler = () => {
+                if (!document.hidden && this.isLoaded) {
+                    this.fetchStats(); // Refresh immediately when becoming visible
+                }
+            };
+            document.addEventListener('visibilitychange', this.visibilityHandler);
         },
 
         stopPolling() {
             if (this.pollingInterval) {
                 clearInterval(this.pollingInterval);
                 this.pollingInterval = null;
+            }
+            if (this.visibilityHandler) {
+                document.removeEventListener('visibilitychange', this.visibilityHandler);
+                this.visibilityHandler = null;
             }
         }
     }

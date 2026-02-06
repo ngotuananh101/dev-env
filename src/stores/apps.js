@@ -12,7 +12,7 @@ export const useAppsStore = defineStore('apps', () => {
     const activeCategory = ref('all');
 
     // Actions
-    const { execute: loadApps, isLoading: isLoadingApps } = useAsyncAction(async () => {
+    const { execute: loadApps } = useAsyncAction(async () => {
         const result = await window.sysapi.apps.getList();
         if (result.error) {
             throw new Error(result.error);
@@ -27,7 +27,7 @@ export const useAppsStore = defineStore('apps', () => {
     }, { errorMessage: 'Error loading apps', showError: false }); // showError false to avoid spam on generic loads if desired, or true
 
     const checkPathsForApps = async () => {
-        for (const app of apps.value) {
+        await Promise.all(apps.value.map(async (app) => {
             if (app.status === 'installed' && app.installPath) {
                 let cliDir;
                 if (app.cliPath) {
@@ -53,19 +53,22 @@ export const useAppsStore = defineStore('apps', () => {
             } else {
                 app.inPath = false;
             }
-        }
+        }));
     };
 
-    const loadIcons = async () => {
-        for (const app of apps.value) {
-            if (app.icon_file && !app.iconContent) {
-                window.sysapi.apps.readIcon(app.icon_file).then(iconResult => {
-                    if (iconResult && !iconResult.error && iconResult.data) {
-                        app.iconContent = `data:${iconResult.mime};base64,${iconResult.data}`;
-                    }
-                }).catch(err => console.error('Icon load error:', err));
-            }
-        }
+    const loadIcons = () => {
+        // Load icons in parallel without blocking
+        apps.value
+            .filter(app => app.icon_file && !app.iconContent)
+            .forEach(app => {
+                window.sysapi.apps.readIcon(app.icon_file)
+                    .then(iconResult => {
+                        if (iconResult && !iconResult.error && iconResult.data) {
+                            app.iconContent = `data:${iconResult.mime};base64,${iconResult.data}`;
+                        }
+                    })
+                    .catch(err => console.error('Icon load error:', err));
+            });
     };
 
     const { execute: updateAppList, isLoading: isUpdatingList } = useAsyncAction(async () => {
@@ -312,6 +315,11 @@ export const useAppsStore = defineStore('apps', () => {
         updateAppList,
         togglePath,
         uninstallApp,
-        allFilteredApps
+        allFilteredApps,
+        installApp,
+        cancelInstall,
+        startService,
+        stopService,
+        restartService
     };
 });
