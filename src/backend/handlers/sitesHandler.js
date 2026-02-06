@@ -827,6 +827,14 @@ function register(ipcMain, context) {
                         await fsPromises.unlink(oldConfigPath);
                     }
 
+                    // Delete old SSL certificate if exists
+                    try {
+                        sslHandler.deleteCertificate(oldDomain);
+                        logApp(`Deleted old SSL certificate for ${oldDomain}`, 'INFO');
+                    } catch (sslErr) {
+                        logApp(`Failed to delete old SSL certificate for ${oldDomain}: ${sslErr.message}`, 'WARN');
+                    }
+
                     // Regenerate config with new domain (this will also generate new SSL certificate)
                     const updatedSite = { ...site, domain: newDomain };
                     await saveSiteConfig(updatedSite, context.userDataPath, dbManager, appDir);
