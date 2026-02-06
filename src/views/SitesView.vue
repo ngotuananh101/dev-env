@@ -92,7 +92,6 @@
       <div class="bg-[#252526] flex text-gray-400 text-xs font-medium border-b border-gray-700">
         <div class="px-3 py-2 text-left flex-1">Site name</div>
         <div class="px-3 py-2 text-center w-20">Status</div>
-        <div class="px-3 py-2 text-center w-20">SSL</div>
         <div class="px-3 py-2 text-center w-28">Quick action</div>
         <div class="px-3 py-2 text-center w-32">Created</div>
         <div class="px-3 py-2 text-center w-40">Operate</div>
@@ -154,12 +153,6 @@
             <template v-else>
               <span class="text-gray-500">--</span>
             </template>
-          </div>
-
-          <!-- SSL Status -->
-          <div class="px-2 py-2 w-20 text-center">
-            <StatusBadge v-if="site.ssl" status="success" class="text-[10px]">SSL</StatusBadge>
-            <StatusBadge v-else status="inactive" class="text-[10px]">OFF</StatusBadge>
           </div>
 
           <!-- Quick action -->

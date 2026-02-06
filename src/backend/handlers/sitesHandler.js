@@ -821,25 +821,15 @@ function register(ipcMain, context) {
                     // Get old config path (use userDataPath for writable directory)
                     const sitesConfigDir = path.join(userDataPath, 'sites');
                     const oldConfigPath = path.join(sitesConfigDir, `${oldDomain}.conf`);
-                    const newConfigPath = path.join(sitesConfigDir, `${newDomain}.conf`);
 
-                    // Update config file content and rename
+                    // Delete old config file if exists
                     if (fs.existsSync(oldConfigPath)) {
-                        let configContent = await fsPromises.readFile(oldConfigPath, 'utf-8');
-
-                        // Replace old domain with new domain in config content
-                        configContent = configContent.replace(new RegExp(escapeRegExp(oldDomain), 'g'), newDomain);
-
-                        // Write to new config path
-                        await fsPromises.writeFile(newConfigPath, configContent, 'utf-8');
-
-                        // Delete old config file
                         await fsPromises.unlink(oldConfigPath);
-                    } else {
-                        // Config doesn't exist, regenerate it
-                        const updatedSite = { ...site, domain: newDomain };
-                        await saveSiteConfig(updatedSite, context.userDataPath, dbManager, appDir);
                     }
+
+                    // Regenerate config with new domain (this will also generate new SSL certificate)
+                    const updatedSite = { ...site, domain: newDomain };
+                    await saveSiteConfig(updatedSite, context.userDataPath, dbManager, appDir);
 
                     // Update database
                     dbManager.query('UPDATE sites SET domain = ?, updated_at = ? WHERE id = ?',

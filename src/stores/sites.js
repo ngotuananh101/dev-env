@@ -142,6 +142,7 @@ export const useSitesStore = defineStore('sites', () => {
             toast.error(`Error: ${error.message}`);
         } finally {
             isLoading.value = false;
+            await loadSites();
         }
     };
 
@@ -165,6 +166,7 @@ export const useSitesStore = defineStore('sites', () => {
             toast.error(`Error: ${error.message}`);
         } finally {
             isLoading.value = false;
+            await loadSites();
         }
     };
 

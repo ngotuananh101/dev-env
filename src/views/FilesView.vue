@@ -83,7 +83,7 @@
                 </div>
                 <RecycleScroller v-else class="h-full" :items="filesStore.files" :item-size="50" key-field="name"
                     v-slot="{ item: file }">
-                    <div class="flex items-center hover:bg-[#2a2d3e] group cursor-pointer transition-colors h-[50px] border-b border-gray-800/50"
+                    <div class="flex items-center hover:bg-[#2a2d3e] group cursor-pointer transition-colors h-12.5 border-b border-gray-800/50 text-xs"
                         @dblclick="openItem(file)" :class="{ 'bg-[#2a2d3e]': isSelected(file) }">
                         <!-- Checkbox -->
                         <div class="w-8 flex justify-center shrink-0">
@@ -92,7 +92,7 @@
                         </div>
 
                         <!-- File Name -->
-                        <div class="flex-1 px-2 flex items-center space-x-2 overflow-hidden shrink-0">
+                        <div class="flex-1 px-2 flex items-center space-x-2 overflow-hidden shrink-0 text-sm">
                             <component :is="getIconComponent(file)" :class="getColor(file)" class="w-4 h-4 shrink-0" />
                             <span :class="['truncate', file.isDir ? 'text-white font-medium' : 'text-gray-300']"
                                 :title="file.name">
@@ -227,7 +227,7 @@
         <!-- 8. Terminal Modal -->
         <BaseModal :show="showTerminalModal" @close="closeTerminalModal" max-width="900px" :close-on-overlay="false"
             body-class="p-2 pr-0 bg-black">
-            <template #title>Terminal - {{ filesStore.currentPath }}</template>
+            <template #title>Terminal - <span class="text-xs">{{ filesStore.currentPath }}</span></template>
             <div ref="terminalModalContainer" class="bg-black overflow-hidden h-[400px]"></div>
         </BaseModal>
     </div>
@@ -247,6 +247,10 @@ import BaseModal from '../components/BaseModal.vue';
 import BaseButton from '../components/BaseButton.vue';
 import BaseInput from '../components/BaseInput.vue';
 import { formatBytes, formatDate } from '../utils/helpers';
+import 'xterm/css/xterm.css';
+import { Terminal as XTerminal } from 'xterm';
+import { FitAddon } from 'xterm-addon-fit';
+
 
 const filesStore = useFilesStore();
 
@@ -414,9 +418,6 @@ const closeTerminalModal = () => {
 
 const initModalTerminal = () => {
     if (!terminalModalContainer.value) return;
-
-    const { Terminal: XTerminal } = require('xterm');
-    const { FitAddon } = require('xterm-addon-fit');
 
     modalTerm = new XTerminal({
         theme: {
