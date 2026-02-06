@@ -17,6 +17,9 @@ const MAX_LOG_LINES = 100;
 // Reference to mainWindow for sending IPC events
 let mainWindowRef = null;
 
+// Callback for service status changes (used by tray menu)
+let onServiceChangeCallback = null;
+
 // Import logApp function reference
 let logAppFn = null;
 
@@ -25,6 +28,13 @@ function logApp(message, type = 'INFO') {
         logAppFn(message, type);
     } else {
         console.log(`${type}: ${message}`);
+    }
+}
+
+// Notify when service status changes
+function notifyServiceChange() {
+    if (onServiceChangeCallback) {
+        onServiceChangeCallback();
     }
 }
 
@@ -225,16 +235,19 @@ async function startAppService(appId, execPath, args) {
             logApp(`Service ${appId} error: ${err.message}`, 'ERROR');
             addServiceLog(appId, 'error', `Process error: ${err.message}`);
             runningProcesses.delete(appId);
+            notifyServiceChange();
         });
 
         proc.on('exit', (code) => {
             logApp(`Service ${appId} exited with code ${code}`, 'SERVICE');
             addServiceLog(appId, 'info', `Process exited with code ${code}`);
             runningProcesses.delete(appId);
+            notifyServiceChange();
         });
 
         runningProcesses.set(appId, proc);
         logApp(`Started service: ${appId} (PID: ${proc.pid})`, 'SERVICE');
+        notifyServiceChange();
 
         await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -409,6 +422,7 @@ async function stopAppService(appId, execPath, stopArgs) {
             }
             runningProcesses.delete(appId);
             logApp(`Killed service: ${appId}`, 'SERVICE');
+            notifyServiceChange();
             return { success: true };
         }
 
@@ -416,6 +430,7 @@ async function stopAppService(appId, execPath, stopArgs) {
             const exeName = path.basename(execPath);
             execSync(`taskkill /IM ${exeName} /F`, { stdio: 'ignore' });
             logApp(`Force killed: ${exeName}`, 'SERVICE');
+            notifyServiceChange();
             return { success: true };
         } catch (e) {
             return { error: 'Process not found' };
@@ -448,6 +463,14 @@ function getAppServiceStatus(appId, execPath) {
     }
 }
 
+/**
+ * Set callback for service status changes
+ * @param {Function} callback - Callback function to call when service status changes
+ */
+function setOnServiceChange(callback) {
+    onServiceChangeCallback = callback;
+}
+
 // Export functions and state for use by main.js
 module.exports = {
     register,
@@ -455,5 +478,6 @@ module.exports = {
     stopAppService,
     getAppServiceStatus,
     setMainWindow,
+    setOnServiceChange,
     runningProcesses
 };

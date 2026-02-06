@@ -113,7 +113,27 @@ function createTray() {
   const iconPath = path.join(__dirname, 'build', 'icon.ico');
   tray = new Tray(iconPath);
 
-  const contextMenu = Menu.buildFromTemplate([
+  // Initial menu
+  updateTrayMenu();
+
+  tray.setToolTip(`${app.getName()} v${app.getVersion()}`);
+
+  // Double-click to show window
+  tray.on('double-click', () => {
+    if (mainWindow) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+}
+
+/**
+ * Update tray menu with current running services
+ */
+function updateTrayMenu() {
+  if (!tray) return;
+
+  const menuTemplate = [
     {
       label: 'Show App',
       click: () => {
@@ -123,26 +143,97 @@ function createTray() {
         }
       }
     },
-    { type: 'separator' },
-    {
-      label: 'Quit',
-      click: () => {
-        isQuitting = true;
-        app.quit();
-      }
+    { type: 'separator' }
+  ];
+
+  // Get running services
+  const runningProcesses = serviceHandler.runningProcesses;
+
+  if (runningProcesses.size > 0) {
+    menuTemplate.push({
+      label: `Running Services (${runningProcesses.size})`,
+      enabled: false
+    });
+
+    for (const [appId] of runningProcesses) {
+      const serviceName = appId.charAt(0).toUpperCase() + appId.slice(1);
+
+      menuTemplate.push({
+        label: `  ${serviceName}`,
+        submenu: [
+          {
+            label: 'Stop',
+            click: async () => {
+              try {
+                await serviceHandler.stopAppService(appId);
+                // Update auto_start in database
+                if (dbManager) {
+                  dbManager.query('UPDATE installed_apps SET auto_start = 0 WHERE app_id = ?', [appId]);
+                }
+                updateTrayMenu();
+              } catch (e) {
+                console.error(`Failed to stop ${appId}:`, e);
+              }
+            }
+          },
+          {
+            label: 'Restart',
+            click: async () => {
+              try {
+                // Get service info from database
+                const appInfo = dbManager.queryOne('SELECT * FROM installed_apps WHERE app_id = ?', [appId]);
+                if (appInfo && appInfo.exec_path) {
+                  await serviceHandler.stopAppService(appId);
+                  await serviceHandler.startAppService(appId, appInfo.exec_path, appInfo.custom_args);
+                  updateTrayMenu();
+                }
+              } catch (e) {
+                console.error(`Failed to restart ${appId}:`, e);
+              }
+            }
+          }
+        ]
+      });
     }
-  ]);
 
-  tray.setToolTip(`${app.getName()} v${app.getVersion()}`);
-  tray.setContextMenu(contextMenu);
+    menuTemplate.push({ type: 'separator' });
 
-  // Double-click to show window
-  tray.on('double-click', () => {
-    if (mainWindow) {
-      mainWindow.show();
-      mainWindow.focus();
+    // Stop All button
+    menuTemplate.push({
+      label: 'Stop All Services',
+      click: async () => {
+        for (const [appId] of runningProcesses) {
+          try {
+            await serviceHandler.stopAppService(appId);
+            // Update auto_start in database
+            if (dbManager) {
+              dbManager.query('UPDATE installed_apps SET auto_start = 0 WHERE app_id = ?', [appId]);
+            }
+          } catch (e) {
+            console.error(`Failed to stop ${appId}:`, e);
+          }
+        }
+        updateTrayMenu();
+      }
+    });
+  } else {
+    menuTemplate.push({
+      label: 'No services running',
+      enabled: false
+    });
+  }
+
+  menuTemplate.push({ type: 'separator' });
+  menuTemplate.push({
+    label: 'Quit',
+    click: () => {
+      isQuitting = true;
+      app.quit();
     }
   });
+
+  const contextMenu = Menu.buildFromTemplate(menuTemplate);
+  tray.setContextMenu(contextMenu);
 }
 
 /**
@@ -215,6 +306,9 @@ app.whenReady().then(async () => {
 
   // Create system tray
   createTray();
+
+  // Set callback to update tray menu when services change
+  serviceHandler.setOnServiceChange(updateTrayMenu);
 
   // Auto-start apps that were running before
   if (dbManager) {
