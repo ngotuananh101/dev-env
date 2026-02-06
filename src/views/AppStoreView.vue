@@ -566,11 +566,16 @@ const confirmInstall = async () => {
       const startResult = await appsStore.startService(app);
       if (startResult.success) {
         installLogs.value.push(`[${new Date().toLocaleTimeString()}] Service started successfully!`);
+        // Immediately update service status in list
+        app.serviceRunning = true;
       } else {
         // Warning but not fatal
         installLogs.value.push(`[${new Date().toLocaleTimeString()}] [WARNING] Failed to start service: ${startResult.error}`);
       }
     }
+
+    // Refresh service statuses to ensure UI is in sync
+    await checkServiceStatuses();
 
     // Close modal after short delay to show 100%
     setTimeout(() => {
@@ -626,7 +631,7 @@ const checkServiceStatuses = async () => {
 
   await Promise.all(installedApps.map(async (app) => {
     try {
-      const status = await window.sysapi.apps.getServiceStatus(app.id);
+      const status = await window.sysapi.apps.getServiceStatus(app.id, app.execPath);
       app.serviceRunning = status.running;
     } catch (e) { /* ignore */ }
   }));
