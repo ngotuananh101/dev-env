@@ -194,6 +194,29 @@ export const useAppsStore = defineStore('apps', () => {
                 installedApp.cliPath = result.cliPath;
                 installedApp.customArgs = installedApp.default_args || '';
 
+                // Check and update inPath status
+                let cliDir = null;
+                if (result.cliPath) {
+                    cliDir = result.cliPath.substring(0, result.cliPath.lastIndexOf('\\'));
+                } else if (installedApp.cli_file && result.installPath) {
+                    const cliPath = result.installPath + '\\' + installedApp.cli_file.replace(/\//g, '\\');
+                    cliDir = cliPath.substring(0, cliPath.lastIndexOf('\\'));
+                } else if (result.execPath) {
+                    cliDir = result.execPath.substring(0, result.execPath.lastIndexOf('\\'));
+                }
+
+                if (cliDir) {
+                    installedApp.cliDir = cliDir;
+                    try {
+                        const pathResult = await window.sysapi.files.checkPath(cliDir);
+                        installedApp.inPath = pathResult.inPath || false;
+                    } catch (e) {
+                        installedApp.inPath = false;
+                    }
+                } else {
+                    installedApp.inPath = false;
+                }
+
                 // We don't call addToRecentlyUsed here because that's UI/History preference, can remain in View or be moved.
                 // Let's keep it in view for now or expose an action for it if strictly needed.
                 // Actually, let's expose it to be clean.

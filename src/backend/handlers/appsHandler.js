@@ -1102,6 +1102,52 @@ function register(ipcMain, context) {
             }
         }
 
+        // Remove from PATH if the app was added to PATH
+        try {
+            let cliDir = null;
+            if (app.cli_path) {
+                cliDir = path.dirname(app.cli_path);
+            } else if (app.exec_path) {
+                cliDir = path.dirname(app.exec_path);
+            }
+
+            if (cliDir) {
+                // Check if this path is in User PATH
+                const psCheckCommand = `[Environment]::GetEnvironmentVariable('Path', 'User')`;
+                let userPath = '';
+                try {
+                    userPath = execSync(`powershell -Command "${psCheckCommand}"`, { encoding: 'utf-8' }).trim();
+                } catch (e) {
+                    userPath = '';
+                }
+
+                if (userPath) {
+                    const paths = userPath.split(';').map(p => p.toLowerCase().trim()).filter(p => p);
+                    const normalizedCliDir = cliDir.toLowerCase();
+                    const inPath = paths.some(p => p === normalizedCliDir || p === normalizedCliDir + '\\');
+
+                    if (inPath) {
+                        logApp(`Removing ${cliDir} from PATH...`, 'UNINSTALL');
+
+                        // Filter out the cli directory from PATH
+                        const filteredPaths = userPath.split(';').filter(p => {
+                            const normalized = p.toLowerCase().trim();
+                            return normalized !== normalizedCliDir && normalized !== normalizedCliDir + '\\';
+                        });
+
+                        const newPath = filteredPaths.join(';');
+                        const escapedPath = newPath.replace(/'/g, "''");
+                        const psSetCommand = `[Environment]::SetEnvironmentVariable('Path', '${escapedPath}', 'User')`;
+                        execSync(`powershell -Command "${psSetCommand}"`, { encoding: 'utf-8' });
+
+                        logApp(`Successfully removed ${cliDir} from PATH`, 'UNINSTALL');
+                    }
+                }
+            }
+        } catch (err) {
+            logApp(`Failed to remove from PATH: ${err.message}`, 'WARNING');
+        }
+
         const result = dbManager.query('DELETE FROM installed_apps WHERE app_id = ?', [appId]);
 
         if (result.error) {
