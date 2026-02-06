@@ -8,10 +8,10 @@
       </div>
       <div class="flex items-center space-x-2">
         <!-- Date Selector -->
-        <select v-model="selectedDate" @change="loadLog"
-          class="bg-[#333] border border-gray-600 rounded px-3 py-1.5 text-gray-200 text-sm">
-          <option v-for="date in availableDates" :key="date" :value="date">{{ date }}</option>
-        </select>
+        <!-- Date Selector -->
+        <div class="w-40">
+          <BaseSelect v-model="selectedDate" @update:modelValue="loadLog" size="sm" :options="availableDates" />
+        </div>
         <BaseButton @click="refreshLogs" size="sm">
           <template #icon>
             <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': isLoading }" />
@@ -54,6 +54,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
 import { FileText, RefreshCw, Trash2 } from 'lucide-vue-next';
 import BaseButton from '../components/BaseButton.vue';
+import BaseSelect from '../components/BaseSelect.vue';
 import { useToast } from 'vue-toastification';
 import ace from 'ace-builds';
 import 'ace-builds/src-noconflict/theme-monokai';

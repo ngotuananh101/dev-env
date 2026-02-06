@@ -35,8 +35,7 @@
                     </div>
                 </div>
                 <div class="mt-4 text-center text-gray-400 text-sm">
-                    {{ (systemStore.mem.active / 1024 / 1024).toFixed(0) }} / {{ (systemStore.mem.total / 1024 /
-                        1024).toFixed(0) }} (MB)
+                    {{ formatBytes(systemStore.mem.active, 0) }} / {{ formatBytes(systemStore.mem.total, 0) }}
                 </div>
             </BaseCard>
 
@@ -45,7 +44,7 @@
                 <div class="flex items-center justify-between mb-3">
                     <div>
                         <div class="text-3xl font-bold text-green-500">{{ totalDiskPercent }}%</div>
-                        <div class="text-sm text-gray-400 mt-1">{{ totalUsedGB }} / {{ totalSizeGB }} GB</div>
+                        <div class="text-sm text-gray-400 mt-1">{{ totalUsedGB }} / {{ totalSizeGB }}</div>
                     </div>
 
                     <!-- Concentric Chart -->
@@ -82,7 +81,7 @@
                         <div class="text-right">
                             <div class="text-white font-medium">{{ disk.use.toFixed(1) }}%</div>
                             <div class="text-[10px] text-gray-500">
-                                {{ (disk.used / 1024 / 1024 / 1024).toFixed(1) }} GB used
+                                {{ formatBytes(disk.used, 1) }} used
                             </div>
                         </div>
                     </div>
@@ -96,6 +95,7 @@
 import { computed, onMounted, onUnmounted } from 'vue';
 import { useSystemStore } from '../stores/system';
 import BaseCard from '../components/BaseCard.vue';
+import { formatBytes } from '../utils/helpers';
 
 const systemStore = useSystemStore();
 
@@ -120,8 +120,8 @@ const totalUsed = computed(() => disks.value.reduce((acc, d) => acc + d.used, 0)
 const totalSize = computed(() => disks.value.reduce((acc, d) => acc + d.size, 0));
 
 const totalDiskPercent = computed(() => totalSize.value > 0 ? ((totalUsed.value / totalSize.value) * 100).toFixed(1) : 0);
-const totalUsedGB = computed(() => (totalUsed.value / 1024 / 1024 / 1024).toFixed(2));
-const totalSizeGB = computed(() => (totalSize.value / 1024 / 1024 / 1024).toFixed(2));
+const totalUsedGB = computed(() => formatBytes(totalUsed.value, 2));
+const totalSizeGB = computed(() => formatBytes(totalSize.value, 2));
 
 // Helper Functions
 const getRadius = (idx) => idx === 0 ? 40 : (idx === 1 ? 32 : 24);

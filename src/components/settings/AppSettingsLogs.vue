@@ -11,7 +11,7 @@
         </select>
         <span v-if="logSize"
           class="px-2 py-0.5 bg-gray-800 text-gray-400 text-[10px] rounded border border-gray-700 font-mono">{{
-            formatLogSize(logSize) }}</span>
+            formatBytes(logSize) }}</span>
       </div>
 
       <div class="flex items-center space-x-2">
@@ -69,6 +69,7 @@
 <script setup>
 import { ref, onMounted, watch, nextTick } from 'vue';
 import { useToast } from 'vue-toastification';
+import { formatBytes } from '../../utils/helpers';
 
 const toast = useToast();
 const props = defineProps({
@@ -159,13 +160,6 @@ const clearLog = async () => {
   } finally {
     loading.value = false;
   }
-};
-
-const formatLogSize = (bytes) => {
-  if (!bytes) return '';
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + sizes[i];
 };
 
 onMounted(() => {

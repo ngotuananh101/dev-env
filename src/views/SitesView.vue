@@ -75,10 +75,12 @@
         </div>
 
         <div class="flex items-center space-x-2">
-          <div class="relative">
-            <Search class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input v-model="searchQuery" type="text" placeholder="Search domain..."
-              class="pl-9 pr-4 py-1.5 bg-gray-700 border border-gray-600 rounded text-sm text-white placeholder-gray-400 w-48" />
+          <div class="w-48">
+            <BaseInput v-model="searchQuery" placeholder="Search domain..." size="sm">
+              <template #prepend>
+                <Search class="w-4 h-4" />
+              </template>
+            </BaseInput>
           </div>
         </div>
       </div>
@@ -254,6 +256,7 @@ import SiteLogsModal from '../components/SiteLogsModal.vue';
 import BaseButton from '../components/BaseButton.vue';
 import StatusBadge from '../components/StatusBadge.vue';
 import ActionButtonGroup from '../components/ActionButtonGroup.vue';
+import BaseInput from '../components/BaseInput.vue';
 
 const toast = useToast();
 const sitesStore = useSitesStore();

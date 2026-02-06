@@ -13,33 +13,19 @@
                 <div class="space-y-6">
                     <!-- Default PHP Version -->
                     <div class="space-y-2">
-                        <label class="block text-sm font-medium text-gray-400">Default PHP Version</label>
-                        <div class="flex items-center space-x-2">
-                            <select v-model="settings.default_php_version"
-                                class="flex-1 bg-gray-900 border border-gray-700 rounded-md px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all placeholder-gray-600 appearance-none">
-                                <option value="" disabled>Select PHP Version</option>
-                                <option v-for="php in phpVersions" :key="php.id" :value="php.installedVersion">
-                                    PHP {{ php.installedVersion }}
-                                </option>
-                            </select>
-                        </div>
-                        <p v-if="phpVersions.length === 0" class="text-xs text-yellow-500">
+                        <BaseSelect v-model="settings.default_php_version" label="Default PHP Version"
+                            placeholder="Select PHP Version"
+                            :options="phpVersions.map(p => ({ label: `PHP ${p.installedVersion}`, value: p.installedVersion }))" />
+                        <p v-if="phpVersions.length === 0" class="text-xs text-yellow-500 mt-1">
                             No PHP versions installed. Please install PHP from the dashboard.
                         </p>
                     </div>
 
                     <!-- Site Template -->
                     <div class="space-y-2">
-                        <label class="block text-sm font-medium text-gray-400">Default Site Template</label>
-                        <div class="flex items-center space-x-2">
-                            <input v-model="settings.site_template" type="text" placeholder="[site].local"
-                                class="flex-1 bg-gray-900 border border-gray-700 rounded-md px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all placeholder-gray-600">
-                        </div>
-                        <p class="text-xs text-gray-500">
-                            Pattern for default local domain. Use <code
-                                class="bg-gray-800 px-1 rounded text-gray-300">[site]</code> as placeholder for the site
-                            name.
-                        </p>
+                        <BaseInput v-model="settings.site_template" label="Default Site Template"
+                            placeholder="[site].local"
+                            hint="Pattern for default local domain. Use [site] as placeholder for the site name." />
                     </div>
 
                     <!-- Auto Create -->
@@ -50,12 +36,7 @@
                             <span class="block text-xs text-gray-500">Automatically create site base on root folder.
                                 Only create as PHP site.</span>
                         </div>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" v-model="settings.site_auto_create" class="sr-only peer">
-                            <div
-                                class="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600">
-                            </div>
-                        </label>
+                        <BaseSwitch v-model="settings.site_auto_create" />
                     </div>
                 </div>
                 <template #footer>
@@ -160,6 +141,10 @@ import { useToast } from 'vue-toastification';
 import BaseCard from '../components/BaseCard.vue';
 import BaseButton from '../components/BaseButton.vue';
 import BaseModal from '../components/BaseModal.vue';
+import BaseInput from '../components/BaseInput.vue';
+import BaseSelect from '../components/BaseSelect.vue';
+import BaseSwitch from '../components/BaseSwitch.vue';
+import { copyToClipboard } from '../utils/helpers';
 
 const dbStore = useDatabaseStore();
 const toast = useToast();
@@ -242,12 +227,7 @@ const openSystemInfo = async () => {
 };
 
 const copySystemInfo = async () => {
-    try {
-        await navigator.clipboard.writeText(systemInfoContent.value);
-        toast.success('Copied to clipboard');
-    } catch (error) {
-        toast.error('Failed to copy');
-    }
+    await copyToClipboard(systemInfoContent.value, 'Copied to clipboard', 'Failed to copy');
 };
 
 onMounted(async () => {

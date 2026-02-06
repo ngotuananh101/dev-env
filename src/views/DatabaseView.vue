@@ -52,7 +52,7 @@
           <!-- phpMyAdmin Button -->
           <BaseButton v-if="(currentDbApp?.id === 'mysql' || currentDbApp?.id === 'mariadb') && isPhpMyAdminInstalled"
             @click="openPhpMyAdmin" variant="secondary" size="sm"
-            class="!bg-yellow-600 hover:!bg-yellow-500 border border-yellow-500" title="Open phpMyAdmin">
+            class="bg-yellow-600! hover:bg-yellow-500! border border-yellow-500" title="Open phpMyAdmin">
             <template #icon>
               <ExternalLink class="w-3 h-3" />
             </template>
@@ -127,7 +127,7 @@
               <div class="flex items-center space-x-2">
                 <span>{{ db.password ? '******' : '-' }}</span>
                 <span>{{ db.password ? '******' : '-' }}</span>
-                <button v-if="db.password" @click="copyToClipboard(db.password)"
+                <button v-if="db.password" @click="copyToClipboard(db.password, 'Password copied to clipboard')"
                   class="text-gray-500 hover:text-white transition-colors p-1 rounded hover:bg-gray-700"
                   title="Copy Password">
                   <Copy class="w-3 h-3" />
@@ -187,10 +187,11 @@
             </td>
             <td class="px-3 py-2">
               <div class="flex items-center justify-center space-x-2">
-                <input v-model="userPasswords[user.user]" type="password" placeholder="New password"
-                  class="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-xs w-32" />
+                <div class="w-32">
+                  <BaseInput v-model="userPasswords[user.user]" type="password" placeholder="New password" size="sm" />
+                </div>
                 <BaseButton @click="changePassword(user.user, user.host)" :disabled="!userPasswords[user.user]"
-                  size="sm" class="h-7 px-2">Change</BaseButton>
+                  size="sm" class="h-8 px-2">Change</BaseButton>
               </div>
             </td>
           </tr>
@@ -215,26 +216,24 @@
       <div class="space-y-4 p-6">
         <div class="grid grid-cols-[100px_1fr] gap-4 items-center">
           <label class="text-gray-400 text-right text-xs">Database name</label>
-          <input v-model="newDbName" placeholder="New database name"
-            class="w-full bg-[#252526] border border-gray-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
+          <BaseInput v-model="newDbName" placeholder="New database name" />
         </div>
 
         <div class="grid grid-cols-[100px_1fr] gap-4 items-center">
           <label class="text-gray-400 text-right text-xs">Username</label>
-          <input v-model="newUsername" placeholder="Database user"
-            class="w-full bg-[#252526] border border-gray-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
+          <BaseInput v-model="newUsername" placeholder="Database user" />
         </div>
 
         <div class="grid grid-cols-[100px_1fr] gap-4 items-center">
           <label class="text-gray-400 text-right text-xs">Password</label>
-          <div class="relative flex items-center">
-            <input v-model="newPassword" type="text" placeholder="Password"
-              class="w-full bg-[#252526] border border-gray-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 pr-9" />
-            <button @click="generatePassword" class="absolute right-2 text-gray-400 hover:text-white"
-              title="Generate Password">
-              <RefreshCw class="w-3 h-3" />
-            </button>
-          </div>
+          <BaseInput v-model="newPassword" type="text" placeholder="Password">
+            <template #append>
+              <button @click="regenPassword" class="text-gray-400 hover:text-white transition-colors"
+                title="Generate Password">
+                <RefreshCw class="w-4 h-4" />
+              </button>
+            </template>
+          </BaseInput>
         </div>
       </div>
 
@@ -259,8 +258,13 @@ import { Plus, RefreshCw, Database, User, X, Loader2, Copy, ExternalLink } from 
 import { useToast } from 'vue-toastification';
 import BaseButton from '../components/BaseButton.vue';
 import BaseModal from '../components/BaseModal.vue';
+import BaseInput from '../components/BaseInput.vue';
+import BaseInput from '../components/BaseInput.vue';
+import { generatePassword, copyToClipboard } from '../utils/helpers';
+import { useDatabaseStore } from '../stores/database';
 
 const toast = useToast();
+const dbStore = useDatabaseStore();
 
 // State
 const dbApps = ref([]);
@@ -331,11 +335,11 @@ const loadDatabases = async () => {
 
   loading.value = true;
   try {
-    const result = await window.sysapi.database.listDatabases(activeTab.value);
+    const result = await dbStore.getDatabases();
     if (result.error) {
       toast.error(`Failed to load databases: ${result.error}`);
     } else {
-      databases.value = result.databases || [];
+      databases.value = result;
     }
   } catch (err) {
     console.error('Load databases error:', err);
@@ -352,24 +356,12 @@ const newPassword = ref('');
 const openCreateModal = () => {
   newDbName.value = '';
   newUsername.value = '';
-  generatePassword();
+  newPassword.value = generatePassword();
   showCreateModal.value = true;
 };
 
-const generatePassword = () => {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
-  let pass = '';
-  for (let i = 0; i < 16; i++) pass += chars.charAt(Math.floor(Math.random() * chars.length));
-  newPassword.value = pass;
-};
-
-const copyToClipboard = async (text) => {
-  try {
-    await navigator.clipboard.writeText(text);
-    toast.success('Password copied to clipboard');
-  } catch (err) {
-    toast.error('Failed to copy password');
-  }
+const regenPassword = () => {
+  newPassword.value = generatePassword();
 };
 
 const createDatabase = async () => {
@@ -383,12 +375,12 @@ const createDatabase = async () => {
 
   loading.value = true;
   try {
-    const result = await window.sysapi.database.createDatabase(
-      activeTab.value,
+    const result = await dbStore.createDatabase(
       newDbName.value,
       newUsername.value,
       newPassword.value
     );
+
     if (result.error) {
       toast.error(`Failed to create database: ${result.error}`);
     } else {
@@ -450,7 +442,7 @@ const dropDatabase = async (dbName) => {
 
   loading.value = true;
   try {
-    const result = await window.sysapi.database.dropDatabase(activeTab.value, dbName);
+    const result = await dbStore.deleteDatabase(dbName);
     if (result.error) {
       toast.error(`Failed to delete database: ${result.error}`);
     } else {
@@ -470,11 +462,11 @@ const loadUsers = async () => {
 
   loading.value = true;
   try {
-    const result = await window.sysapi.database.listUsers(activeTab.value);
+    const result = await dbStore.getUsers();
     if (result.error) {
       toast.error(`Failed to load users: ${result.error}`);
     } else {
-      users.value = result.users || [];
+      users.value = result || [];
       userPasswords.value = {};
     }
   } catch (err) {
@@ -490,12 +482,12 @@ const changePassword = async (username, host) => {
 
   loading.value = true;
   try {
-    const result = await window.sysapi.database.changePassword(
-      activeTab.value,
+    const result = await dbStore.changePassword(
       username,
-      userPasswords.value[username],
-      host
+      host,
+      userPasswords.value[username]
     );
+
     if (result.error) {
       toast.error(`Failed to change password: ${result.error}`);
     } else {

@@ -4,10 +4,12 @@
     <div class="flex items-center justify-between p-3 border-b border-gray-700 bg-[#252526]">
       <div class="flex items-center space-x-2">
         <span class="text-gray-400">Search App</span>
-        <div class="relative">
-          <input v-model="searchQuery" type="text" placeholder="Supports fuzzy search by application name, field"
-            class="w-96 bg-background border border-gray-600 rounded px-3 py-2 pl-8 focus:border-blue-500 focus:outline-none text-gray-200">
-          <Search class="w-4 h-4 absolute left-2 top-1/2 -translate-y-1/2 text-gray-500" />
+        <div class="w-96">
+          <BaseInput v-model="searchQuery" placeholder="Supports fuzzy search by application name, field">
+            <template #prepend>
+              <Search class="w-4 h-4" />
+            </template>
+          </BaseInput>
         </div>
       </div>
       <BaseButton :disabled="appsStore.isUpdating" @click="appsStore.updateAppList" size="sm">
@@ -186,7 +188,7 @@
                 <input type="radio" :value="ver" v-model="selectedVersion" class="text-blue-500">
                 <div class="flex-1">
                   <span class="text-white">{{ ver.version }}</span>
-                  <span class="text-gray-500 text-xs ml-2">{{ formatSize(ver.size) }}</span>
+                  <span class="text-gray-500 text-xs ml-2">{{ formatBytes(ver.size) }}</span>
                 </div>
               </label>
             </div>
@@ -246,7 +248,10 @@ import AppSettingsModal from '../components/AppSettingsModal.vue';
 import BaseButton from '../components/BaseButton.vue';
 import StatusBadge from '../components/StatusBadge.vue';
 import ActionButtonGroup from '../components/ActionButtonGroup.vue';
-import { useServiceControl } from '../composables/useServiceControl';
+import BaseInput from '../components/BaseInput.vue';
+import BaseInput from '../components/BaseInput.vue';
+// import { useServiceControl } from '../composables/useServiceControl'; // Removed, moving to store
+import { formatBytes } from '../utils/helpers';
 
 
 
@@ -415,7 +420,7 @@ const cancelInstall = async () => {
   installLogs.value.push(`[${new Date().toLocaleTimeString()}] Cancelling installation...`);
 
   try {
-    const result = await window.sysapi.apps.cancelInstall(installingApp.value.id);
+    const result = await appsStore.cancelInstall(installingApp.value.id);
     if (result.success) {
       installLogs.value.push(`[${new Date().toLocaleTimeString()}] Installation cancelled.`);
       installStatus.value = 'Cancelled';
@@ -493,17 +498,7 @@ const confirmInstall = async () => {
     const app = installingApp.value;
     const ver = selectedVersion.value;
 
-    const result = await window.sysapi.apps.install(
-      app.id,
-      ver.version,
-      ver.download_url,
-      ver.filename,
-      app.exec_file,
-      app.group || null,
-      app.default_args || null,
-      app.autostart || false,
-      app.cli_file || null
-    );
+    const result = await appsStore.installApp(app, ver);
 
     if (result.error) {
       // Check if cancelled
@@ -537,31 +532,18 @@ const confirmInstall = async () => {
       return;
     }
 
-    // Update app status
-    app.status = 'installed';
-    app.installedVersion = ver.version;
-    app.installPath = result.installPath;
-    app.execPath = result.execPath;
-    app.cliPath = result.cliPath; // CLI path for PATH operations
-    app.customArgs = app.default_args || '';
-    addToRecentlyUsed(app);
-
+    // Success (store updated app status already)
     // Auto-start service if autostart is enabled
-    if (app.autostart && result.execPath) {
+    if (app.autostart && app.execPath) {
       installLogs.value.push(`[${new Date().toLocaleTimeString()}] Auto-starting service...`);
       installStatus.value = 'Starting service...';
 
-      try {
-        const startArgs = app.service_commands?.start || app.default_args || '';
-        const startResult = await window.sysapi.apps.startService(app.id, result.execPath, startArgs);
-        if (startResult.success) {
-          app.serviceRunning = true;
-          installLogs.value.push(`[${new Date().toLocaleTimeString()}] Service started successfully!`);
-        } else {
-          installLogs.value.push(`[${new Date().toLocaleTimeString()}] [WARNING] Failed to start service: ${startResult.error}`);
-        }
-      } catch (startErr) {
-        installLogs.value.push(`[${new Date().toLocaleTimeString()}] [WARNING] Failed to start service: ${startErr.message}`);
+      const startResult = await appsStore.startService(app);
+      if (startResult.success) {
+        installLogs.value.push(`[${new Date().toLocaleTimeString()}] Service started successfully!`);
+      } else {
+        // Warning but not fatal
+        installLogs.value.push(`[${new Date().toLocaleTimeString()}] [WARNING] Failed to start service: ${startResult.error}`);
       }
     }
 
@@ -584,17 +566,22 @@ const confirmInstall = async () => {
   }
 };
 
-const formatSize = (bytes) => {
-  if (!bytes) return '0 B';
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + sizes[i];
-};
 
 
 
 
 
+
+
+
+try {
+  const result = await window.sysapi.files.openFile(app.installPath);
+  if (result.error) {
+    alert(`Failed to open location: ${result.error}`);
+  }
+} catch (error) {
+  console.error('Open location error:', error);
+}
 const openLocation = async (app) => {
   if (!app.installPath || app.installPath === '--') return;
 
@@ -607,84 +594,57 @@ const openLocation = async (app) => {
     console.error('Open location error:', error);
   }
 };
-
-const addToRecentlyUsed = (app) => {
-  const exists = recentlyUsed.value.find(a => a.id === app.id);
-  if (!exists) {
-    recentlyUsed.value.unshift({
-      id: app.id,
-      name: app.name,
-      icon: app.icon,
-      iconColor: app.iconColor,
-      iconContent: app.iconContent
-    });
-    if (recentlyUsed.value.length > 5) recentlyUsed.value.pop();
-    localStorage.setItem('recentlyUsedApps', JSON.stringify(recentlyUsed.value));
-  }
-};
+// View -> LocalStorage on Mount.
+// View needs to refresh `recentlyUsed` when install finishes.
+// I can make `checkRecentlyUsed` function and call it after install.
 
 // ========== Service Controls ==========
-const {
-  startService: startServiceApi,
-  stopService: stopServiceApi,
-  restartService: restartServiceApi,
-  checkServiceStatus
-} = useServiceControl();
+// Moved to store
+// const {
+//   startService: startServiceApi,
+//   stopService: stopServiceApi,
+//   restartService: restartServiceApi,
+//   checkServiceStatus
+// } = useServiceControl();
 
 let statusCheckInterval = null;
 
 // Check service status for all installed apps
 // Check service statuses
+// Check service statuses
 const checkServiceStatuses = async () => {
+  // Use a helper from store potentially? Or just iterate here calling generic status.
+  // For now we used useServiceControl.checkServiceStatus.
+  // We can keep useServiceControl if it's purely a helper, OR move to store.
+  // I preferred store. So let's implement checkStatus in store or skip.
+  // Actually, let's keep it simple. If we remove useServiceControl, we need to implement check here.
   for (const app of appsStore.apps) {
     if (app.status === 'installed' && app.execPath) {
       if (['nvm'].includes(app.id)) continue;
-      app.serviceRunning = await checkServiceStatus(app);
+      // app.serviceRunning = await checkServiceStatus(app);
+      // Re-implement basic check using sysapi directly since we removed composable import?
+      // Wait, I removed the import. So I must replace this.
+      try {
+        const status = await window.sysapi.apps.getServiceStatus(app.id);
+        app.serviceRunning = status.running;
+      } catch (e) { /* ignore */ }
     }
   }
 };
 
 // Start service (wrapper to handle loading state)
 const startService = async (app) => {
-  if (!app.execPath) return;
-  app.serviceLoading = true;
-
-  const startArgs = app.serviceCommands?.start || app.customArgs || '';
-  const success = await startServiceApi(app, startArgs);
-  if (success) {
-    app.serviceRunning = true;
-  }
-
-  app.serviceLoading = false;
+  await appsStore.startService(app);
 };
 
 // Stop service (wrapper to handle loading state)
 const stopService = async (app) => {
-  if (!app.execPath) return;
-  app.serviceLoading = true;
-
-  const stopArgs = app.serviceCommands?.stop || '';
-  const success = await stopServiceApi(app, stopArgs);
-  if (success) {
-    app.serviceRunning = false;
-  }
-
-  app.serviceLoading = false;
+  await appsStore.stopService(app);
 };
 
 // Restart service (wrapper to handle loading state)
 const restartService = async (app) => {
-  if (!app.execPath) return;
-  app.serviceLoading = true;
-
-  const startArgs = app.serviceCommands?.start || app.customArgs || '';
-  const stopArgs = app.serviceCommands?.stop || '';
-  const success = await restartServiceApi(app, startArgs, stopArgs);
-  if (success) {
-    app.serviceRunning = true;
-  }
-
-  app.serviceLoading = false;
+  await appsStore.restartService(app);
 };
 
 

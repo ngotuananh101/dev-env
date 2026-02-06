@@ -54,11 +54,75 @@ export const useFilesStore = defineStore('files', {
             }
         },
 
-        async navigateUp() {
-            // Backend determines parent, or we split string.
-            // For now, let's just use ..
-            if (this.currentPath) {
-                await this.loadDirectory(this.currentPath + '/..');
+        async getDrives() {
+            if (window.sysapi && window.sysapi.files && window.sysapi.files.getDrives) {
+                return await window.sysapi.files.getDrives();
+            }
+            return [];
+        },
+
+        async createFolder(name) {
+            if (!this.currentPath) return { error: 'No path selected' };
+            try {
+                const result = await window.sysapi.files.createDir({
+                    targetPath: this.currentPath,
+                    name: name
+                });
+                if (!result.error) {
+                    await this.loadDirectory(this.currentPath);
+                }
+                return result;
+            } catch (err) {
+                return { error: err.message };
+            }
+        },
+
+        async deletePath(path) {
+            try {
+                const result = await window.sysapi.files.deletePath(path);
+                return result;
+            } catch (err) {
+                return { error: err.message };
+            }
+        },
+
+        async renamePath(oldPath, newName) {
+            try {
+                const result = await window.sysapi.files.renamePath({
+                    oldPath,
+                    newName
+                });
+                if (!result.error) {
+                    await this.loadDirectory(this.currentPath);
+                }
+                return result;
+            } catch (err) {
+                return { error: err.message };
+            }
+        },
+
+        async openFile(path) {
+            if (window.sysapi && window.sysapi.files && window.sysapi.files.openFile) {
+                return await window.sysapi.files.openFile(path);
+            }
+            return { error: 'Not supported' };
+        },
+
+        // Note: Download logic often involves progress callbacks which are harder to promisify cleanly 
+        // in a simple action without managing state. For now, we'll expose a wrapper.
+        startDownload(url, fileName, targetPath) {
+            if (window.sysapi && window.sysapi.files) {
+                window.sysapi.files.download({
+                    url,
+                    targetPath: targetPath || this.currentPath,
+                    fileName
+                });
+            }
+        },
+
+        cancelDownload() {
+            if (window.sysapi && window.sysapi.files && window.sysapi.files.cancelDownload) {
+                window.sysapi.files.cancelDownload();
             }
         }
     }

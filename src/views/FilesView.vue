@@ -113,7 +113,7 @@
 
                         <!-- Size -->
                         <div class="w-24 px-2 text-right text-gray-400 font-mono text-xs shrink-0 truncate">
-                            {{ formatSize(file.size) }}
+                            {{ formatBytes(file.size) }}
                         </div>
 
                         <!-- Modified Time -->
@@ -246,6 +246,7 @@ import 'vue3-virtual-scroller/dist/vue3-virtual-scroller.css';
 import BaseModal from '../components/BaseModal.vue';
 import BaseButton from '../components/BaseButton.vue';
 import BaseInput from '../components/BaseInput.vue';
+import { formatBytes, formatDate } from '../utils/helpers';
 
 const filesStore = useFilesStore();
 
@@ -254,14 +255,12 @@ const drives = ref([]);
 const selectedDrive = ref('');
 
 const loadDrives = async () => {
-    if (window.sysapi && window.sysapi.files && window.sysapi.files.getDrives) {
-        drives.value = await window.sysapi.files.getDrives();
-        // Set selected drive from current path
-        if (filesStore.currentPath) {
-            const match = filesStore.currentPath.match(/^([A-Z]:)/i);
-            if (match) {
-                selectedDrive.value = match[1].toUpperCase();
-            }
+    drives.value = await filesStore.getDrives();
+    // Set selected drive from current path
+    if (filesStore.currentPath) {
+        const match = filesStore.currentPath.match(/^([A-Z]:)/i);
+        if (match) {
+            selectedDrive.value = match[1].toUpperCase();
         }
     }
 };
@@ -306,19 +305,17 @@ const deleteSelected = async () => {
     const confirmMsg = `Are you sure you want to delete ${selectedFiles.value.length} selected items?`;
     if (!confirm(confirmMsg)) return;
 
-    if (window.sysapi && window.sysapi.files && window.sysapi.files.deletePath) {
-        let errorCount = 0;
-        for (const file of selectedFiles.value) {
-            const result = await window.sysapi.files.deletePath(file.path);
-            if (result.error) errorCount++;
-        }
+    let errorCount = 0;
+    for (const file of selectedFiles.value) {
+        const result = await filesStore.deletePath(file.path);
+        if (result.error) errorCount++;
+    }
 
-        selectedFiles.value = [];
-        refresh();
+    selectedFiles.value = [];
+    refresh();
 
-        if (errorCount > 0) {
-            alert(`${errorCount} errors occurred during deletion.`);
-        }
+    if (errorCount > 0) {
+        alert(`${errorCount} errors occurred during deletion.`);
     }
 };
 
@@ -341,31 +338,26 @@ const openNewFolderModal = () => {
 const createFolder = async () => {
     if (!newFolderName.value) return;
 
-    if (window.sysapi && window.sysapi.files && window.sysapi.files.createDir) {
-        const result = await window.sysapi.files.createDir({
-            targetPath: filesStore.currentPath,
-            name: newFolderName.value
-        });
+    const result = await filesStore.createFolder(newFolderName.value);
 
-        if (result.error) {
-            alert("Error creating folder: " + result.error);
-        } else {
-            showNewFolderModal.value = false;
-            refresh();
-        }
+    if (result.error) {
+        alert("Error creating folder: " + result.error);
+    } else {
+        showNewFolderModal.value = false;
+        // refresh is handled in store action for createFolder? No, we called confirm/refresh there but check return
+        // Actually store called loadDirectory if success, so no need to manual refresh here if we trust store
+        // But for safety/ui sync, store did it.
     }
 };
 
 // Delete Logic
 const deleteFile = async (file) => {
     if (confirm(`Are you sure you want to delete "${file.name}"? This cannot be undone.`)) {
-        if (window.sysapi && window.sysapi.files && window.sysapi.files.deletePath) {
-            const result = await window.sysapi.files.deletePath(file.path);
-            if (result.error) {
-                alert("Error deleting: " + result.error);
-            } else {
-                refresh();
-            }
+        const result = await filesStore.deletePath(file.path);
+        if (result.error) {
+            alert("Error deleting: " + result.error);
+        } else {
+            refresh();
         }
     }
 };
@@ -384,18 +376,13 @@ const openRenameModal = (file) => {
 const performRename = async () => {
     if (!renameNewName.value || !renameTargetFile.value) return;
 
-    if (window.sysapi && window.sysapi.files && window.sysapi.files.renamePath) {
-        const result = await window.sysapi.files.renamePath({
-            oldPath: renameTargetFile.value.path,
-            newName: renameNewName.value
-        });
+    const result = await filesStore.renamePath(renameTargetFile.value.path, renameNewName.value);
 
-        if (result.error) {
-            alert("Error renaming: " + result.error);
-        } else {
-            showRenameModal.value = false;
-            refresh();
-        }
+    if (result.error) {
+        alert("Error renaming: " + result.error);
+    } else {
+        showRenameModal.value = false;
+        // Store reloads on success
     }
 };
 
@@ -497,9 +484,7 @@ const openDownloadModal = () => {
 const closeDownloadModal = () => {
     if (downloading.value) {
         if (confirm("Confirm cancel download?")) {
-            if (window.sysapi && window.sysapi.files && window.sysapi.files.cancelDownload) {
-                window.sysapi.files.cancelDownload();
-            }
+            filesStore.cancelDownload();
             downloading.value = false;
             showDownloadModal.value = false;
         }
@@ -519,13 +504,8 @@ const startDownload = () => {
     downloadProgress.value = 0;
 
     // Trigger download
-    if (window.sysapi && window.sysapi.files) {
-        window.sysapi.files.download({
-            url: downloadUrl.value,
-            targetPath: filesStore.currentPath,
-            fileName: downloadFileName.value
-        });
-    }
+    // Trigger download
+    filesStore.startDownload(downloadUrl.value, downloadFileName.value);
 };
 
 onMounted(() => {
@@ -577,11 +557,9 @@ const openItem = async (file) => {
         filesStore.loadDirectory(file.path);
     } else {
         // Open file with system default app
-        if (window.sysapi && window.sysapi.files && window.sysapi.files.openFile) {
-            const result = await window.sysapi.files.openFile(file.path);
-            if (result.error) {
-                alert('Unable to open file: ' + result.error);
-            }
+        const result = await filesStore.openFile(file.path);
+        if (result.error) {
+            alert('Unable to open file: ' + result.error);
         }
     }
 };
@@ -599,19 +577,6 @@ const getIconComponent = (file) => {
 const getColor = (file) => {
     if (file.isDir) return 'text-yellow-400 fill-yellow-400/20';
     return 'text-blue-400';
-};
-
-const formatSize = (bytes) => {
-    if (bytes === 0) return '-';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-};
-
-const formatDate = (dateStr) => {
-    const d = new Date(dateStr);
-    return d.toLocaleString();
 };
 
 // Lifecycle
