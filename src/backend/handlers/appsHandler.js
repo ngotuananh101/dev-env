@@ -1116,7 +1116,7 @@ function register(ipcMain, context) {
                 const psCheckCommand = `[Environment]::GetEnvironmentVariable('Path', 'User')`;
                 let userPath = '';
                 try {
-                    userPath = execSync(`powershell -Command "${psCheckCommand}"`, { encoding: 'utf-8' }).trim();
+                    userPath = execSync(`powershell -NoProfile -Command "${psCheckCommand}"`, { encoding: 'utf-8' }).trim();
                 } catch (e) {
                     userPath = '';
                 }
@@ -1138,7 +1138,7 @@ function register(ipcMain, context) {
                         const newPath = filteredPaths.join(';');
                         const escapedPath = newPath.replace(/'/g, "''");
                         const psSetCommand = `[Environment]::SetEnvironmentVariable('Path', '${escapedPath}', 'User')`;
-                        execSync(`powershell -Command "${psSetCommand}"`, { encoding: 'utf-8' });
+                        execSync(`powershell -NoProfile -Command "${psSetCommand}"`, { encoding: 'utf-8' });
 
                         logApp(`Successfully removed ${cliDir} from PATH`, 'UNINSTALL');
                     }

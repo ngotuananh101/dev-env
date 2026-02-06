@@ -246,7 +246,7 @@ function register(ipcMain, context) {
             const psCommand = `[Environment]::GetEnvironmentVariable('Path', 'User')`;
             let userPath = '';
             try {
-                userPath = execSync(`powershell -Command "${psCommand}"`, { encoding: 'utf-8' }).trim();
+                userPath = execSync(`powershell -NoProfile -Command "${psCommand}"`, { encoding: 'utf-8' }).trim();
             } catch (e) {
                 return { inPath: false, userPath: '' };
             }
@@ -281,7 +281,7 @@ function register(ipcMain, context) {
             let currentPath = '';
             try {
                 const psCommand = `[Environment]::GetEnvironmentVariable('Path', 'User')`;
-                currentPath = execSync(`powershell -Command "${psCommand}"`, { encoding: 'utf-8' }).trim();
+                currentPath = execSync(`powershell -NoProfile -Command "${psCommand}"`, { encoding: 'utf-8' }).trim();
                 console.log(`[PATH] Current PATH length: ${currentPath.length}`);
             } catch (e) {
                 console.log('[PATH] No existing PATH found, starting fresh');
@@ -307,7 +307,7 @@ function register(ipcMain, context) {
             // Update using PowerShell (automatically broadcasts WM_SETTINGCHANGE)
             const escapedPath = newPath.replace(/'/g, "''");
             const psSetCommand = `[Environment]::SetEnvironmentVariable('Path', '${escapedPath}', 'User')`;
-            execSync(`powershell -Command "${psSetCommand}"`, { encoding: 'utf-8' });
+            execSync(`powershell -NoProfile -Command "${psSetCommand}"`, { encoding: 'utf-8' });
 
             console.log(`[PATH] Successfully added: ${normalizedPath}`);
             return { success: true };
@@ -331,7 +331,7 @@ function register(ipcMain, context) {
             let currentPath = '';
             try {
                 const psCommand = `[Environment]::GetEnvironmentVariable('Path', 'User')`;
-                currentPath = execSync(`powershell -Command "${psCommand}"`, { encoding: 'utf-8' }).trim();
+                currentPath = execSync(`powershell -NoProfile -Command "${psCommand}"`, { encoding: 'utf-8' }).trim();
             } catch (e) {
                 return { success: true, message: 'PATH is empty' };
             }
@@ -356,7 +356,7 @@ function register(ipcMain, context) {
             const newPath = filteredPaths.join(';');
             const escapedPath = newPath.replace(/'/g, "''");
             const psSetCommand = `[Environment]::SetEnvironmentVariable('Path', '${escapedPath}', 'User')`;
-            execSync(`powershell -Command "${psSetCommand}"`, { encoding: 'utf-8' });
+            execSync(`powershell -NoProfile -Command "${psSetCommand}"`, { encoding: 'utf-8' });
 
             console.log(`[PATH] Successfully removed: ${targetPath}`);
             return { success: true };
