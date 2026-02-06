@@ -567,22 +567,6 @@ const confirmInstall = async () => {
   }
 };
 
-
-
-
-
-
-
-
-
-try {
-  const result = await window.sysapi.files.openFile(app.installPath);
-  if (result.error) {
-    alert(`Failed to open location: ${result.error}`);
-  }
-} catch (error) {
-  console.error('Open location error:', error);
-}
 const openLocation = async (app) => {
   if (!app.installPath || app.installPath === '--') return;
 
