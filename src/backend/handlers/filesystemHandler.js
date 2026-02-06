@@ -233,7 +233,35 @@ function register(ipcMain, context) {
         }
     });
 
-    // ========== System PATH Management (using PowerShell) ==========
+    // ========== System PATH Management (using Registry) ==========
+
+    // Helper function to get User PATH from Registry
+    const getUserPathFromRegistry = () => {
+        try {
+            const result = execSync(
+                'reg query "HKCU\\Environment" /v Path',
+                { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+            );
+            // Parse the output: "    Path    REG_EXPAND_SZ    C:\path1;C:\path2"
+            const match = result.match(/Path\s+REG_(?:EXPAND_)?SZ\s+(.+)/i);
+            if (match && match[1]) {
+                return match[1].trim();
+            }
+            return '';
+        } catch (e) {
+            // Path doesn't exist yet
+            return '';
+        }
+    };
+
+    // Helper function to set User PATH in Registry
+    const setUserPathInRegistry = (newPath) => {
+        // Use REG_EXPAND_SZ to support environment variables
+        execSync(
+            `reg add "HKCU\\Environment" /v Path /t REG_EXPAND_SZ /d "${newPath}" /f`,
+            { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+        );
+    };
 
     // Check if a path is in User PATH
     ipcMain.handle('path-check', async (event, targetPath) => {
@@ -242,14 +270,7 @@ function register(ipcMain, context) {
                 return { error: 'Only supported on Windows' };
             }
 
-            // Get User PATH using PowerShell
-            const psCommand = `[Environment]::GetEnvironmentVariable('Path', 'User')`;
-            let userPath = '';
-            try {
-                userPath = execSync(`powershell -NoProfile -Command "${psCommand}"`, { encoding: 'utf-8' }).trim();
-            } catch (e) {
-                return { inPath: false, userPath: '' };
-            }
+            const userPath = getUserPathFromRegistry();
 
             if (!userPath) {
                 return { inPath: false, userPath: '' };
@@ -277,15 +298,9 @@ function register(ipcMain, context) {
             const normalizedPath = path.normalize(targetPath);
             console.log(`[PATH] Adding: ${normalizedPath}`);
 
-            // Get current User PATH using PowerShell
-            let currentPath = '';
-            try {
-                const psCommand = `[Environment]::GetEnvironmentVariable('Path', 'User')`;
-                currentPath = execSync(`powershell -NoProfile -Command "${psCommand}"`, { encoding: 'utf-8' }).trim();
-                console.log(`[PATH] Current PATH length: ${currentPath.length}`);
-            } catch (e) {
-                console.log('[PATH] No existing PATH found, starting fresh');
-            }
+            // Get current User PATH from Registry
+            const currentPath = getUserPathFromRegistry();
+            console.log(`[PATH] Current PATH length: ${currentPath.length}`);
 
             // Check if already in PATH
             const paths = currentPath.split(';').filter(p => p.trim());
@@ -304,10 +319,8 @@ function register(ipcMain, context) {
             const newPath = currentPath ? `${currentPath};${normalizedPath}` : normalizedPath;
             console.log(`[PATH] New PATH length: ${newPath.length}`);
 
-            // Update using PowerShell (automatically broadcasts WM_SETTINGCHANGE)
-            const escapedPath = newPath.replace(/'/g, "''");
-            const psSetCommand = `[Environment]::SetEnvironmentVariable('Path', '${escapedPath}', 'User')`;
-            execSync(`powershell -NoProfile -Command "${psSetCommand}"`, { encoding: 'utf-8' });
+            // Update Registry
+            setUserPathInRegistry(newPath);
 
             console.log(`[PATH] Successfully added: ${normalizedPath}`);
             return { success: true };
@@ -327,14 +340,8 @@ function register(ipcMain, context) {
             const normalizedPath = path.normalize(targetPath).toLowerCase();
             console.log(`[PATH] Removing: ${normalizedPath}`);
 
-            // Get current User PATH using PowerShell
-            let currentPath = '';
-            try {
-                const psCommand = `[Environment]::GetEnvironmentVariable('Path', 'User')`;
-                currentPath = execSync(`powershell -NoProfile -Command "${psCommand}"`, { encoding: 'utf-8' }).trim();
-            } catch (e) {
-                return { success: true, message: 'PATH is empty' };
-            }
+            // Get current User PATH from Registry
+            const currentPath = getUserPathFromRegistry();
 
             if (!currentPath) {
                 return { success: true, message: 'PATH is empty' };
@@ -352,11 +359,9 @@ function register(ipcMain, context) {
                 return { success: true, message: 'Path not found in PATH' };
             }
 
-            // Update using PowerShell
+            // Update Registry
             const newPath = filteredPaths.join(';');
-            const escapedPath = newPath.replace(/'/g, "''");
-            const psSetCommand = `[Environment]::SetEnvironmentVariable('Path', '${escapedPath}', 'User')`;
-            execSync(`powershell -NoProfile -Command "${psSetCommand}"`, { encoding: 'utf-8' });
+            setUserPathInRegistry(newPath);
 
             console.log(`[PATH] Successfully removed: ${targetPath}`);
             return { success: true };

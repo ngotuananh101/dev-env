@@ -1112,11 +1112,17 @@ function register(ipcMain, context) {
             }
 
             if (cliDir) {
-                // Check if this path is in User PATH
-                const psCheckCommand = `[Environment]::GetEnvironmentVariable('Path', 'User')`;
+                // Get User PATH from Registry
                 let userPath = '';
                 try {
-                    userPath = execSync(`powershell -NoProfile -Command "${psCheckCommand}"`, { encoding: 'utf-8' }).trim();
+                    const result = execSync(
+                        'reg query "HKCU\\Environment" /v Path',
+                        { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+                    );
+                    const match = result.match(/Path\s+REG_(?:EXPAND_)?SZ\s+(.+)/i);
+                    if (match && match[1]) {
+                        userPath = match[1].trim();
+                    }
                 } catch (e) {
                     userPath = '';
                 }
@@ -1136,9 +1142,13 @@ function register(ipcMain, context) {
                         });
 
                         const newPath = filteredPaths.join(';');
-                        const escapedPath = newPath.replace(/'/g, "''");
-                        const psSetCommand = `[Environment]::SetEnvironmentVariable('Path', '${escapedPath}', 'User')`;
-                        execSync(`powershell -NoProfile -Command "${psSetCommand}"`, { encoding: 'utf-8' });
+
+                        // Update Registry
+                        execSync(
+                            `reg add "HKCU\\Environment" /v Path /t REG_EXPAND_SZ /d "${newPath}" /f`,
+                            { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+                        );
+
 
                         logApp(`Successfully removed ${cliDir} from PATH`, 'UNINSTALL');
                     }
