@@ -4,55 +4,31 @@
 
     <div class="space-y-4 p-6">
       <!-- Site Name -->
-      <div>
-        <label class="block text-gray-400 text-sm mb-1">Site Name</label>
-        <input v-model="form.name" type="text" placeholder="My Website"
-          class="w-full px-3 py-2 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-blue-500" />
-      </div>
+      <BaseInput v-model="form.name" label="Site Name" placeholder="My Website" />
 
       <!-- Domain -->
-      <div>
-        <label class="block text-gray-400 text-sm mb-1">Domain</label>
-        <input v-model="form.domain" type="text" placeholder="example.local"
-          class="w-full px-3 py-2 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-blue-500" />
-        <p class="text-gray-500 text-xs mt-1">Add this domain to your hosts file manually</p>
-      </div>
+      <BaseInput v-model="form.domain" label="Domain" placeholder="example.local"
+        hint="Add this domain to your hosts file manually" />
 
       <!-- Webserver -->
-      <div>
-        <label class="block text-gray-400 text-sm mb-1">Web Server</label>
-        <select v-model="form.webserver"
-          class="w-full px-3 py-2 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-blue-500">
-          <option v-if="webserver.nginx" value="nginx">Nginx</option>
-          <option v-if="webserver.apache" value="apache">Apache</option>
-          <option v-if="!webserver.nginx && !webserver.apache" value="" disabled>No webserver installed</option>
-        </select>
-      </div>
+      <BaseSelect v-model="form.webserver" label="Web Server">
+        <option v-if="webserver.nginx" value="nginx">Nginx</option>
+        <option v-if="webserver.apache" value="apache">Apache</option>
+        <option v-if="!webserver.nginx && !webserver.apache" value="" disabled>No webserver installed</option>
+      </BaseSelect>
 
       <!-- PHP Project: Root Path -->
       <template v-if="type === 'php'">
         <div>
           <label class="block text-gray-400 text-sm mb-1">Root Directory</label>
           <div class="flex space-x-2">
-            <input v-model="form.root_path" type="text" placeholder="D:\www\mysite"
-              class="flex-1 px-3 py-2 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-blue-500" />
+            <BaseInput v-model="form.root_path" placeholder="D:\www\mysite" class="flex-1" />
             <BaseButton @click="selectFolder" variant="secondary" size="md">Browse</BaseButton>
           </div>
         </div>
 
-        <div>
-          <label class="block text-gray-400 text-sm mb-1">PHP Version</label>
-          <select v-model="form.php_version"
-            class="w-full px-3 py-2 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-blue-500">
-            <option value="" disabled>Select PHP Version</option>
-            <option v-for="php in phpVersions" :key="php.id" :value="php.installedVersion">
-              PHP {{ php.installedVersion }}
-            </option>
-          </select>
-          <p v-if="phpVersions.length === 0" class="text-xs text-yellow-500 mt-1">
-            No PHP versions installed.
-          </p>
-        </div>
+        <BaseSelect v-model="form.php_version" label="PHP Version" :options="phpVersionOptions"
+          placeholder="Select PHP Version" :error="phpVersions.length === 0 ? 'No PHP versions installed.' : ''" />
       </template>
 
       <!-- Node Project: Root Path + Script + Port -->
@@ -60,33 +36,20 @@
         <div>
           <label class="block text-gray-400 text-sm mb-1">Project Directory</label>
           <div class="flex space-x-2">
-            <input v-model="form.root_path" type="text" placeholder="D:\projects\myapp"
-              class="flex-1 px-3 py-2 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-blue-500" />
+            <BaseInput v-model="form.root_path" placeholder="D:\projects\myapp" class="flex-1" />
             <BaseButton @click="selectFolder" variant="secondary" size="md">Browse</BaseButton>
           </div>
         </div>
 
         <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-gray-400 text-sm mb-1">Entry Script</label>
-            <input v-model="form.node_script" type="text" placeholder="index.js"
-              class="w-full px-3 py-2 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-blue-500" />
-          </div>
-          <div>
-            <label class="block text-gray-400 text-sm mb-1">Port</label>
-            <input v-model.number="form.port" type="number" placeholder="3000"
-              class="w-full px-3 py-2 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-blue-500" />
-          </div>
+          <BaseInput v-model="form.node_script" label="Entry Script" placeholder="index.js" />
+          <BaseInput v-model.number="form.port" label="Port" type="number" placeholder="3000" />
         </div>
       </template>
 
       <!-- Proxy Project: Target URL -->
       <template v-if="type === 'proxy'">
-        <div>
-          <label class="block text-gray-400 text-sm mb-1">Proxy Target URL</label>
-          <input v-model="form.proxy_target" type="text" placeholder="http://localhost:8080"
-            class="w-full px-3 py-2 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-blue-500" />
-        </div>
+        <BaseInput v-model="form.proxy_target" label="Proxy Target URL" placeholder="http://localhost:8080" />
       </template>
     </div>
 
@@ -105,6 +68,8 @@ import { useToast } from 'vue-toastification';
 import { useDatabaseStore } from '../stores/database';
 import BaseModal from './BaseModal.vue';
 import BaseButton from './BaseButton.vue';
+import BaseInput from './BaseInput.vue';
+import BaseSelect from './BaseSelect.vue';
 
 const props = defineProps({
   type: String,
@@ -127,6 +92,12 @@ const form = ref({
 });
 
 const phpVersions = ref([]);
+const phpVersionOptions = computed(() => {
+  return phpVersions.value.map(p => ({
+    label: `PHP ${p.installedVersion}`,
+    value: p.installedVersion
+  }));
+});
 
 onMounted(async () => {
   // Load installed PHP versions

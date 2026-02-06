@@ -4,11 +4,19 @@
     <div class="bg-[#252526] border-b border-gray-700">
       <!-- Tabs -->
       <div class="flex items-center px-4 pt-3 space-x-1">
-        <button v-for="tab in tabs" :key="tab.id" @click="activeTab = tab.id"
-          class="px-4 py-2 text-sm rounded-t-md transition-colors" :class="activeTab === tab.id
+        <button v-for="tab in tabs" :key="tab.id" @click="sitesStore.activeTab = tab.id"
+          class="px-4 py-2 text-sm rounded-t-md transition-colors" :class="sitesStore.activeTab === tab.id
             ? 'bg-background text-white border-t border-l border-r border-gray-700'
             : 'text-gray-400 hover:text-white hover:bg-gray-800'">
           {{ tab.name }}
+          <span :class="[
+            'ml-2 px-1.5 py-0.5 rounded-full text-[10px]',
+            sitesStore.activeTab === tab.id
+              ? 'bg-blue-500/20 text-blue-400'
+              : 'bg-gray-700 text-gray-500'
+          ]">
+            {{ sitesStore.getSiteCountForTab(tab.id) }}
+          </span>
         </button>
       </div>
 
@@ -22,15 +30,18 @@
             Add site
           </BaseButton>
 
-          <BaseButton v-if="activeTab === 'php' && webserver.apache" @click="changeApacheRoot" variant="secondary"
-            size="sm" class="border border-gray-600" title="Change Apache Root">
+          <BaseButton v-if="sitesStore.activeTab === 'php' && sitesStore.webserver.apache"
+            @click="sitesStore.changeApacheRoot" variant="secondary" size="sm" class="border border-gray-600"
+            title="Change Apache Root">
             <template #icon>
               <FolderCog class="w-3 h-3 text-yellow-500" />
             </template>
           </BaseButton>
 
-          <BaseButton v-if="activeTab === 'php' && webserver.nginx && !webserver.apache" @click="changeNginxRoot"
-            variant="secondary" size="sm" class="border border-gray-600" title="Change Nginx Root">
+          <BaseButton
+            v-if="sitesStore.activeTab === 'php' && sitesStore.webserver.nginx && !sitesStore.webserver.apache"
+            @click="sitesStore.changeNginxRoot" variant="secondary" size="sm" class="border border-gray-600"
+            title="Change Nginx Root">
             <template #icon>
               <FolderCog class="w-3 h-3 text-yellow-500" />
             </template>
@@ -39,14 +50,15 @@
           <!-- Webserver indicator -->
           <div class="flex items-center space-x-1 h-8 px-3 bg-gray-700 rounded text-xs select-none">
             <Server class="w-3 h-3 text-yellow-400" />
-            <span v-if="webserver.nginx && webserver.nginx.installed_version" class="text-green-400">
-              Nginx {{ webserver.nginx.installed_version }}
+            <span v-if="sitesStore.webserver.nginx && sitesStore.webserver.nginx.installed_version"
+              class="text-green-400">
+              Nginx {{ sitesStore.webserver.nginx.installed_version }}
             </span>
-            <span v-else-if="webserver.nginx">Nginx</span>
+            <span v-else-if="sitesStore.webserver.nginx">Nginx</span>
 
-            <template v-else-if="webserver.apache">
-              <span v-if="webserver.apache.installed_version" class="text-green-400">
-                Apache {{ webserver.apache.installed_version }}
+            <template v-else-if="sitesStore.webserver.apache">
+              <span v-if="sitesStore.webserver.apache.installed_version" class="text-green-400">
+                Apache {{ sitesStore.webserver.apache.installed_version }}
               </span>
               <span v-else>Apache</span>
             </template>
@@ -54,9 +66,9 @@
             <span v-else class="text-gray-400">No webserver</span>
           </div>
 
-          <BaseButton variant="secondary" size="sm" @click="loadSites">
+          <BaseButton variant="secondary" size="sm" @click="sitesStore.loadSites">
             <template #icon>
-              <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': isLoading }" />
+              <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': sitesStore.isLoading }" />
             </template>
             Reload
           </BaseButton>
@@ -79,6 +91,7 @@
           <tr class="text-gray-400">
             <th class="px-3 py-2 text-left font-medium">Site name</th>
             <th class="px-3 py-2 text-center font-medium w-20">Status</th>
+            <th class="px-3 py-2 text-center font-medium w-20">SSL</th>
             <th class="px-3 py-2 text-center font-medium w-28">Quick action</th>
             <th class="px-3 py-2 text-center font-medium w-32">Created</th>
             <th class="px-3 py-2 text-center font-medium w-40">Operate</th>
@@ -86,7 +99,7 @@
         </thead>
         <tbody>
           <tr v-if="filteredSites.length === 0">
-            <td colspan="5" class="px-3 py-8 text-center text-gray-500">
+            <td colspan="6" class="px-3 py-8 text-center text-gray-500">
               <div class="flex flex-col items-center space-y-2">
                 <Globe2 class="w-8 h-8" />
                 <span>No {{ activeTabName }} sites found</span>
@@ -124,10 +137,10 @@
               </template>
               <template v-else-if="site.type === 'php'">
                 <div class="inline-block text-left">
-                  <select :value="site.php_version" @change="changePhpVersion(site, $event.target.value)"
+                  <select :value="site.php_version" @change="sitesStore.updatePhpVersion(site, $event.target.value)"
                     :disabled="site.updatingPhp"
                     class="bg-gray-700 text-white text-xs rounded px-2 py-1 border border-gray-600 focus:outline-none focus:border-blue-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed appearance-none pr-4">
-                    <option v-for="ver in phpVersions" :key="ver" :value="ver">{{ ver }}</option>
+                    <option v-for="ver in sitesStore.phpVersions" :key="ver" :value="ver">{{ ver }}</option>
                   </select>
                   <div class="pointer-events-none inset-y-0 right-0 flex items-center px-1.5 text-gray-400">
                     <RotateCw v-if="site.updatingPhp" class="h-3 w-3 animate-spin" />
@@ -139,16 +152,27 @@
               </template>
             </td>
 
+            <!-- SSL Status -->
+            <td class="px-2 py-2 w-[100px] text-center">
+              <StatusBadge :status="site.status.toLowerCase()">
+                {{ site.status.toUpperCase() }}
+              </StatusBadge>
+            </td>
+            <td class="px-2 py-2 w-[120px] text-center">
+              <StatusBadge v-if="site.ssl" status="success">ENABLED</StatusBadge>
+              <StatusBadge v-else status="inactive">DISABLED</StatusBadge>
+            </td>
+
             <!-- Quick action -->
-            <td class="px-3 py-2 text-center">
-              <div class="flex items-center justify-center space-x-2">
+            <td class="px-2 py-2 text-center">
+              <ActionButtonGroup>
                 <!-- Node: Start/Stop -->
                 <template v-if="site.type === 'node'">
-                  <button v-if="!site.processRunning" @click="startNodeSite(site)" :disabled="site.loading"
+                  <button v-if="!site.processRunning" @click="sitesStore.startNodeSite(site)" :disabled="site.loading"
                     class="p-1 hover:bg-green-500/20 rounded" title="Start">
                     <Play class="w-3.5 h-3.5 text-green-500" />
                   </button>
-                  <button v-else @click="stopNodeSite(site)" :disabled="site.loading"
+                  <button v-else @click="sitesStore.stopNodeSite(site)" :disabled="site.loading"
                     class="p-1 hover:bg-red-500/20 rounded" title="Stop">
                     <Square class="w-3.5 h-3.5 text-red-500" />
                   </button>
@@ -165,7 +189,7 @@
                   title="Open in browser">
                   <Globe class="w-3.5 h-3.5 text-blue-500" />
                 </button>
-              </div>
+              </ActionButtonGroup>
             </td>
 
             <!-- Created -->
@@ -182,7 +206,7 @@
                 <button @click="showLogs(site)" class="text-green-400 hover:text-green-300 text-xs">
                   Logs
                 </button>
-                <button @click="deleteSite(site)" class="text-red-400 hover:text-red-300 text-xs">
+                <button @click="sitesStore.deleteSite(site)" class="text-red-400 hover:text-red-300 text-xs">
                   Delete
                 </button>
               </div>
@@ -203,11 +227,12 @@
     </div>
 
     <!-- Add Site Modal -->
-    <AddSiteModal v-if="showAddModal" :type="activeTab" :webserver="webserver" @close="showAddModal = false"
-      @created="onSiteCreated" />
+    <AddSiteModal v-if="showAddModal" :type="sitesStore.activeTab" :webserver="sitesStore.webserver"
+      @close="showAddModal = false" @created="onSiteCreated" />
 
     <!-- Site Config Modal -->
-    <SiteConfigModal v-if="showConfigModal" :site="selectedSite" @close="showConfigModal = false" @saved="loadSites" />
+    <SiteConfigModal v-if="showConfigModal" :site="selectedSite" @close="showConfigModal = false"
+      @saved="sitesStore.loadSites" />
 
     <!-- Site Logs Modal -->
     <SiteLogsModal v-if="showLogsModal" :site="selectedSite" @close="showLogsModal = false" />
@@ -222,12 +247,16 @@ import {
   ChevronDown, RotateCw
 } from 'lucide-vue-next';
 import { useToast } from 'vue-toastification';
+import { useSitesStore } from '../stores/sites';
 import AddSiteModal from '../components/AddSiteModal.vue';
 import SiteConfigModal from '../components/SiteConfigModal.vue';
 import SiteLogsModal from '../components/SiteLogsModal.vue';
 import BaseButton from '../components/BaseButton.vue';
+import StatusBadge from '../components/StatusBadge.vue';
+import ActionButtonGroup from '../components/ActionButtonGroup.vue';
 
 const toast = useToast();
+const sitesStore = useSitesStore();
 
 // Tabs
 const tabs = [
@@ -235,31 +264,18 @@ const tabs = [
   { id: 'node', name: 'Node Project' },
   { id: 'proxy', name: 'Proxy Project' }
 ];
-const activeTab = ref('php');
 
-const activeTabName = computed(() => tabs.find(t => t.id === activeTab.value)?.name || 'PHP');
+const activeTabName = computed(() => tabs.find(t => t.id === sitesStore.activeTab)?.name || 'PHP');
 
 // State
-const sites = ref([]);
-const webserver = ref({ nginx: null, apache: null });
-const isLoading = ref(false);
 const searchQuery = ref('');
 const showAddModal = ref(false);
 const showConfigModal = ref(false);
 const showLogsModal = ref(false);
 const selectedSite = ref(null);
-const phpVersions = ref([]);
 
 // Filtered sites by tab and search
-const filteredSites = computed(() => {
-  return sites.value.filter(site => {
-    const matchesTab = site.type === activeTab.value;
-    const matchesSearch = !searchQuery.value ||
-      site.domain.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      site.name.toLowerCase().includes(searchQuery.value.toLowerCase());
-    return matchesTab && matchesSearch;
-  });
-});
+const filteredSites = computed(() => sitesStore.filteredSites(searchQuery.value));
 
 // Get type icon
 const getTypeIcon = (type) => {
@@ -287,72 +303,6 @@ const formatDate = (dateStr) => {
   return new Date(dateStr).toLocaleDateString();
 };
 
-// Load sites
-const loadSites = async () => {
-  isLoading.value = true;
-  try {
-    const result = await window.sysapi.sites.list();
-    if (result.error) {
-      toast.error(`Failed to load sites: ${result.error}`);
-    } else {
-      sites.value = result.sites || [];
-    }
-  } catch (error) {
-    console.error('Load sites error:', error);
-    toast.error(`Error: ${error.message}`);
-  } finally {
-    isLoading.value = false;
-  }
-};
-
-// Load PHP versions
-const loadPhpVersions = async () => {
-  try {
-    const result = await window.sysapi.sites.getPhpVersions();
-    if (result.versions) {
-      phpVersions.value = result.versions;
-    }
-  } catch (error) {
-    console.error('Load PHP versions error:', error);
-  }
-};
-
-// Change PHP version
-const changePhpVersion = async (site, newVersion) => {
-  if (site.php_version === newVersion) return;
-
-  site.updatingPhp = true;
-  try {
-    const result = await window.sysapi.sites.updatePhpVersion(site.id, newVersion);
-    if (result.error) {
-      toast.error(`Failed to update PHP version: ${result.error}`);
-    } else {
-      site.php_version = newVersion;
-      toast.success(`Updated ${site.domain} to PHP ${newVersion}`);
-    }
-  } catch (error) {
-    console.error('Update PHP version error:', error);
-    toast.error(`Error: ${error.message}`);
-  } finally {
-    site.updatingPhp = false;
-  }
-};
-
-
-
-// Load webserver info
-const loadWebserver = async () => {
-  try {
-    const result = await window.sysapi.sites.getWebserver();
-    webserver.value = {
-      nginx: result.nginx,
-      apache: result.apache
-    };
-  } catch (error) {
-    console.error('Load webserver error:', error);
-  }
-};
-
 // Open folder
 const openFolder = async (path) => {
   try {
@@ -371,42 +321,6 @@ const openInBrowser = async (domain) => {
   }
 };
 
-// Start Node site
-const startNodeSite = async (site) => {
-  site.loading = true;
-  try {
-    const result = await window.sysapi.sites.startNode(site.id);
-    if (result.error) {
-      toast.error(`Failed to start: ${result.error}`);
-    } else {
-      site.processRunning = true;
-      toast.success(`${site.name} started!`);
-    }
-  } catch (error) {
-    toast.error(`Error: ${error.message}`);
-  } finally {
-    site.loading = false;
-  }
-};
-
-// Stop Node site
-const stopNodeSite = async (site) => {
-  site.loading = true;
-  try {
-    const result = await window.sysapi.sites.stopNode(site.id);
-    if (result.error) {
-      toast.error(`Failed to stop: ${result.error}`);
-    } else {
-      site.processRunning = false;
-      toast.success(`${site.name} stopped!`);
-    }
-  } catch (error) {
-    toast.error(`Error: ${error.message}`);
-  } finally {
-    site.loading = false;
-  }
-};
-
 // Open config modal
 const openConfig = (site) => {
   selectedSite.value = site;
@@ -419,85 +333,15 @@ const showLogs = (site) => {
   showLogsModal.value = true;
 };
 
-// Delete site
-const deleteSite = async (site) => {
-  if (!confirm(`Delete site "${site.domain}"? This will remove the config file.`)) {
-    return;
-  }
-
-  try {
-    const result = await window.sysapi.sites.delete(site.id);
-    if (result.error) {
-      toast.error(`Failed to delete: ${result.error}`);
-    } else {
-      toast.success(`${site.domain} deleted!`);
-      await loadSites();
-    }
-  } catch (error) {
-    toast.error(`Error: ${error.message}`);
-  }
-};
-
-
-
-// Change Apache Root
-const changeApacheRoot = async () => {
-  try {
-    // Select new folder
-    const result = await window.sysapi.files.selectFolder();
-    if (!result.path) return;
-
-    if (!confirm(`Change Apache DocumentRoot to:\n${result.path}\n\nThis will rewrite httpd.conf!`)) return;
-
-    isLoading.value = true;
-    const updateResult = await window.sysapi.sites.updateApacheRoot(result.path);
-
-    if (updateResult.error) {
-      toast.error(`Failed to update: ${updateResult.error}`);
-    } else {
-      toast.success('Apache root updated successfully!');
-    }
-  } catch (error) {
-    console.error('Change Apache root error:', error);
-    toast.error(`Error: ${error.message}`);
-  } finally {
-    isLoading.value = false;
-  }
-};
-
-// Change Nginx Root
-const changeNginxRoot = async () => {
-  try {
-    const result = await window.sysapi.files.selectFolder();
-    if (!result.path) return;
-
-    if (!confirm(`Change Nginx root to:\n${result.path}\n\nThis will rewrite nginx.conf!`)) return;
-
-    isLoading.value = true;
-    const updateResult = await window.sysapi.sites.updateNginxRoot(result.path);
-
-    if (updateResult.error) {
-      toast.error(`Failed to update: ${updateResult.error}`);
-    } else {
-      toast.success('Nginx root updated successfully!');
-    }
-  } catch (error) {
-    console.error('Change Nginx root error:', error);
-    toast.error(`Error: ${error.message}`);
-  } finally {
-    isLoading.value = false;
-  }
-};
-
 // Site created callback
 const onSiteCreated = async () => {
   showAddModal.value = false;
-  await loadSites();
+  await sitesStore.loadSites();
 };
 
 onMounted(async () => {
-  await loadWebserver();
-  await loadPhpVersions();
-  await loadSites();
+  await sitesStore.loadWebserver();
+  await sitesStore.loadPhpVersions();
+  await sitesStore.loadSites();
 });
 </script>

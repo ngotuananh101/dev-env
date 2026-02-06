@@ -14,6 +14,39 @@ const serviceHandler = require('./serviceHandler');
 const { removeHosts } = require('./hostsHandler');
 const { runningNodeProcesses } = require('./sitesHandler');
 
+/**
+ * @typedef {Object} AppVersion
+ * @property {string} version - Version string (e.g. "1.0.0")
+ * @property {string} filename - Filename of the archive
+ * @property {string} download_url - URL to download
+ * @property {number} size - Size in bytes
+ * @property {string} md5 - MD5 hash
+ * @property {string} sha1 - SHA1 hash
+ */
+
+/**
+ * @typedef {Object} App
+ * @property {string} id - Unique App ID
+ * @property {string} name - Display name
+ * @property {string} description - Brief description
+ * @property {string} developer - Developer name
+ * @property {string} icon - Icon name or path
+ * @property {string} category - Category ID
+ * @property {'installed'|'not_installed'} status - Installation status
+ * @property {string} [installedVersion] - Currently installed version
+ * @property {AppVersion[]} [versions] - Available versions
+ */
+
+/**
+ * @typedef {Object} InstallContext
+ * @property {string} appId - App ID being installed
+ * @property {boolean} cancelled - Cancellation flag
+ * @property {import('http').ClientRequest} [request] - Active HTTP request
+ * @property {import('worker_threads').Worker} [worker] - Active worker thread
+ * @property {string} [zipPath] - Path to downloaded zip
+ * @property {string} [appDir] - Target installation directory
+ */
+
 // Constants
 const APP_FILES_XML_URL = 'https://archive.org/download/dev-env/dev-env_files.xml';
 const ARCHIVE_BASE_URL = 'https://archive.org/download/dev-env/';

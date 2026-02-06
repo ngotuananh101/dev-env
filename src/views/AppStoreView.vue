@@ -1,20 +1,20 @@
 <template>
-  <div class="flex flex-col h-full bg-[#1e1e1e] text-gray-300 font-sans text-sm">
+  <div class="flex flex-col h-full bg-background text-gray-300 font-sans text-sm">
     <!-- 1. Header - Search -->
     <div class="flex items-center justify-between p-3 border-b border-gray-700 bg-[#252526]">
       <div class="flex items-center space-x-2">
         <span class="text-gray-400">Search App</span>
         <div class="relative">
           <input v-model="searchQuery" type="text" placeholder="Supports fuzzy search by application name, field"
-            class="w-96 bg-[#1e1e1e] border border-gray-600 rounded px-3 py-2 pl-8 focus:border-blue-500 focus:outline-none text-gray-200">
+            class="w-96 bg-background border border-gray-600 rounded px-3 py-2 pl-8 focus:border-blue-500 focus:outline-none text-gray-200">
           <Search class="w-4 h-4 absolute left-2 top-1/2 -translate-y-1/2 text-gray-500" />
         </div>
       </div>
-      <BaseButton :disabled="isUpdating" @click="updateAppList" size="sm">
+      <BaseButton :disabled="appsStore.isUpdating" @click="appsStore.updateAppList" size="sm">
         <template #icon>
-          <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': isUpdating }" />
+          <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': appsStore.isUpdating }" />
         </template>
-        {{ isUpdating ? 'Updating...' : 'Update App List' }}
+        {{ appsStore.isUpdating ? 'Updating...' : 'Update App List' }}
       </BaseButton>
     </div>
 
@@ -34,9 +34,9 @@
     <!-- 3. Category Tabs -->
     <div class="flex items-center space-x-1 p-2 border-b border-gray-700 bg-[#252526]">
       <span class="text-gray-500 text-xs mr-2">App Sort</span>
-      <button v-for="cat in categories" :key="cat.id" @click="activeCategory = cat.id" :class="[
+      <button v-for="cat in categories" :key="cat.id" @click="appsStore.activeCategory = cat.id" :class="[
         'px-3 py-1 rounded text-xs transition-colors',
-        activeCategory === cat.id
+        appsStore.activeCategory === cat.id
           ? 'bg-blue-600 text-white'
           : 'bg-[#333] text-gray-300 hover:bg-[#444]'
       ]">
@@ -47,7 +47,7 @@
     <!-- 4. App Table -->
     <div class="flex-1 overflow-auto">
       <table class="w-full text-left border-collapse">
-        <thead class="sticky top-0 bg-[#2d2d2d] z-10 text-xs text-gray-400 font-normal">
+        <thead class="sticky top-0 bg-background-secondary z-10 text-xs text-gray-400 font-normal">
           <tr>
             <th class="p-2 border-b border-gray-700 w-40 min-w-40">Software name</th>
             <th class="p-2 border-b border-gray-700 w-24 min-w-24">Developer</th>
@@ -106,7 +106,7 @@
             </td>
             <td class="px-2 py-2 text-center">
               <label v-if="app.status === 'installed' && app.installPath && app.id !== 'phpmyadmin'"
-                class="relative inline-flex items-center cursor-pointer" @click.prevent="togglePath(app)">
+                class="relative inline-flex items-center cursor-pointer" @click.prevent="appsStore.togglePath(app)">
                 <input type="checkbox" :checked="app.inPath" class="sr-only peer">
                 <div
                   class="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600">
@@ -115,14 +115,15 @@
               <span v-else class="text-gray-500">--</span>
             </td>
             <td class="px-2 py-2 text-center">
-              <div class="flex items-center justify-center space-x-2">
+              <ActionButtonGroup>
                 <template v-if="app.status === 'installed'">
                   <button class="text-blue-400 hover:text-blue-300 text-xs" @click="openSettings(app)">Setting</button>
-                  <button class="text-red-400 hover:text-red-300 text-xs" @click="uninstallApp(app)">Uninstall</button>
+                  <button class="text-red-400 hover:text-red-300 text-xs"
+                    @click="appsStore.uninstallApp(app)">Uninstall</button>
                 </template>
                 <button v-else class="text-green-400 hover:text-green-300 text-xs"
                   @click="installApp(app)">Install</button>
-              </div>
+              </ActionButtonGroup>
             </td>
           </tr>
         </tbody>
@@ -157,7 +158,7 @@
     <!-- Install Modal -->
     <div v-if="showInstallModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
       @click.self="closeInstallModal">
-      <div class="bg-[#2d2d2d] rounded-lg shadow-xl w-[500px] max-w-[90vw]">
+      <div class="bg-background-secondary rounded-lg shadow-xl w-[500px] max-w-[90vw]">
         <!-- Header -->
         <div class="flex items-center justify-between p-4 border-b border-gray-700">
           <div class="flex items-center space-x-3">
@@ -180,7 +181,7 @@
             <label class="text-gray-300 text-sm">Select Version:</label>
             <div class="space-y-2 max-h-48 overflow-y-auto">
               <label v-for="ver in installingApp?.versions" :key="ver.version"
-                class="flex items-center space-x-3 p-3 bg-[#1e1e1e] rounded cursor-pointer hover:bg-[#333] border border-transparent"
+                class="flex items-center space-x-3 p-3 bg-background rounded cursor-pointer hover:bg-[#333] border border-transparent"
                 :class="{ 'border-blue-500 bg-[#333]': selectedVersion?.version === ver.version }">
                 <input type="radio" :value="ver" v-model="selectedVersion" class="text-blue-500">
                 <div class="flex-1">
@@ -239,12 +240,18 @@ import {
   Folder, Play, Settings, Terminal, HardDrive, Cpu, FileCode,
   ChevronLeft, ChevronRight, RefreshCw, Square, RotateCw
 } from 'lucide-vue-next';
+import { useToast } from 'vue-toastification';
+import { useAppsStore } from '../stores/apps';
 import AppSettingsModal from '../components/AppSettingsModal.vue';
 import BaseButton from '../components/BaseButton.vue';
+import StatusBadge from '../components/StatusBadge.vue';
+import ActionButtonGroup from '../components/ActionButtonGroup.vue';
+import { useServiceControl } from '../composables/useServiceControl';
 
-import { useToast } from 'vue-toastification';
+
 
 const toast = useToast();
+const appsStore = useAppsStore();
 
 // Categories
 const categories = [
@@ -256,7 +263,6 @@ const categories = [
   { id: 'professional', name: 'Professional' }
 ];
 
-const activeCategory = ref('all');
 const searchQuery = ref('');
 
 // Recently Used (from localStorage)
@@ -278,13 +284,14 @@ onMounted(async () => {
   }
 
   // Load apps from JSON file
-  await loadApps();
-});
+  await appsStore.loadApps();
 
-// Apps Data (loaded from JSON)
-const apps = ref([]);
-const isUpdating = ref(false);
-const appListVersion = ref('');
+  // Initial service status check
+  await checkServiceStatuses();
+
+  // Check service status every 5 seconds
+  statusCheckInterval = setInterval(checkServiceStatuses, 5000);
+});
 
 // Install Modal State
 const showInstallModal = ref(false);
@@ -302,124 +309,17 @@ const logsContainer = ref(null); // Reference for auto-scrolling
 const showSettingsModal = ref(false);
 const settingsApp = ref(null);
 
-// Load apps from local JSON file
-const loadApps = async () => {
-  try {
-    const result = await window.sysapi.apps.getList();
-    if (result.error) {
-      console.error('Failed to load apps:', result.error);
-      return;
-    }
-    apps.value = result.apps || [];
-    appListVersion.value = result.version || '';
-
-    // Check PATH status for installed apps
-    for (const app of apps.value) {
-      if (app.status === 'installed' && app.installPath) {
-        // Use cliPath from database (exact path found during installation)
-        // Fallback to calculating from cli_file or execPath if cliPath not available
-        let cliDir;
-        if (app.cliPath) {
-          // cliPath is the full path to CLI file, get its directory
-          cliDir = app.cliPath.substring(0, app.cliPath.lastIndexOf('\\'));
-        } else if (app.cli_file) {
-          const cliPath = app.installPath + '\\' + app.cli_file.replace(/\//g, '\\');
-          cliDir = cliPath.substring(0, cliPath.lastIndexOf('\\'));
-        } else if (app.execPath) {
-          cliDir = app.execPath.substring(0, app.execPath.lastIndexOf('\\'));
-        }
-
-        if (cliDir) {
-          try {
-            const pathResult = await window.sysapi.files.checkPath(cliDir);
-            app.inPath = pathResult.inPath || false;
-            app.cliDir = cliDir; // Store for later use
-          } catch (e) {
-            app.inPath = false;
-          }
-        } else {
-          app.inPath = false;
-        }
-      } else {
-        app.inPath = false;
-      }
-
-      // Load icon if available
-      if (app.icon_file) {
-        window.sysapi.apps.readIcon(app.icon_file).then(iconResult => {
-          if (iconResult && !iconResult.error && iconResult.data) {
-            app.iconContent = `data:${iconResult.mime};base64,${iconResult.data}`;
-
-            // Update recently used if match
-            const recent = recentlyUsed.value.find(r => r.id === app.id);
-            if (recent) {
-              recent.iconContent = app.iconContent;
-            }
-          }
-        }).catch(err => console.error('Icon load error:', err));
-      }
-    }
-  } catch (error) {
-    console.error('Error loading apps:', error);
-  }
-};
-
-
-// Update apps list from remote XML
-const updateAppList = async () => {
-  if (isUpdating.value) return;
-
-  isUpdating.value = true;
-  try {
-    const result = await window.sysapi.apps.updateList();
-    if (result.error) {
-      alert(`Failed to update app list: ${result.error}`);
-      return;
-    }
-    if (result.success) {
-      // Reload apps to ensure installed status is merged from DB
-      await loadApps();
-      alert(`App list updated successfully! (${result.updatedCount || 0} apps updated)`);
-    }
-  } catch (error) {
-    console.error('Error updating apps:', error);
-    alert(`Error: ${error.message}`);
-  } finally {
-    isUpdating.value = false;
-  }
-};
-
 // Pagination
 const currentPage = ref(1);
 const itemsPerPage = ref(10);
 
 // Reset page when filter changes
-watch([activeCategory, searchQuery], () => {
+watch([() => appsStore.activeCategory, searchQuery], () => {
   currentPage.value = 1;
 });
 
 // Filtered Apps (before pagination)
-const allFilteredApps = computed(() => {
-  let result = apps.value;
-
-  // Filter by category
-  if (activeCategory.value === 'installed') {
-    result = result.filter(app => app.status === 'installed');
-  } else if (activeCategory.value !== 'all') {
-    result = result.filter(app => app.category === activeCategory.value);
-  }
-
-  // Filter by search
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase();
-    result = result.filter(app =>
-      app.name.toLowerCase().includes(query) ||
-      app.description.toLowerCase().includes(query)
-    );
-  }
-
-  return result;
-});
+const allFilteredApps = computed(() => appsStore.allFilteredApps(searchQuery.value));
 
 // Paginated Apps
 const filteredApps = computed(() => {
@@ -429,7 +329,7 @@ const filteredApps = computed(() => {
 });
 
 const totalPages = computed(() => Math.max(1, Math.ceil(allFilteredApps.value.length / itemsPerPage.value)));
-const installedCount = computed(() => apps.value.filter(a => a.status === 'installed').length);
+const installedCount = computed(() => appsStore.apps.filter(a => a.status === 'installed').length);
 
 const prevPage = () => {
   if (currentPage.value > 1) currentPage.value--;
@@ -454,8 +354,8 @@ const installApp = (app) => {
 const openInstallModal = (app) => {
   // Check dependencies for phpMyAdmin
   if (app.id === 'phpmyadmin') {
-    const phpInstalled = apps.value.some(a => a.id.startsWith('php') && a.status === 'installed');
-    const webServerInstalled = apps.value.some(a => (a.id === 'apache' || a.id === 'nginx') && a.status === 'installed');
+    const phpInstalled = appsStore.apps.some(a => a.id.startsWith('php') && a.status === 'installed');
+    const webServerInstalled = appsStore.apps.some(a => (a.id === 'apache' || a.id === 'nginx') && a.status === 'installed');
 
     if (!phpInstalled || !webServerInstalled) {
       const missing = [];
@@ -691,65 +591,9 @@ const formatSize = (bytes) => {
   return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + sizes[i];
 };
 
-const uninstallApp = async (app) => {
-  if (!confirm(`Uninstall ${app.name}?`)) return;
 
-  try {
-    const result = await window.sysapi.apps.uninstall(app.id);
-    if (result.error) {
-      alert(`Failed to uninstall ${app.name}: ${result.error}`);
-      return;
-    }
 
-    app.status = 'not_installed';
-    app.showOnDashboard = false;
-  } catch (error) {
-    console.error('Uninstall error:', error);
-    alert(`Error: ${error.message}`);
-  }
-};
 
-const togglePath = async (app) => {
-  // Get CLI directory - prioritize cliPath from database, then cliDir, then calculate
-  let cliDir = app.cliDir;
-  if (!cliDir) {
-    if (app.cliPath) {
-      cliDir = app.cliPath.substring(0, app.cliPath.lastIndexOf('\\'));
-    } else if (app.cli_file && app.installPath) {
-      const cliPath = app.installPath + '\\' + app.cli_file.replace(/\//g, '\\');
-      cliDir = cliPath.substring(0, cliPath.lastIndexOf('\\'));
-    } else if (app.execPath) {
-      cliDir = app.execPath.substring(0, app.execPath.lastIndexOf('\\'));
-    }
-  }
-
-  if (!cliDir) return;
-
-  try {
-    const newValue = !app.inPath;
-
-    // Show info toast immediately
-    toast.info(newValue ? `Adding ${app.name} to PATH...` : `Removing ${app.name} from PATH...`);
-
-    let result;
-    if (newValue) {
-      result = await window.sysapi.files.addToPath(cliDir);
-    } else {
-      result = await window.sysapi.files.removeFromPath(cliDir);
-    }
-
-    if (result.error) {
-      toast.error(`Failed to update PATH: ${result.error}`);
-      return;
-    }
-
-    app.inPath = newValue;
-    toast.success(newValue ? `Added ${cliDir} to PATH` : `Removed from PATH`);
-  } catch (error) {
-    console.error('Toggle PATH error:', error);
-    toast.error(`Error: ${error.message}`);
-  }
-};
 
 const openLocation = async (app) => {
   if (!app.installPath || app.installPath === '--') return;
@@ -780,8 +624,6 @@ const addToRecentlyUsed = (app) => {
 };
 
 // ========== Service Controls ==========
-import { useServiceControl } from '../composables/useServiceControl';
-
 const {
   startService: startServiceApi,
   stopService: stopServiceApi,
@@ -792,8 +634,9 @@ const {
 let statusCheckInterval = null;
 
 // Check service status for all installed apps
+// Check service statuses
 const checkServiceStatuses = async () => {
-  for (const app of apps.value) {
+  for (const app of appsStore.apps) {
     if (app.status === 'installed' && app.execPath) {
       if (['nvm'].includes(app.id)) continue;
       app.serviceRunning = await checkServiceStatus(app);
@@ -844,25 +687,7 @@ const restartService = async (app) => {
   app.serviceLoading = false;
 };
 
-// Start periodic status check
-onMounted(async () => {
-  const saved = localStorage.getItem('recentlyUsedApps');
-  if (saved) {
-    recentlyUsed.value = JSON.parse(saved);
-  } else {
-    // Demo data
-    recentlyUsed.value = [];
-  }
 
-  // Load apps from JSON file
-  await loadApps();
-
-  // Initial service status check
-  await checkServiceStatuses();
-
-  // Check service status every 5 seconds
-  statusCheckInterval = setInterval(checkServiceStatuses, 5000);
-});
 
 // Cleanup interval on unmount
 onUnmounted(() => {

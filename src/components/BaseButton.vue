@@ -23,7 +23,7 @@ const props = defineProps({
     },
     size: {
         type: String,
-        default: 'md',
+        default: 'sm',
         validator: (value) => ['sm', 'md', 'lg'].includes(value)
     },
     disabled: {

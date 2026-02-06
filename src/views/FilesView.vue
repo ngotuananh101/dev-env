@@ -1,5 +1,5 @@
 <template>
-    <div class="flex flex-col h-full bg-[#1e1e1e] text-gray-300 font-sans text-sm">
+    <div class="flex flex-col h-full bg-background text-gray-300 font-sans text-sm">
         <!-- 1. Breadcrumb Bar -->
         <div class="flex items-center space-x-2 p-2 border-b border-gray-700 bg-[#252526]">
             <BaseButton variant="ghost" size="sm" @click="goHome" title="Go Home" class="p-1">
@@ -37,7 +37,7 @@
             </BaseButton>
             <div class="h-6 w-px bg-gray-600 mx-2"></div>
             <BaseButton variant="secondary" size="sm" @click="openNewFolderModal"
-                class="!bg-[#eab308]/10 !text-[#eab308] !border-[#eab308]/30 hover:!bg-[#eab308]/20">
+                class="bg-[#eab308]/10! text-[#eab308]! border-[#eab308]/30! hover:bg-[#eab308]/20!">
                 <template #icon>
                     <FolderPlus class="w-3 h-3" />
                 </template>
@@ -51,7 +51,7 @@
             </BaseButton>
             <!-- Delete Selected Button -->
             <BaseButton v-if="selectedFiles.length > 0" variant="danger" size="sm" @click="deleteSelected"
-                class="!bg-red-600/20 !text-red-400 !border-red-600/30 hover:!bg-red-600/30">
+                class="bg-red-600/20! text-red-400! border-red-600/30! hover:bg-red-600/30!">
                 <template #icon>
                     <Trash2 class="w-3 h-3" />
                 </template>
@@ -59,53 +59,70 @@
             </BaseButton>
         </div>
 
-        <!-- 3. File Table -->
-        <div class="flex-1 overflow-auto">
-            <table class="w-full text-left border-collapse">
-                <thead class="sticky top-0 bg-[#2d2d2d] z-10 text-xs text-gray-400 font-normal">
-                    <tr>
-                        <th class="p-2 border-b border-gray-700 w-8">
-                            <input type="checkbox" class="rounded bg-gray-700 border-gray-600 cursor-pointer"
-                                :checked="isAllSelected" @change="toggleSelectAll">
-                        </th>
-                        <th class="p-2 border-b border-gray-700">File Name</th>
-                        <th class="p-2 border-b border-gray-700 w-32">Protected</th>
-                        <th class="p-2 border-b border-gray-700 w-32">Permission</th>
-                        <th class="p-2 border-b border-gray-700 w-24 text-right">Size</th>
-                        <th class="p-2 border-b border-gray-700 w-40">Modified Time</th>
-                        <th class="p-2 border-b border-gray-700 w-24 text-center">Operation</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-800">
-                    <tr v-if="filesStore.loading">
-                        <td colspan="7" class="p-8 text-center text-gray-500">Loading...</td>
-                    </tr>
-                    <tr v-else v-for="file in filesStore.files" :key="file.name"
-                        class="hover:bg-[#2a2d3e] group cursor-pointer transition-colors min-h-[50px] h-[50px]"
-                        @dblclick="openItem(file)">
+        <!-- 3. File Table (Virtual Scroller) -->
+        <div class="flex-1 overflow-hidden flex flex-col">
+            <!-- Header -->
+            <div
+                class="flex items-center bg-background-secondary text-xs text-gray-400 font-normal border-b border-gray-700 h-[37px] shrink-0 pr-4">
+                <div class="w-8 flex justify-center shrink-0">
+                    <input type="checkbox" class="rounded bg-gray-700 border-gray-600 cursor-pointer"
+                        :checked="isAllSelected" @change="toggleSelectAll">
+                </div>
+                <div class="flex-1 px-2 shrink-0">File Name</div>
+                <div class="w-32 px-2 shrink-0">Protected</div>
+                <div class="w-24 px-2 shrink-0">Permission</div>
+                <div class="w-24 px-2 text-right shrink-0">Size</div>
+                <div class="w-40 px-2 shrink-0">Modified Time</div>
+                <div class="w-24 px-2 text-center shrink-0">Operation</div>
+            </div>
 
-                        <td class="px-2 py-1.5 text-center align-middle">
+            <!-- List -->
+            <div class="flex-1 overflow-hidden relative">
+                <div v-if="filesStore.loading" class="absolute inset-0 flex items-center justify-center text-gray-500">
+                    Loading...
+                </div>
+                <RecycleScroller v-else class="h-full" :items="filesStore.files" :item-size="50" key-field="name"
+                    v-slot="{ item: file }">
+                    <div class="flex items-center hover:bg-[#2a2d3e] group cursor-pointer transition-colors h-[50px] border-b border-gray-800/50"
+                        @dblclick="openItem(file)" :class="{ 'bg-[#2a2d3e]': isSelected(file) }">
+                        <!-- Checkbox -->
+                        <div class="w-8 flex justify-center shrink-0">
                             <input type="checkbox" class="rounded bg-gray-700 border-gray-600 cursor-pointer"
                                 :checked="isSelected(file)" @change="toggleSelect(file)">
-                        </td>
-                        <td class="px-2 py-1.5 align-middle">
-                            <div class="flex items-center space-x-2">
-                                <component :is="getIconComponent(file)" :class="getColor(file)" class="w-4 h-4" />
-                                <span :class="file.isDir ? 'text-white font-medium' : 'text-gray-300'">{{ file.name
-                                }}</span>
-                            </div>
-                        </td>
-                        <td class="px-2 py-1.5 text-gray-500 align-middle">
-                            <div class="flex items-center space-x-1">
-                                <span>Unprotected</span>
-                                <Unlock class="w-3 h-3 opacity-50" />
-                            </div>
-                        </td>
-                        <td class="px-2 py-1.5 text-gray-400 font-mono text-xs align-middle">{{ file.perms }}</td>
-                        <td class="px-2 py-1.5 text-right text-gray-400 font-mono text-xs align-middle">{{
-                            formatSize(file.size) }}</td>
-                        <td class="px-2 py-1.5 text-gray-400 text-xs align-middle">{{ formatDate(file.mtime) }}</td>
-                        <td class="px-2 py-1.5 text-center align-middle">
+                        </div>
+
+                        <!-- File Name -->
+                        <div class="flex-1 px-2 flex items-center space-x-2 overflow-hidden shrink-0">
+                            <component :is="getIconComponent(file)" :class="getColor(file)" class="w-4 h-4 shrink-0" />
+                            <span :class="['truncate', file.isDir ? 'text-white font-medium' : 'text-gray-300']"
+                                :title="file.name">
+                                {{ file.name }}
+                            </span>
+                        </div>
+
+                        <!-- Protected -->
+                        <div class="w-32 px-2 text-gray-500 flex items-center space-x-1 shrink-0">
+                            <span>Unprotected</span>
+                            <Unlock class="w-3 h-3 opacity-50" />
+                        </div>
+
+                        <!-- Permission -->
+                        <div class="w-24 px-2 text-gray-400 font-mono text-xs shrink-0 truncate">
+                            {{ file.perms }}
+                        </div>
+
+                        <!-- Size -->
+                        <div class="w-24 px-2 text-right text-gray-400 font-mono text-xs shrink-0 truncate">
+                            {{ formatSize(file.size) }}
+                        </div>
+
+                        <!-- Modified Time -->
+                        <div class="w-40 px-2 text-gray-400 text-xs shrink-0 truncate">
+                            {{ formatDate(file.mtime) }}
+                        </div>
+
+                        <!-- Operation -->
+                        <div class="w-24 px-2 flex justify-center shrink-0">
                             <div class="flex items-center justify-center">
                                 <button class="text-blue-400 hover:text-blue-300 mx-1" title="Edit"
                                     @click.stop="openRenameModal(file)">
@@ -116,10 +133,10 @@
                                     <Trash2 class="w-3 h-3" />
                                 </button>
                             </div>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+                        </div>
+                    </div>
+                </RecycleScroller>
+            </div>
         </div>
 
         <!-- 4. Footer -->
@@ -144,22 +161,12 @@
             :close-on-overlay="!downloading">
             <template #title>Download File</template>
 
-            <div class="space-y-4">
-                <div class="flex items-center space-x-4">
-                    <label class="w-24 text-right text-gray-400">URL Address</label>
-                    <input v-model="downloadUrl" type="text" placeholder="http://"
-                        class="flex-1 bg-[#1e1e1e] border border-gray-600 rounded px-3 py-2 focus:border-blue-500 focus:outline-none text-gray-200">
-                </div>
-                <div class="flex items-center space-x-4">
-                    <label class="w-24 text-right text-gray-400">Download To</label>
-                    <input :value="filesStore.currentPath" type="text" disabled
-                        class="flex-1 bg-[#1e1e1e] border border-gray-600 rounded px-3 py-2 text-gray-500 cursor-not-allowed">
-                </div>
-                <div class="flex items-center space-x-4">
-                    <label class="w-24 text-right text-gray-400">File Name</label>
-                    <input v-model="downloadFileName" type="text" placeholder="Please Input"
-                        class="flex-1 bg-[#1e1e1e] border border-gray-600 rounded px-3 py-2 focus:border-blue-500 focus:outline-none text-gray-200">
-                </div>
+            <div class="space-y-4 p-6">
+                <BaseInput v-model="downloadUrl" label="URL Address" placeholder="http://" />
+
+                <BaseInput :modelValue="filesStore.currentPath" label="Download To" disabled />
+
+                <BaseInput v-model="downloadFileName" label="File Name" placeholder="Please Input" />
             </div>
 
             <template #footer>
@@ -188,11 +195,9 @@
         <BaseModal :show="showNewFolderModal" @close="showNewFolderModal = false">
             <template #title>New Folder</template>
 
-            <div class="space-y-2">
-                <label class="block text-gray-400 text-xs">Folder Name</label>
-                <input v-model="newFolderName" @keyup.enter="createFolder" type="text" placeholder="Enter folder name"
-                    class="w-full bg-[#1e1e1e] border border-gray-600 rounded px-3 py-2 focus:border-blue-500 focus:outline-none text-gray-200"
-                    autofocus>
+            <div class="space-y-2 p-4">
+                <BaseInput v-model="newFolderName" label="Folder Name" placeholder="Enter folder name"
+                    @keyup.enter="createFolder" autofocus />
             </div>
 
             <template #footer>
@@ -208,12 +213,7 @@
             <template #title>Rename Item</template>
 
             <div class="p-4 w-full">
-                <div class="mb-2">
-                    <label class="block text-gray-400 text-xs mb-1">New Name</label>
-                    <input v-model="renameNewName" @keyup.enter="performRename" type="text"
-                        class="w-full bg-[#1e1e1e] border border-gray-600 rounded px-3 py-2 text-sm text-gray-200 focus:border-blue-500 focus:outline-none"
-                        autofocus>
-                </div>
+                <BaseInput v-model="renameNewName" label="New Name" @keyup.enter="performRename" autofocus />
             </div>
 
             <template #footer>
@@ -241,8 +241,11 @@ import {
     ChevronLeft, ChevronRight, Folder, FileCode, FileJson,
     FileText, Image as ImageIcon, File, Unlock, Edit2, Trash2, X
 } from 'lucide-vue-next';
+import { RecycleScroller } from 'vue3-virtual-scroller';
+import 'vue3-virtual-scroller/dist/vue3-virtual-scroller.css';
 import BaseModal from '../components/BaseModal.vue';
 import BaseButton from '../components/BaseButton.vue';
+import BaseInput from '../components/BaseInput.vue';
 
 const filesStore = useFilesStore();
 
