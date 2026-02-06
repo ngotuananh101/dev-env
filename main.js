@@ -4,10 +4,15 @@
  * All IPC handlers are organized in separate modules under ./src/backend/handlers/
  */
 
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Tray, Menu } = require('electron');
 const path = require('path');
 const { execSync } = require('child_process');
 const DatabaseManager = require('./src/backend/database');
+
+// Global variables for tray
+let tray = null;
+let mainWindow = null;
+let isQuitting = false;
 
 // Import handlers
 const systemHandler = require('./src/backend/handlers/systemHandler');
@@ -47,6 +52,27 @@ function createWindow() {
     event.preventDefault();
   });
 
+  // Handle minimize button - minimize to tray by default
+  win.on('minimize', (event) => {
+    event.preventDefault();
+    win.hide();
+  });
+
+  // Handle close button based on user setting
+  win.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      // Check user setting for close behavior
+      const closeToTray = getCloseToTraySetting();
+      if (closeToTray) {
+        win.hide();
+      } else {
+        isQuitting = true;
+        app.quit();
+      }
+    }
+  });
+
   // Dev vs Prod Loading
   const isDev = !app.isPackaged;
   if (isDev) {
@@ -61,6 +87,62 @@ function createWindow() {
   serviceHandler.setMainWindow(win);
 
   return win;
+}
+
+/**
+ * Get close to tray setting from database
+ * @returns {boolean} Whether to close to tray (default: true)
+ */
+function getCloseToTraySetting() {
+  if (!dbManager) return true;
+  try {
+    const result = dbManager.queryOne('SELECT value FROM settings WHERE key = ?', ['close_to_tray']);
+    if (result && result.value !== undefined) {
+      return result.value === 'true' || result.value === true;
+    }
+  } catch (e) {
+    console.error('Error getting close_to_tray setting:', e);
+  }
+  return true; // Default to minimize to tray
+}
+
+/**
+ * Create system tray icon and menu
+ */
+function createTray() {
+  const iconPath = path.join(__dirname, 'build', 'icon.ico');
+  tray = new Tray(iconPath);
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Show App',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      }
+    }
+  ]);
+
+  tray.setToolTip(`${app.getName()} v${app.getVersion()}`);
+  tray.setContextMenu(contextMenu);
+
+  // Double-click to show window
+  tray.on('double-click', () => {
+    if (mainWindow) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
 }
 
 /**
@@ -129,7 +211,10 @@ app.whenReady().then(async () => {
   }
 
   // Create main window
-  const win = createWindow();
+  mainWindow = createWindow();
+
+  // Create system tray
+  createTray();
 
   // Auto-start apps that were running before
   if (dbManager) {
@@ -140,7 +225,7 @@ app.whenReady().then(async () => {
         // Use a small delay to ensure everything is initialized
         // Wait for window to be ready before starting services
         // Use a single-fire listener for when the page finishes loading
-        win.webContents.once('did-finish-load', async () => {
+        mainWindow.webContents.once('did-finish-load', async () => {
           console.log('[AUTO-START] Window loaded, starting apps...');
           for (const appInfo of autoStartApps) {
             if (appInfo.exec_path) {
@@ -168,6 +253,7 @@ app.whenReady().then(async () => {
 
 // Cleanup before quit
 app.on('before-quit', () => {
+  isQuitting = true;
   const runningProcesses = serviceHandler.runningProcesses;
 
   if (runningProcesses.size > 0) {

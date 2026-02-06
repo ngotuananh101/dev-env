@@ -49,6 +49,24 @@
                 </template>
             </BaseCard>
 
+            <!-- Application Behavior -->
+            <BaseCard title="Application Behavior">
+                <div class="space-y-4">
+                    <!-- Close to Tray -->
+                    <div
+                        class="flex items-center justify-between p-4 bg-gray-900/50 rounded-lg border border-gray-700/50 hover:border-gray-600 transition-colors">
+                        <div class="space-y-1">
+                            <span class="block text-sm font-medium text-white">Close to System Tray</span>
+                            <span class="block text-xs text-gray-500">When clicking the X button, minimize to system tray instead of quitting the app.</span>
+                        </div>
+                        <BaseSwitch v-model="settings.close_to_tray" @update:modelValue="saveCloseToTray" />
+                    </div>
+                    <p class="text-xs text-gray-500">
+                        Note: The minimize button (-) will always minimize to system tray. Use "Quit App" from sidebar or tray menu to fully exit.
+                    </p>
+                </div>
+            </BaseCard>
+
             <!-- System Information -->
             <BaseCard title="System Information">
                 <p class="text-sm text-gray-400 mb-4">View detailed information about your system and application.</p>
@@ -134,17 +152,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import { useDatabaseStore } from '../stores/database';
-import { Settings, Monitor, X, Copy, Save, ShieldCheck, RefreshCw } from 'lucide-vue-next';
-import { useToast } from 'vue-toastification';
+import {onMounted, ref} from 'vue';
+import {useDatabaseStore} from '../stores/database';
+import {Copy, Monitor, RefreshCw, Save, Settings, ShieldCheck} from 'lucide-vue-next';
+import {useToast} from 'vue-toastification';
 import BaseCard from '../components/BaseCard.vue';
 import BaseButton from '../components/BaseButton.vue';
 import BaseModal from '../components/BaseModal.vue';
 import BaseInput from '../components/BaseInput.vue';
 import BaseSelect from '../components/BaseSelect.vue';
 import BaseSwitch from '../components/BaseSwitch.vue';
-import { copyToClipboard } from '../utils/helpers';
+import {copyToClipboard} from '../utils/helpers';
 
 const dbStore = useDatabaseStore();
 const toast = useToast();
@@ -152,7 +170,8 @@ const toast = useToast();
 const settings = ref({
     site_template: '',
     site_auto_create: false,
-    default_php_version: ''
+    default_php_version: '',
+    close_to_tray: true
 });
 
 const phpVersions = ref([]);
@@ -177,8 +196,7 @@ const loadingSSL = ref(false);
 const refreshSSLStatus = async () => {
     loadingSSL.value = true;
     try {
-        const status = await window.sysapi.ssl.getStatus();
-        sslStatus.value = status;
+      sslStatus.value = await window.sysapi.ssl.getStatus();
     } catch (error) {
         console.error('Failed to get SSL status:', error);
     } finally {
@@ -230,12 +248,25 @@ const copySystemInfo = async () => {
     await copyToClipboard(systemInfoContent.value, 'Copied to clipboard', 'Failed to copy');
 };
 
+// Auto-save close_to_tray setting when toggled
+const saveCloseToTray = async (value) => {
+    try {
+        await dbStore.saveSetting('close_to_tray', value);
+        toast.success(value ? 'App will minimize to tray when closed' : 'App will quit when closed');
+    } catch (error) {
+        console.error('Failed to save close_to_tray setting:', error);
+        toast.error('Failed to save setting');
+    }
+};
+
 onMounted(async () => {
     await dbStore.loadSettings();
     settings.value.site_template = dbStore.settings.site_template || '[site].local';
     settings.value.default_php_version = dbStore.settings.default_php_version || '';
     // Convert string 'true'/'false' to boolean for checkbox
     settings.value.site_auto_create = dbStore.settings.site_auto_create === 'true' || dbStore.settings.site_auto_create === true;
+    // Close to tray setting (default: true)
+    settings.value.close_to_tray = dbStore.settings.close_to_tray !== 'false' && dbStore.settings.close_to_tray !== false;
 
     // Load installed PHP versions
     try {

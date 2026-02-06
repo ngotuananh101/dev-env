@@ -123,6 +123,17 @@ class DatabaseManager {
             return { error: err.message };
         }
     }
+
+    queryOne(sql, params = []) {
+        if (!this.db) return null;
+        try {
+            const stmt = this.db.prepare(sql);
+            return stmt.get(params);
+        } catch (err) {
+            console.error("DB QueryOne Error:", err);
+            return null;
+        }
+    }
 }
 
 module.exports = DatabaseManager;
