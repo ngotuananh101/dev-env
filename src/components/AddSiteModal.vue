@@ -1,8 +1,8 @@
 <template>
-  <BaseModal :show="true" @close="$emit('close')" max-width="500px">
+  <BaseModal :show="true" @close="$emit('close')" max-width="500px" body-class="p-6">
     <template #title>Add {{ typeName }} Site</template>
 
-    <div class="space-y-4 p-6">
+    <div class="space-y-4">
       <!-- Site Name -->
       <BaseInput v-model="form.name" label="Site Name" placeholder="My Website" />
 
@@ -37,7 +37,7 @@
           <label class="block text-gray-400 text-sm mb-1">Project Directory</label>
           <div class="flex space-x-2">
             <BaseInput v-model="form.root_path" placeholder="D:\projects\myapp" class="flex-1" />
-            <BaseButton @click="selectFolder" variant="secondary" size="md">Browse</BaseButton>
+            <BaseButton @click="selectFolder" variant="secondary">Browse</BaseButton>
           </div>
         </div>
 

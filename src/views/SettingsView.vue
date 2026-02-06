@@ -115,7 +115,7 @@
 
             <div class="h-[60vh] flex flex-col">
                 <textarea v-model="systemInfoContent" readonly
-                    class="w-full h-full bg-gray-900 border border-gray-700 rounded-lg p-4 text-gray-300 font-mono text-sm resize-none focus:outline-none custom-scrollbar"></textarea>
+                    class="w-full h-full bg-gray-900 p-4 text-gray-300 font-mono text-sm resize-none focus:outline-none custom-scrollbar"></textarea>
             </div>
 
             <template #footer>

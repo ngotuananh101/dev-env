@@ -68,10 +68,16 @@ function createWindow() {
  * @returns {Object} Context object with shared dependencies
  */
 function createHandlerContext() {
+  const isDev = !app.isPackaged;
+
+  // In production, resources are in extraResources (outside asar)
+  // In dev mode, resources are in the project directory
+  const resourcePath = isDev ? __dirname : process.resourcesPath;
+
   return {
     app,
     shell,
-    appDir: __dirname,
+    appDir: resourcePath,
     userDataPath: app.getPath('userData'),
     getDbManager: () => dbManager,
     logApp: appsHandler.logApp

@@ -157,11 +157,11 @@
         </div>
 
         <!-- 5. Download Modal -->
-        <BaseModal :show="showDownloadModal" @close="closeDownloadModal" max-width="500px"
+        <BaseModal :show="showDownloadModal" @close="closeDownloadModal" max-width="500px" body-class="p-6"
             :close-on-overlay="!downloading">
             <template #title>Download File</template>
 
-            <div class="space-y-4 p-6">
+            <div class="space-y-4">
                 <BaseInput v-model="downloadUrl" label="URL Address" placeholder="http://" />
 
                 <BaseInput :modelValue="filesStore.currentPath" label="Download To" disabled />
@@ -192,10 +192,10 @@
         </BaseModal>
 
         <!-- 6. New Folder Modal -->
-        <BaseModal :show="showNewFolderModal" @close="showNewFolderModal = false">
+        <BaseModal :show="showNewFolderModal" @close="showNewFolderModal = false" body-class="p-6">
             <template #title>New Folder</template>
 
-            <div class="space-y-2 p-4">
+            <div class="space-y-2">
                 <BaseInput v-model="newFolderName" label="Folder Name" placeholder="Enter folder name"
                     @keyup.enter="createFolder" autofocus />
             </div>
@@ -209,10 +209,10 @@
         </BaseModal>
 
         <!-- 7. Rename Modal -->
-        <BaseModal :show="showRenameModal" @close="showRenameModal = false" max-width="450px">
+        <BaseModal :show="showRenameModal" @close="showRenameModal = false" max-width="450px" body-class="p-6">
             <template #title>Rename Item</template>
 
-            <div class="p-4 w-full">
+            <div class="w-full">
                 <BaseInput v-model="renameNewName" label="New Name" @keyup.enter="performRename" autofocus />
             </div>
 

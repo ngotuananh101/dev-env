@@ -213,7 +213,7 @@ function generateApacheConfig(site, fastcgiAddress = '127.0.0.1:9000', sslPaths 
  * Register sites-related IPC handlers
  */
 function register(ipcMain, context) {
-    const { getDbManager, appDir } = context;
+    const { getDbManager, appDir, userDataPath } = context;
 
     // Context not currently used (beyond logApp) but kept for consistency
     // Use shared logApp if provided
@@ -447,7 +447,7 @@ function register(ipcMain, context) {
             }
             const site = sites[0];
 
-            const configPath = getConfigPath(site, appDir);
+            const configPath = getConfigPath(site, userDataPath);
             if (!fs.existsSync(configPath)) {
                 return { error: 'Config file not found' };
             }
@@ -472,7 +472,7 @@ function register(ipcMain, context) {
             }
             const site = sites[0];
 
-            const configPath = getConfigPath(site, appDir);
+            const configPath = getConfigPath(site, userDataPath);
             await fsPromises.writeFile(configPath, content, 'utf-8');
 
             return { success: true };
@@ -549,8 +549,8 @@ function register(ipcMain, context) {
             // Update site object
             site.php_version = phpVersion;
 
-            // Regenerate config
-            await saveSiteConfig(site, appDir, dbManager);
+            // Regenerate config (userDataPath for writable, appDir for templates)
+            await saveSiteConfig(site, userDataPath, dbManager, appDir);
 
             return { success: true };
         } catch (error) {
@@ -607,9 +607,9 @@ function register(ipcMain, context) {
             // Update site object
             site.rewrite_template = templateName;
 
-            // Regenerate config
+            // Regenerate config (userDataPath for writable, appDir for templates)
             if (!onlyDb) {
-                await saveSiteConfig(site, appDir, dbManager);
+                await saveSiteConfig(site, userDataPath, dbManager, appDir);
             }
 
             return { success: true };
@@ -670,15 +670,15 @@ function register(ipcMain, context) {
             const htdocsPathSlash = newPath.replace(/\\/g, '/');
             const cgiBinPathSlash = path.join(appPath, 'cgi-bin').replace(/\\/g, '/');
 
-            // Sites include path
-            const sitesDir = path.join(context.appDir, 'sites');
+            // Sites include path (use userDataPath for writable directories)
+            const sitesDir = path.join(context.userDataPath, 'sites');
             if (!fs.existsSync(sitesDir)) {
                 await fsPromises.mkdir(sitesDir, { recursive: true });
             }
             const sitesPathSlash = path.join(sitesDir, '*.conf').replace(/\\/g, '/');
 
-            // static app path
-            const staticAppPath = path.join(context.appDir, 'static', 'apache');
+            // static app path (use userDataPath for writable directories)
+            const staticAppPath = path.join(context.userDataPath, 'static', 'apache');
             if (!fs.existsSync(staticAppPath)) {
                 await fsPromises.mkdir(staticAppPath, { recursive: true });
             }
@@ -701,9 +701,9 @@ function register(ipcMain, context) {
                 const template = dbManager.query('SELECT * FROM settings WHERE key = ?', ['site_template']);
 
                 // Cleanup old auto sites
-                await cleanupAutoSites(dbManager, context.appDir);
+                await cleanupAutoSites(dbManager, context.userDataPath);
 
-                await scanDirAndAutoCreateConfig(dbManager, htdocsPathSlash, 'apache', template[0].value, context.appDir);
+                await scanDirAndAutoCreateConfig(dbManager, htdocsPathSlash, 'apache', template[0].value, context.userDataPath, context.appDir);
             }
 
             return { success: true };
@@ -737,16 +737,16 @@ function register(ipcMain, context) {
             // Prepare paths
             const htdocsPathSlash = newPath.replace(/\\/g, '/');
 
-            // Sites include path
-            const sitesDir = path.join(context.appDir, 'sites');
+            // Sites include path (use userDataPath for writable directories)
+            const sitesDir = path.join(context.userDataPath, 'sites');
             if (!fs.existsSync(sitesDir)) {
                 await fsPromises.mkdir(sitesDir, { recursive: true });
             }
             const sitesPathSlash = path.join(sitesDir, '*.conf').replace(/\\/g, '/');
             configContent = configContent.replace(/\[siteEnablePath\]/g, `include "${sitesPathSlash}";`);
 
-            // static app path
-            const staticAppPath = path.join(context.appDir, 'static', 'nginx');
+            // static app path (use userDataPath for writable directories)
+            const staticAppPath = path.join(context.userDataPath, 'static', 'nginx');
             if (!fs.existsSync(staticAppPath)) {
                 await fsPromises.mkdir(staticAppPath, { recursive: true });
             }
@@ -767,9 +767,9 @@ function register(ipcMain, context) {
                 const template = dbManager.query('SELECT * FROM settings WHERE key = ?', ['site_template']);
 
                 // Cleanup old auto sites
-                await cleanupAutoSites(dbManager, context.appDir);
+                await cleanupAutoSites(dbManager, context.userDataPath);
 
-                await scanDirAndAutoCreateConfig(dbManager, htdocsPathSlash, 'nginx', template[0].value, context.appDir);
+                await scanDirAndAutoCreateConfig(dbManager, htdocsPathSlash, 'nginx', template[0].value, context.userDataPath, context.appDir);
             }
 
             return { success: true };
@@ -818,8 +818,8 @@ function register(ipcMain, context) {
                         continue;
                     }
 
-                    // Get old config path
-                    const sitesConfigDir = path.join(appDir, 'sites');
+                    // Get old config path (use userDataPath for writable directory)
+                    const sitesConfigDir = path.join(userDataPath, 'sites');
                     const oldConfigPath = path.join(sitesConfigDir, `${oldDomain}.conf`);
                     const newConfigPath = path.join(sitesConfigDir, `${newDomain}.conf`);
 

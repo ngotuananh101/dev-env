@@ -203,7 +203,8 @@
     </div>
 
     <!-- Footer (not for Redis - it has its own) -->
-    <div v-if="!isRedisTab && availableTabs.length > 0" class="p-2 border-t border-gray-700 bg-[#252526] flex items-center justify-between text-xs text-gray-400">
+    <div v-if="!isRedisTab && availableTabs.length > 0"
+      class="p-2 border-t border-gray-700 bg-[#252526] flex items-center justify-between text-xs text-gray-400">
       <div>
         Total {{ subTab === 'databases' ? databases.length + ' databases' : users.length + ' users' }}
       </div>
@@ -213,10 +214,10 @@
     </div>
 
     <!-- Create Database Modal -->
-    <BaseModal :show="showCreateModal" @close="showCreateModal = false" max-width="450px">
+    <BaseModal :show="showCreateModal" @close="showCreateModal = false" max-width="450px" body-class="p-6">
       <template #title>Add Database</template>
 
-      <div class="space-y-4 p-6">
+      <div class="space-y-4">
         <div class="grid grid-cols-[100px_1fr] gap-4 items-center">
           <label class="text-gray-400 text-right text-xs">Database name</label>
           <BaseInput v-model="newDbName" placeholder="New database name" />

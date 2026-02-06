@@ -848,8 +848,8 @@ function register(ipcMain, context) {
 
                                     // Prepare paths (convert to forward slashes for Apache config)
                                     const serverRootSlash = serverRoot.replace(/\\/g, '/');
-                                    // Make sure htdocs exists
-                                    const htdocsPath = path.join(context.appDir, 'htdocs');
+                                    // Make sure htdocs exists (use userDataPath for writable directories)
+                                    const htdocsPath = path.join(context.userDataPath, 'htdocs');
                                     if (!fs.existsSync(htdocsPath)) {
                                         await fsPromises.mkdir(htdocsPath, { recursive: true });
                                     }
@@ -866,15 +866,15 @@ function register(ipcMain, context) {
                                         await fsPromises.mkdir(logsPath, { recursive: true });
                                     }
 
-                                    // Ensure sites directory exists
-                                    const sitesDir = path.join(context.appDir, 'sites');
+                                    // Ensure sites directory exists (use userDataPath for writable directories)
+                                    const sitesDir = path.join(context.userDataPath, 'sites');
                                     if (!fs.existsSync(sitesDir)) {
                                         await fsPromises.mkdir(sitesDir, { recursive: true });
                                     }
                                     const sitesPathSlash = path.join(sitesDir, '*.conf').replace(/\\/g, '/');
 
-                                    // static app path
-                                    const staticAppPath = path.join(context.appDir, 'static', 'apache');
+                                    // static app path (use userDataPath for writable directories)
+                                    const staticAppPath = path.join(context.userDataPath, 'static', 'apache');
                                     if (!fs.existsSync(staticAppPath)) {
                                         await fsPromises.mkdir(staticAppPath, { recursive: true });
                                     }
@@ -906,16 +906,21 @@ function register(ipcMain, context) {
 
                                 if (fs.existsSync(templatePath)) {
                                     let configContent = await fsPromises.readFile(templatePath, 'utf-8');
-                                    const htdocsPathSlash = path.join(context.appDir, 'htdocs').replace(/\\/g, '/');
-                                    // Ensure sites directory exists
-                                    const sitesDir = path.join(context.appDir, 'sites');
+                                    // Use userDataPath for writable directories
+                                    const htdocsPathSlash = path.join(context.userDataPath, 'htdocs').replace(/\\/g, '/');
+                                    // Ensure htdocs directory exists
+                                    if (!fs.existsSync(path.join(context.userDataPath, 'htdocs'))) {
+                                        await fsPromises.mkdir(path.join(context.userDataPath, 'htdocs'), { recursive: true });
+                                    }
+                                    // Ensure sites directory exists (use userDataPath for writable directories)
+                                    const sitesDir = path.join(context.userDataPath, 'sites');
                                     if (!fs.existsSync(sitesDir)) {
                                         await fsPromises.mkdir(sitesDir, { recursive: true });
                                     }
                                     const sitesPathSlash = path.join(sitesDir, '*.conf').replace(/\\/g, '/');
 
-                                    // static app path
-                                    const staticAppPath = path.join(context.appDir, 'static', 'nginx');
+                                    // static app path (use userDataPath for writable directories)
+                                    const staticAppPath = path.join(context.userDataPath, 'static', 'nginx');
                                     if (!fs.existsSync(staticAppPath)) {
                                         await fsPromises.mkdir(staticAppPath, { recursive: true });
                                     }

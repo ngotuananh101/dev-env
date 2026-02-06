@@ -10,7 +10,7 @@
           :style="{ maxWidth: maxWidth }">
           <!-- Header -->
           <div class="flex items-center justify-between p-3 border-b border-gray-700">
-            <h3 class="font-medium text-gray-200">
+            <h3 class="font-medium text-gray-200 grow">
               <slot name="title">Modal Title</slot>
             </h3>
             <button @click="$emit('close')" class="text-gray-400 hover:text-white transition-colors">
@@ -19,7 +19,7 @@
           </div>
 
           <!-- Body -->
-          <div :class="bodyClass ?? 'p-6'">
+          <div :class="[bodyClass, 'max-h-[75vh] overflow-y-auto']">
             <slot></slot>
           </div>
 
