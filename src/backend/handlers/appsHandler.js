@@ -50,9 +50,59 @@ const { runningNodeProcesses } = require('./sitesHandler');
 // Constants
 const APP_FILES_XML_URL = 'https://archive.org/download/dev-env/dev-env_files.xml';
 const ARCHIVE_BASE_URL = 'https://archive.org/download/dev-env/';
+const { execSync } = require('child_process');
 
 // Shared state
 const activeInstalls = new Map();
+
+/**
+ * Wait for a process to completely stop
+ * @param {string} exeName - Name of the executable to wait for
+ * @param {number} maxWaitMs - Maximum time to wait in milliseconds
+ * @param {number} checkIntervalMs - Interval between checks
+ * @returns {Promise<boolean>} - True if process stopped, false if timeout
+ */
+async function waitForProcessToStop(exeName, maxWaitMs = 5000, checkIntervalMs = 200) {
+    const startTime = Date.now();
+    while (Date.now() - startTime < maxWaitMs) {
+        try {
+            const result = execSync(`tasklist /FI "IMAGENAME eq ${exeName}" /NH`, { encoding: 'utf-8' });
+            if (!result.toLowerCase().includes(exeName.toLowerCase())) {
+                return true; // Process has stopped
+            }
+        } catch (e) {
+            return true; // tasklist failed, assume process stopped
+        }
+        await new Promise(resolve => setTimeout(resolve, checkIntervalMs));
+    }
+    return false; // Timeout
+}
+
+/**
+ * Remove a directory with retry logic
+ * @param {string} dirPath - Path to the directory to remove
+ * @param {number} maxRetries - Maximum number of retries
+ * @param {number} delayMs - Delay between retries in milliseconds
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+async function removeDirectoryWithRetry(dirPath, maxRetries = 5, delayMs = 1000) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            await fsPromises.rm(dirPath, { recursive: true, force: true });
+            return { success: true };
+        } catch (err) {
+            if (err.code === 'EPERM' || err.code === 'EBUSY') {
+                if (attempt < maxRetries) {
+                    console.log(`Retry ${attempt}/${maxRetries}: Waiting ${delayMs}ms before retrying to remove ${dirPath}`);
+                    await new Promise(resolve => setTimeout(resolve, delayMs));
+                    continue;
+                }
+            }
+            return { success: false, error: err.message };
+        }
+    }
+    return { success: false, error: 'Max retries exceeded' };
+}
 let logsDir = null;
 let appsJsonPath = null;
 
@@ -1020,12 +1070,27 @@ function register(ipcMain, context) {
         logApp(`Uninstalling ${appId} from ${appPath}`, 'UNINSTALL');
 
         // Check if service is running and stop it if necessary
+        let exeName = null;
         if (app.exec_path) {
+            exeName = path.basename(app.exec_path);
             try {
                 const status = serviceHandler.getAppServiceStatus(appId, app.exec_path);
                 if (status.running) {
                     logApp(`Service ${appId} is running, stopping before uninstall...`, 'UNINSTALL');
                     await serviceHandler.stopAppService(appId, app.exec_path, null);
+
+                    // Wait for process to completely stop
+                    logApp(`Waiting for ${exeName} to stop...`, 'UNINSTALL');
+                    const stopped = await waitForProcessToStop(exeName, 10000, 500);
+                    if (!stopped) {
+                        logApp(`Process ${exeName} still running after timeout, attempting force kill...`, 'WARNING');
+                        try {
+                            execSync(`taskkill /IM ${exeName} /F`, { stdio: 'ignore' });
+                            await waitForProcessToStop(exeName, 3000, 300);
+                        } catch (e) {
+                            // Ignore errors from taskkill
+                        }
+                    }
                 }
             } catch (err) {
                 logApp(`Failed to stop service before uninstall: ${err.message}`, 'WARNING');
@@ -1040,10 +1105,13 @@ function register(ipcMain, context) {
 
         const appDir = path.join(context.userDataPath, 'apps', appId);
         if (fs.existsSync(appDir)) {
-            try {
-                await fsPromises.rm(appDir, { recursive: true, force: true });
-            } catch (err) {
-                console.error(`Failed to remove app dir for ${appId}:`, err);
+            logApp(`Removing app directory: ${appDir}`, 'UNINSTALL');
+            const removeResult = await removeDirectoryWithRetry(appDir, 5, 1000);
+            if (!removeResult.success) {
+                console.error(`Failed to remove app dir for ${appId}:`, removeResult.error);
+                logApp(`Failed to remove app directory: ${removeResult.error}`, 'WARNING');
+                // Return error but don't fail the uninstall completely
+                return { success: true, warning: `App uninstalled but failed to remove directory: ${removeResult.error}` };
             }
         }
 
