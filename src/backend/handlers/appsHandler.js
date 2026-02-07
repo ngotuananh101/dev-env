@@ -2307,42 +2307,70 @@ try {
         }
     });
 
-    // List available (nvm list available) - Parsing this is fragile, maybe just fetch from nodejs.org?
-    // nvm-windows "list available" shows a table.
-    // Let's implement a direct fetch from nodejs.org dist index.json for reliability and speed
+    // List available (nvm list available)
     ipcMain.handle('nvm-list-available', async () => {
         try {
-            return new Promise((resolve, reject) => {
-                const https = require('https');
-                https.get('https://nodejs.org/dist/index.json', { headers: { 'User-Agent': 'DevEnv' } }, (res) => {
-                    let data = '';
-                    res.on('data', chunk => data += chunk);
-                    res.on('end', () => {
-                        try {
-                            const allVersions = JSON.parse(data);
-                            // Filter for LTS and Current (last 50 or so to avoid huge list)
-                            const lts = allVersions.filter(v => v.lts).slice(0, 20);
-                            const current = allVersions.filter(v => !v.lts).slice(0, 10);
+            const dbManager = getDbManager();
+            const output = await runNvmCommand('list available', dbManager);
 
-                            // Transform to simple objects
-                            const processVer = (v) => ({
-                                version: v.version.replace('v', ''),
-                                lts: v.lts ? (typeof v.lts === 'string' ? v.lts : 'Yes') : false,
-                                date: v.date
-                            });
+            // Output format is a table:
+            // |   CURRENT    |     LTS      |  OLD STABLE  | OLD UNSTABLE |
+            // |--------------|--------------|--------------|--------------|
+            // |    23.7.0    |   22.13.1    |   0.12.18    |   0.11.16    |
 
-                            resolve({
-                                success: true,
-                                lts: lts.map(processVer),
-                                current: current.map(processVer)
+            const lines = output.split(/[\r\n]+/);
+            const currentList = [];
+            const ltsList = [];
+
+            let headerFound = false;
+
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed.startsWith('|-')) continue;
+
+                // Check for header
+                if (trimmed.includes('CURRENT') && trimmed.includes('LTS')) {
+                    headerFound = true;
+                    continue;
+                }
+
+                if (headerFound) {
+                    // Extract columns
+                    // Split by |
+                    const parts = trimmed.split('|').map(p => p.trim());
+                    // 0: empty, 1: Current, 2: LTS, 3: Old Stable, 4: Old Unstable
+
+                    if (parts.length >= 3) {
+                        const current = parts[1];
+                        const lts = parts[2];
+
+                        if (current) {
+                            currentList.push({
+                                version: current,
+                                lts: false,
+                                date: ''
                             });
-                        } catch (e) {
-                            reject(e);
                         }
-                    });
-                }).on('error', reject);
-            });
+
+                        if (lts) {
+                            ltsList.push({
+                                version: lts,
+                                lts: 'Yes',
+                                date: ''
+                            });
+                        }
+                    }
+                }
+            }
+
+            return {
+                success: true,
+                lts: ltsList,
+                current: currentList
+            };
+
         } catch (err) {
+            logApp(`Failed to list available NVM versions: ${err.message}`, 'ERROR');
             return { error: err.message };
         }
     });
