@@ -12,7 +12,7 @@ const { Worker } = require('worker_threads');
 const crypto = require('crypto');
 const serviceHandler = require('./serviceHandler');
 const { removeHosts } = require('./hostsHandler');
-const { runningNodeProcesses } = require('./sitesHandler');
+const { runningNodeProcesses, restartWebServices } = require('./sitesHandler');
 
 /**
  * @typedef {Object} AppVersion
@@ -380,6 +380,9 @@ async function configurePhpMyAdmin(dbManager, context) {
                 // Write file
                 await fsPromises.writeFile(path.join(phpMyAdminRoot, 'config.inc.php'), configIncPhpContent, 'utf-8');
                 logApp(`phpMyAdmin config.inc.php updated (PHP ${shortVersion} :${phpPort})`, 'CONFIG');
+
+                // Restart webserver to apply changes
+                await restartWebServices(dbManager);
             } else {
                 logApp('Could not determine default PHP version short code', 'WARNING');
             }

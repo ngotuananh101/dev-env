@@ -40,11 +40,11 @@ export const useDatabaseStore = defineStore('database', {
         },
 
         async getDatabases(appId) {
-            if (!window.sysapi || !window.sysapi.db) return [];
+            if (!window.sysapi || !window.sysapi.database) return [];
             if (!appId) return [];
 
             try {
-                const result = await window.sysapi.db.listDatabases(appId);
+                const result = await window.sysapi.database.listDatabases(appId);
                 if (result.error) {
                     return { error: result.error };
                 }
@@ -58,7 +58,7 @@ export const useDatabaseStore = defineStore('database', {
             if (!appId) return { error: 'App ID is required' };
 
             try {
-                const result = await window.sysapi.db.createDatabase(appId, name, user, password);
+                const result = await window.sysapi.database.createDatabase(appId, name, user, password);
                 return result;
             } catch (err) {
                 return { error: err.message };
@@ -69,7 +69,7 @@ export const useDatabaseStore = defineStore('database', {
             if (!appId) return { error: 'App ID is required' };
 
             try {
-                const result = await window.sysapi.db.dropDatabase(appId, name);
+                const result = await window.sysapi.database.dropDatabase(appId, name);
                 return result;
             } catch (err) {
                 return { error: err.message };
@@ -80,7 +80,7 @@ export const useDatabaseStore = defineStore('database', {
             if (!appId) return [];
 
             try {
-                const result = await window.sysapi.db.listUsers(appId);
+                const result = await window.sysapi.database.listUsers(appId);
                 if (result.error) {
                     return { error: result.error };
                 }
@@ -94,7 +94,7 @@ export const useDatabaseStore = defineStore('database', {
             if (!appId) return { error: 'App ID is required' };
 
             try {
-                const result = await window.sysapi.db.changePassword(appId, user, password, host);
+                const result = await window.sysapi.database.changePassword(appId, user, password, host);
                 return result;
             } catch (err) {
                 return { error: err.message };

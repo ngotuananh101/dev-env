@@ -350,11 +350,12 @@ const refreshAll = () => {
 };
 
 const loadDatabases = async () => {
+  console.log('Loading databases for tab:', activeTab.value);
   if (!activeTab.value) return;
 
   loading.value = true;
   try {
-    const result = await dbStore.getDatabases();
+    const result = await dbStore.getDatabases(activeTab.value);
     if (result.error) {
       toast.error(`Failed to load databases: ${result.error}`);
     } else {
@@ -481,7 +482,7 @@ const loadUsers = async () => {
 
   loading.value = true;
   try {
-    const result = await dbStore.getUsers();
+    const result = await dbStore.getUsers(activeTab.value);
     if (result.error) {
       toast.error(`Failed to load users: ${result.error}`);
     } else {

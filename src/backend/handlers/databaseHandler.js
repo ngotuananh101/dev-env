@@ -112,7 +112,7 @@ function register(ipcMain, context) {
             const dbType = getDbType(appId);
             const cliPaths = getDbCliPaths(appId, app.exec_path);
 
-            if (dbType === 'mysql') {
+            if (dbType === 'mysql' || dbType === 'mariadb') {
                 const result = await execCommand(
                     `"${cliPaths.client}" -u root -e "SHOW DATABASES"`,
                     { cwd: path.dirname(cliPaths.client) }

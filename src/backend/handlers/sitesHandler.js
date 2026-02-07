@@ -1133,4 +1133,4 @@ async function restartWebServices(dbManager) {
     }
 }
 
-module.exports = { register, runningNodeProcesses };
+module.exports = { register, runningNodeProcesses, restartWebServices };
