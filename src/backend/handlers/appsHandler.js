@@ -806,6 +806,10 @@ function register(ipcMain, context) {
             return await getApacheVersions();
         }
 
+        if (appId === 'mysql') {
+            return await getMysqlVersions();
+        }
+
         if (appId !== 'mariadb') return [];
 
         try {
@@ -1504,6 +1508,72 @@ try {
                 });
             }).on('error', (err) => {
                 console.error('Failed to fetch Apache versions:', err);
+                resolve([]);
+            });
+        });
+    };
+
+    /**
+     * Fetch MySQL versions from Docker Hub tags and construct CDN URLs
+     */
+    const getMysqlVersions = () => {
+        return new Promise((resolve) => {
+            // Docker Hub API for MySQL tags
+            const url = 'https://hub.docker.com/v2/namespaces/library/repositories/mysql/tags?page_size=100';
+            const https = require('https');
+            const options = {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                }
+            };
+
+            https.get(url, options, (res) => {
+                let data = '';
+                res.on('data', (chunk) => data += chunk);
+                res.on('end', () => {
+                    try {
+                        const json = JSON.parse(data);
+                        const versions = [];
+                        const seen = new Set();
+                        const regex = /^(\d+\.\d+\.\d+)$/; // X.Y.Z
+
+                        if (json.results) {
+                            for (const result of json.results) {
+                                const tag = result.name;
+                                if (regex.test(tag)) {
+                                    if (!seen.has(tag)) {
+                                        seen.add(tag);
+
+                                        // Construct CDN URL
+                                        // Pattern: https://cdn.mysql.com/Downloads/MySQL-<Major>.<Minor>/mysql-<Version>-winx64.zip
+                                        const parts = tag.split('.');
+                                        const majorMinor = `${parts[0]}.${parts[1]}`;
+                                        const downloadUrl = `https://cdn.mysql.com/Downloads/MySQL-${majorMinor}/mysql-${tag}-winx64.zip`;
+
+                                        versions.push({
+                                            version: tag,
+                                            filename: `mysql-${tag}-winx64.zip`,
+                                            download_url: downloadUrl,
+                                            size: 0,
+                                            md5: "",
+                                            sha1: ""
+                                        });
+                                    }
+                                }
+                            }
+                        }
+
+                        // Sort versions descending
+                        versions.sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true, sensitivity: 'base' }));
+
+                        resolve(versions);
+                    } catch (e) {
+                        console.error('Failed to parse MySQL versions:', e);
+                        resolve([]);
+                    }
+                });
+            }).on('error', (err) => {
+                console.error('Failed to fetch MySQL versions:', err);
                 resolve([]);
             });
         });

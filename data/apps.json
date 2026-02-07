@@ -146,32 +146,7 @@
           "type": "mysql"
         }
       ],
-      "versions": [
-        {
-          "version": "9.6.0",
-          "filename": "mysql-9.6.0-winx64.zip",
-          "download_url": "https://archive.org/download/dev-env/mysql/mysql-9.6.0-winx64.zip",
-          "size": 304538543,
-          "md5": "7a401cf196793b39e5f287c2a2079589",
-          "sha1": "b93a655d38b328ae39e398b5590e21e90f03291c"
-        },
-        {
-          "version": "8.4.8",
-          "filename": "mysql-8.4.8-winx64.zip",
-          "download_url": "https://archive.org/download/dev-env/mysql/mysql-8.4.8-winx64.zip",
-          "size": 260192668,
-          "md5": "0b268cf3d792dad998dca057c386d45c",
-          "sha1": "e2d3ad4961facbc3a3ff24896750a855694a2e68"
-        },
-        {
-          "version": "8.0.45",
-          "filename": "mysql-8.0.45-winx64.zip",
-          "download_url": "https://archive.org/download/dev-env/mysql/mysql-8.0.45-winx64.zip",
-          "size": 244914394,
-          "md5": "b9f487276578ab1d1675b30952a5220f",
-          "sha1": "8eed02a432418c81979e5c90f8d22225c4e7750a"
-        }
-      ]
+      "versions": []
     },
     {
       "id": "mariadb",
