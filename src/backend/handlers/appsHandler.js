@@ -231,25 +231,59 @@ function extractXmlValue(content, tag) {
 /**
  * Execute NVM command and return output
  * @param {string} command - NVM command
- * @param {string} [execPath='nvm'] - Path to NVM executable
+ * @param {Object} [dbManager=null] - Database manager for fallback lookup
  * @returns {Promise<string>} Output
  */
-function runNvmCommand(command, execPath = 'nvm') {
+async function runNvmCommand(command, dbManager = null) {
     const { exec } = require('child_process');
-    return new Promise((resolve, reject) => {
-        // Enclose execPath in quotes if it contains spaces
-        const cmd = `"${execPath}" ${command}`;
+
+    const execPromise = (cmd) => new Promise((resolve, reject) => {
         exec(cmd, (error, stdout, stderr) => {
             if (error) {
-                // nvm sometimes returns exit code 1 or 5 for valid errors, 
-                // but stdout helps understand what happened.
-                if (stdout) resolve(stdout);
-                else reject(error);
+                // Sometimes stdout has useful info even on error
+                if (stdout && !error.message.includes('not recognized')) {
+                    resolve(stdout);
+                } else {
+                    reject(error);
+                }
             } else {
                 resolve(stdout);
             }
         });
     });
+
+    // 1. Try 'nvm' directly (System PATH)
+    try {
+        return await execPromise(`nvm ${command}`);
+    } catch (err) {
+        // If not recognized or failed, try DB path
+        const isNotRecognized = err.message.includes('not recognized') || err.message.includes('ENOENT');
+
+        if (isNotRecognized && dbManager) {
+            try {
+                const apps = dbManager.query("SELECT cli_path, exec_path, install_path FROM installed_apps WHERE app_id = 'nvm'");
+                if (apps && apps.length > 0) {
+                    let nvmPath = apps[0].cli_path || apps[0].exec_path;
+
+                    if (nvmPath) {
+                        return await execPromise(`"${nvmPath}" ${command}`);
+                    }
+
+                    // Fallback to searching in install_path
+                    if (apps[0].install_path) {
+                        const path = require('path');
+                        nvmPath = path.join(apps[0].install_path, 'nvm.exe');
+                        return await execPromise(`"${nvmPath}" ${command}`);
+                    }
+                }
+            } catch (dbErr) {
+                console.error('Failed to lookup NVM in DB:', dbErr);
+            }
+        }
+
+        // If we reached here, both failed or no DB fallback possible
+        throw err;
+    }
 }
 
 /**
@@ -2245,8 +2279,8 @@ try {
     // List installed node versions (nvm list)
     ipcMain.handle('nvm-list', async () => {
         try {
-            // Use 'nvm' command directly - installer adds it to PATH
-            const output = await runNvmCommand('list', 'nvm');
+            const dbManager = getDbManager();
+            const output = await runNvmCommand('list', dbManager);
             const lines = output.split('\n');
             const installed = [];
             let current = '';
@@ -2316,8 +2350,8 @@ try {
     // Install version
     ipcMain.handle('nvm-install', async (event, version) => {
         try {
-            // Use 'nvm' command directly - installer adds it to PATH
-            await runNvmCommand(`install ${version}`, 'nvm');
+            const dbManager = getDbManager();
+            await runNvmCommand(`install ${version}`, dbManager);
             return { success: true };
         } catch (err) {
             // Check if it's just "already installed" or true error
@@ -2331,8 +2365,8 @@ try {
     // Uninstall version
     ipcMain.handle('nvm-uninstall', async (event, version) => {
         try {
-            // Use 'nvm' command directly - installer adds it to PATH
-            await runNvmCommand(`uninstall ${version}`, 'nvm');
+            const dbManager = getDbManager();
+            await runNvmCommand(`uninstall ${version}`, dbManager);
             return { success: true };
         } catch (err) {
             return { error: err.message };
@@ -2342,9 +2376,8 @@ try {
     // Use version
     ipcMain.handle('nvm-use', async (event, version) => {
         try {
-            // Use 'nvm' command directly - installer adds it to PATH
-            // 'nvm use' requires Admin on Windows usually.
-            const output = await runNvmCommand(`use ${version}`, 'nvm');
+            const dbManager = getDbManager();
+            const output = await runNvmCommand(`use ${version}`, dbManager);
             if (output.includes('Now using')) {
                 return { success: true };
             } else {
