@@ -263,22 +263,13 @@ function runPyenvCommand(command, execPath = 'pyenv') {
     return new Promise((resolve, reject) => {
         // pyenv-win uses .bat files, execute via cmd
         const cmd = `cmd /c "${execPath}" ${command}`;
-        logApp(`Executing: ${cmd}`, 'DEBUG');
 
         exec(cmd, {
             encoding: 'utf-8',
             timeout: 1800000, // 30 minutes for install commands
             maxBuffer: 10 * 1024 * 1024 // 10MB buffer
         }, (error, stdout, stderr) => {
-            if (stderr) {
-                logApp(`pyenv stderr: ${stderr}`, 'DEBUG');
-            }
-            if (stdout) {
-                logApp(`pyenv stdout: ${stdout}`, 'DEBUG');
-            }
-
             if (error) {
-                logApp(`pyenv command error: ${error.message}`, 'ERROR');
                 // pyenv sometimes returns exit code 1 for valid errors
                 if (stdout) resolve(stdout);
                 else reject(error);
@@ -302,17 +293,13 @@ function findPyenvPath(dbManager) {
         const result = dbManager.query("SELECT cli_path, install_path FROM installed_apps WHERE app_id = 'pyenv'");
         if (result && result.length > 0) {
             if (result[0].cli_path && fs.existsSync(result[0].cli_path)) {
-                pyenvPath = result[0].cli_path;
-                logApp(`Found pyenv from database: ${pyenvPath}`, 'DEBUG');
-                return pyenvPath;
+                return result[0].cli_path;
             }
 
             if (result[0].install_path) {
                 const possiblePath = path.join(result[0].install_path, 'bin', 'pyenv.bat');
                 if (fs.existsSync(possiblePath)) {
-                    pyenvPath = possiblePath;
-                    logApp(`Found pyenv in install_path: ${pyenvPath}`, 'DEBUG');
-                    return pyenvPath;
+                    return possiblePath;
                 }
             }
         }
@@ -323,13 +310,10 @@ function findPyenvPath(dbManager) {
     if (userProfile) {
         const defaultPath = path.join(userProfile, '.pyenv', 'pyenv-win', 'bin', 'pyenv.bat');
         if (fs.existsSync(defaultPath)) {
-            pyenvPath = defaultPath;
-            logApp(`Found pyenv at default location: ${pyenvPath}`, 'DEBUG');
-            return pyenvPath;
+            return defaultPath;
         }
     }
 
-    logApp('pyenv not found in any known location', 'WARNING');
     return null;
 }
 
@@ -856,10 +840,8 @@ try {
 
             // Write PowerShell script to temp file
             await fsPromises.writeFile(tempScriptPath, psScriptContent, 'utf-8');
-            logApp(`Created temp script: ${tempScriptPath}`, 'DEBUG');
 
             sendProgress(50, 'Installing pyenv-win...');
-            logApp('Executing PowerShell installer...', 'INSTALL');
 
             return new Promise((resolve, reject) => {
                 // Execute PowerShell script file
@@ -872,22 +854,16 @@ try {
                     // Cleanup temp script
                     try {
                         await fsPromises.unlink(tempScriptPath);
-                        logApp('Cleaned up temp script', 'DEBUG');
                     } catch (e) {
                         // Ignore cleanup errors
                     }
 
-                    // Log all output
-                    if (stdout) {
-                        logApp(`PowerShell stdout:\n${stdout}`, 'DEBUG');
-                    }
-                    if (stderr) {
-                        logApp(`PowerShell stderr:\n${stderr}`, 'DEBUG');
-                    }
-
+                    // Log errors only
                     if (error) {
-                        logApp(`PowerShell error: ${error.message}`, 'ERROR');
-                        logApp(`Exit code: ${error.code}`, 'ERROR');
+                        logApp(`PowerShell installation failed: ${error.message}`, 'ERROR');
+                        if (stderr) {
+                            logApp(`Error details: ${stderr}`, 'ERROR');
+                        }
                         sendProgress(0, 'Installation failed');
                         resolve({
                             error: `Failed to install pyenv: ${error.message}\n\nStdout: ${stdout}\n\nStderr: ${stderr}`
@@ -902,11 +878,7 @@ try {
                     const pyenvRoot = path.join(userProfile, '.pyenv', 'pyenv-win');
                     const pyenvBat = path.join(pyenvRoot, 'bin', 'pyenv.bat');
 
-                    logApp(`Checking pyenv installation at: ${pyenvRoot}`, 'INSTALL');
-
                     if (!fs.existsSync(pyenvBat)) {
-                        logApp(`pyenv.bat not found at: ${pyenvBat}`, 'ERROR');
-
                         // Try to find it in other locations
                         const possibleLocations = [
                             path.join(userProfile, '.pyenv', 'pyenv-win', 'bin', 'pyenv.bat'),
@@ -916,10 +888,8 @@ try {
 
                         let foundPath = null;
                         for (const loc of possibleLocations) {
-                            logApp(`Trying location: ${loc}`, 'DEBUG');
                             if (fs.existsSync(loc)) {
                                 foundPath = loc;
-                                logApp(`✓ Found pyenv at: ${loc}`, 'INFO');
                                 break;
                             }
                         }
@@ -927,14 +897,13 @@ try {
                         if (!foundPath) {
                             sendProgress(0, 'Installation verification failed');
                             resolve({
-                                error: `pyenv installation failed - pyenv.bat not found in any expected location.\n\nPlease check the logs above for details.`
+                                error: `pyenv installation failed - pyenv.bat not found.`
                             });
                             return;
                         }
 
                         // Update paths if found in different location
                         const foundRoot = path.dirname(path.dirname(foundPath));
-                        logApp(`Using pyenv from: ${foundRoot}`, 'INFO');
 
                         // Save to database
                         const now = new Date().toISOString();
@@ -960,8 +929,6 @@ try {
                         return;
                     }
 
-                    logApp(`✓ pyenv installed successfully at: ${pyenvRoot}`, 'INSTALL');
-
                     // Save to database
                     const now = new Date().toISOString();
                     const result = dbManager.query(
@@ -971,7 +938,7 @@ try {
                     );
 
                     if (result.error) {
-                        logApp(`Database save failed: ${result.error}`, 'ERROR');
+                        logApp(`Failed to save to database: ${result.error}`, 'ERROR');
                         resolve({ error: result.error });
                         return;
                     }
@@ -2008,28 +1975,20 @@ try {
             const pyenvRoot = path.dirname(pyenvBinDir); // .../pyenv-win
             const versionsDir = path.join(pyenvRoot, 'versions');
 
-            logApp(`pyenv root: ${pyenvRoot}`, 'DEBUG');
-            logApp(`Versions directory: ${versionsDir}`, 'DEBUG');
-
             let installedFromDir = [];
             if (fs.existsSync(versionsDir)) {
                 const entries = fs.readdirSync(versionsDir);
-                logApp(`Raw directory entries: ${JSON.stringify(entries)}`, 'DEBUG');
 
                 installedFromDir = entries.filter(dir => {
                     const fullPath = path.join(versionsDir, dir);
                     const isDir = fs.statSync(fullPath).isDirectory();
                     const matchesVersion = /^\d+\.\d+\.\d+$/.test(dir);
-                    logApp(`Entry "${dir}": isDir=${isDir}, matchesVersion=${matchesVersion}`, 'DEBUG');
                     return isDir && matchesVersion;
                 });
-                logApp(`✓ Found ${installedFromDir.length} Python versions in directory: ${installedFromDir.join(', ')}`, 'INFO');
             } else {
-                logApp(`✗ Versions directory does not exist: ${versionsDir}`, 'WARNING');
                 // Try to create it
                 try {
                     fs.mkdirSync(versionsDir, { recursive: true });
-                    logApp(`Created versions directory: ${versionsDir}`, 'INFO');
                 } catch (createErr) {
                     logApp(`Failed to create versions directory: ${createErr.message}`, 'ERROR');
                 }
@@ -2038,9 +1997,7 @@ try {
             // Try running pyenv versions command (may not work if empty)
             let current = '';
             try {
-                logApp(`Running 'pyenv versions' with path: ${pyenvPath}`, 'DEBUG');
                 const output = await runPyenvCommand('versions', pyenvPath);
-                logApp(`pyenv versions output: "${output}"`, 'DEBUG');
 
                 if (output && output.trim()) {
                     const lines = output.split('\n');
@@ -2053,21 +2010,17 @@ try {
                             const versionMatch = trimmedLine.match(/(\d+\.\d+\.\d+)/);
                             if (versionMatch) {
                                 current = versionMatch[1];
-                                logApp(`Found current version from pyenv: ${current}`, 'DEBUG');
                             }
                         }
                     });
-                } else {
-                    logApp(`pyenv versions returned empty output - using directory listing`, 'INFO');
                 }
             } catch (err) {
-                logApp(`pyenv versions command failed: ${err.message} - using directory listing`, 'WARNING');
+                // Ignore - use directory listing
             }
 
             // Use directory listing as the source of truth
             const installed = [...installedFromDir];
 
-            logApp(`Total Python versions found: ${installed.length}`, 'INFO');
             return { success: true, installed, current };
         } catch (err) {
             return { error: err.message };
@@ -2084,11 +2037,8 @@ try {
                 return { error: 'pyenv is not installed. Please install pyenv from App Store first.' };
             }
 
-            logApp('Fetching available Python versions from pyenv...', 'INFO');
-
             // Run pyenv install --list to get available versions
             const output = await runPyenvCommand('install --list', pyenvPath);
-            logApp(`pyenv install --list output length: ${output.length}`, 'DEBUG');
 
             const lines = output.split('\n');
             const versions = [];
@@ -2097,10 +2047,7 @@ try {
                 const trimmedLine = line.trim();
                 if (!trimmedLine) return;
 
-                // Match version patterns like:
-                // "3.12.1"
-                // "  3.11.7"
-                // Skip headers, comments, or non-standard versions
+                // Match version patterns like: "3.12.1" or "  3.11.7"
                 const versionMatch = trimmedLine.match(/^(\d+\.\d+\.\d+)$/);
 
                 if (versionMatch) {
@@ -2113,7 +2060,7 @@ try {
                     if (major === 3 && minor >= 9) {
                         versions.push({
                             version: version,
-                            date: '', // pyenv doesn't provide release dates
+                            date: '',
                             isPreRelease: false
                         });
                     }
@@ -2134,7 +2081,6 @@ try {
             // Limit to 50 most recent versions
             const limitedVersions = versions.slice(0, 50);
 
-            logApp(`Found ${limitedVersions.length} available Python versions`, 'INFO');
 
             return {
                 success: true,
@@ -2156,68 +2102,49 @@ try {
                 return { error: 'pyenv is not installed. Please install pyenv from App Store first.' };
             }
 
-            // First, verify pyenv is working
+            // Verify pyenv is working
             try {
-                const versionOutput = await runPyenvCommand('--version', pyenvPath);
-                logApp(`pyenv version check: ${versionOutput.trim()}`, 'INFO');
+                await runPyenvCommand('--version', pyenvPath);
             } catch (versionErr) {
-                logApp(`pyenv version check failed: ${versionErr.message}`, 'ERROR');
                 return { error: `pyenv is not working properly: ${versionErr.message}` };
             }
 
-            // pyenv install can take a while to download and install Python
-            logApp(`Installing Python ${version} using: ${pyenvPath}`, 'INFO');
-
+            // Install Python version
             try {
-                const installOutput = await runPyenvCommand(`install ${version}`, pyenvPath);
-                logApp(`pyenv install completed`, 'INFO');
+                await runPyenvCommand(`install ${version}`, pyenvPath);
             } catch (installErr) {
-                logApp(`pyenv install error: ${installErr.message}`, 'ERROR');
                 // Check if already installed
                 if (installErr.message && installErr.message.includes('already installed')) {
-                    logApp('Python version already installed', 'INFO');
-                } else {
-                    return { error: `Failed to install Python ${version}: ${installErr.message}` };
+                    return { success: true, message: 'Already installed' };
                 }
+                return { error: `Failed to install Python ${version}: ${installErr.message}` };
             }
 
             // Run rehash to update shims
             try {
-                const rehashOutput = await runPyenvCommand('rehash', pyenvPath);
-                logApp(`pyenv rehash output: ${rehashOutput}`, 'DEBUG');
+                await runPyenvCommand('rehash', pyenvPath);
             } catch (rehashErr) {
-                logApp(`pyenv rehash failed: ${rehashErr.message}`, 'WARNING');
+                // Ignore rehash errors
             }
 
-            // Verify installation by checking versions directory
-            const pyenvBinDir = path.dirname(pyenvPath); // .../bin
-            const pyenvRoot = path.dirname(pyenvBinDir); // .../pyenv-win
+            // Verify installation
+            const pyenvBinDir = path.dirname(pyenvPath);
+            const pyenvRoot = path.dirname(pyenvBinDir);
             const versionsDir = path.join(pyenvRoot, 'versions');
             const pythonInstallDir = path.join(versionsDir, version);
 
-            logApp(`Checking versions directory: ${versionsDir}`, 'DEBUG');
-            logApp(`Expected Python install at: ${pythonInstallDir}`, 'DEBUG');
-
             if (fs.existsSync(versionsDir)) {
                 const versionDirs = fs.readdirSync(versionsDir);
-                logApp(`Found version directories: ${JSON.stringify(versionDirs)}`, 'INFO');
 
-                if (fs.existsSync(pythonInstallDir)) {
-                    logApp(`✓ Python ${version} successfully installed at: ${pythonInstallDir}`, 'INFO');
-
-                    // Check for python.exe
-                    const pythonExe = path.join(pythonInstallDir, 'python.exe');
-                    if (fs.existsSync(pythonExe)) {
-                        logApp(`✓ Found python.exe at: ${pythonExe}`, 'INFO');
-                    } else {
-                        logApp(`✗ WARNING: python.exe not found at: ${pythonExe}`, 'WARNING');
-                    }
+                if (!fs.existsSync(pythonInstallDir)) {
+                    logApp(`WARNING: Python ${version} directory not found at: ${pythonInstallDir}`, 'WARNING');
                 } else {
-                    logApp(`✗ WARNING: Python ${version} directory not found at: ${pythonInstallDir}`, 'WARNING');
-                    logApp(`This might indicate installation failed silently`, 'WARNING');
+                    const pythonExe = path.join(pythonInstallDir, 'python.exe');
+                    if (!fs.existsSync(pythonExe)) {
+                        logApp(`WARNING: python.exe not found at: ${pythonExe}`, 'WARNING');
+                    }
                 }
             } else {
-                logApp(`✗ ERROR: Versions directory does not exist: ${versionsDir}`, 'ERROR');
                 return { error: `Installation may have failed - versions directory not found` };
             }
 
