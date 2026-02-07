@@ -1572,12 +1572,79 @@ try {
             logApp(`Failed to remove from PATH: ${err.message}`, 'WARNING');
         }
 
+        // Special handling for pyenv - remove environment variables and clean up
+        if (appId === 'pyenv') {
+            try {
+                logApp('Removing pyenv environment variables...', 'UNINSTALL');
+
+                // Remove PYENV and PYENV_HOME environment variables
+                try {
+                    execSync('reg delete "HKCU\\Environment" /v PYENV /f', { stdio: 'ignore' });
+                } catch (e) {
+                    // Variable might not exist
+                }
+
+                try {
+                    execSync('reg delete "HKCU\\Environment" /v PYENV_HOME /f', { stdio: 'ignore' });
+                } catch (e) {
+                    // Variable might not exist
+                }
+
+                // Remove pyenv paths from PATH (bin and shims)
+                if (appPath) {
+                    const pyenvBin = path.join(appPath, 'bin');
+                    const pyenvShims = path.join(appPath, 'shims');
+
+                    try {
+                        let userPath = '';
+                        const result = execSync(
+                            'reg query "HKCU\\Environment" /v Path',
+                            { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+                        );
+                        const match = result.match(/Path\s+REG_(?:EXPAND_)?SZ\s+(.+)/i);
+                        if (match && match[1]) {
+                            userPath = match[1].trim();
+                        }
+
+                        if (userPath) {
+                            const pyenvBinLower = pyenvBin.toLowerCase();
+                            const pyenvShimsLower = pyenvShims.toLowerCase();
+
+                            // Filter out all pyenv-related paths
+                            const filteredPaths = userPath.split(';').filter(p => {
+                                const normalized = p.toLowerCase().trim();
+                                return normalized !== pyenvBinLower &&
+                                       normalized !== pyenvBinLower + '\\' &&
+                                       normalized !== pyenvShimsLower &&
+                                       normalized !== pyenvShimsLower + '\\';
+                            });
+
+                            const newPath = filteredPaths.join(';');
+                            execSync(
+                                `reg add "HKCU\\Environment" /v Path /t REG_EXPAND_SZ /d "${newPath}" /f`,
+                                { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+                            );
+
+                            logApp('Removed pyenv from PATH', 'UNINSTALL');
+                        }
+                    } catch (err) {
+                        logApp(`Failed to remove pyenv from PATH: ${err.message}`, 'WARNING');
+                    }
+                }
+
+                logApp('pyenv environment variables removed', 'UNINSTALL');
+            } catch (err) {
+                logApp(`Failed to remove pyenv environment: ${err.message}`, 'WARNING');
+            }
+        }
+
         const result = dbManager.query('DELETE FROM installed_apps WHERE app_id = ?', [appId]);
 
         if (result.error) {
             return { error: result.error };
         }
 
+        // Remove app directory from apps folder (if exists)
         const appDir = path.join(context.userDataPath, 'apps', appId);
         if (fs.existsSync(appDir)) {
             logApp(`Removing app directory: ${appDir}`, 'UNINSTALL');
@@ -1585,8 +1652,17 @@ try {
             if (!removeResult.success) {
                 console.error(`Failed to remove app dir for ${appId}:`, removeResult.error);
                 logApp(`Failed to remove app directory: ${removeResult.error}`, 'WARNING');
-                // Return error but don't fail the uninstall completely
-                return { success: true, warning: `App uninstalled but failed to remove directory: ${removeResult.error}` };
+            }
+        }
+
+        // For pyenv, also remove the actual installation directory
+        if (appId === 'pyenv' && appPath && fs.existsSync(appPath)) {
+            logApp(`Removing pyenv installation: ${appPath}`, 'UNINSTALL');
+            const removeResult = await removeDirectoryWithRetry(appPath, 5, 1000);
+            if (!removeResult.success) {
+                console.error(`Failed to remove pyenv installation:`, removeResult.error);
+                logApp(`Failed to remove pyenv installation: ${removeResult.error}`, 'WARNING');
+                return { success: true, warning: `pyenv uninstalled but failed to remove directory: ${removeResult.error}` };
             }
         }
 
