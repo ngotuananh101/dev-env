@@ -6,7 +6,7 @@
       "id": "nvm",
       "name": "NVM",
       "developer": "official",
-      "description": "Node Version Manager",
+      "description": "Node Version Manager for Windows",
       "category": "deployment",
       "group": "nodejs",
       "icon": "",
@@ -30,12 +30,12 @@
       },
       "versions": [
         {
-          "version": "1.2.2",
-          "filename": "nvm-1.2.2.zip",
-          "download_url": "https://archive.org/download/dev-env/nvm/nvm-1.2.2.zip",
-          "size": 6306101,
-          "md5": "d654c26a04e35a318d5939f8ceb09934",
-          "sha1": "50f6b6e7bfd6234019cc9ad0c69818b8acd8113e"
+          "version": "latest",
+          "filename": "nvm-setup.exe",
+          "download_url": "https://github.com/coreybutler/nvm-windows/releases/latest/download/nvm-setup.exe",
+          "size": 0,
+          "md5": "",
+          "sha1": ""
         }
       ]
     },
@@ -60,7 +60,7 @@
       },
       "versions": [
         {
-          "version": "stable",
+          "version": "latest",
           "filename": "install-pyenv-win.ps1",
           "download_url": "https://raw.githubusercontent.com/pyenv-win/pyenv-win/master/pyenv-win/install-pyenv-win.ps1",
           "size": 0,

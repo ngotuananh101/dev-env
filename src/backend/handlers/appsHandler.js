@@ -743,6 +743,257 @@ function register(ipcMain, context) {
     });
 
     /**
+     * Install NVM using official exe installer
+     * @param {Object} event - IPC event
+     * @param {string} appId - App ID (nvm)
+     * @param {string} version - Version
+     * @param {string} downloadUrl - Download URL for installer
+     * @param {Object} dbManager - Database manager
+     * @returns {Promise<Object>} Installation result
+     */
+    async function installNvmUsingInstaller(event, appId, version, downloadUrl, dbManager) {
+        const { exec } = require('child_process');
+        const os = require('os');
+
+        logApp('Installing NVM using official installer...', 'INSTALL');
+
+        const sendProgress = (progress, status, logDetail = null) => {
+            event.sender.send('app-install-progress', { appId, progress, status, logDetail });
+        };
+
+        try {
+            sendProgress(10, 'Downloading installer...');
+
+            // Download installer to temp
+            const tempDir = os.tmpdir();
+            const installerPath = path.join(tempDir, `nvm-setup-${Date.now()}.exe`);
+
+            // Download file with redirect support
+            await new Promise((resolve, reject) => {
+                const https = require('https');
+                const http = require('http');
+                const file = fs.createWriteStream(installerPath);
+                let downloaded = 0;
+                let redirectCount = 0;
+                const maxRedirects = 5;
+
+                const handleResponse = (response) => {
+                    // Handle redirects
+                    if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+                        if (redirectCount >= maxRedirects) {
+                            file.close();
+                            if (fs.existsSync(installerPath)) {
+                                fs.unlinkSync(installerPath);
+                            }
+                            reject(new Error('Too many redirects'));
+                            return;
+                        }
+
+                        redirectCount++;
+                        const redirectUrl = response.headers.location;
+                        logApp(`Following redirect ${redirectCount}: ${redirectUrl}`, 'DEBUG');
+
+                        // Choose http or https based on redirect URL
+                        const protocol = redirectUrl.startsWith('https:') ? https : http;
+                        protocol.get(redirectUrl, handleResponse).on('error', reject);
+                        return;
+                    }
+
+                    // Check for success
+                    if (response.statusCode !== 200) {
+                        file.close();
+                        if (fs.existsSync(installerPath)) {
+                            fs.unlinkSync(installerPath);
+                        }
+                        reject(new Error(`Download failed with status ${response.statusCode}`));
+                        return;
+                    }
+
+                    // Download successful response
+                    const totalSize = parseInt(response.headers['content-length'], 10);
+                    logApp(`Starting download, size: ${totalSize} bytes`, 'DEBUG');
+
+                    response.on('data', (chunk) => {
+                        downloaded += chunk.length;
+                        if (totalSize) {
+                            const progress = Math.floor((downloaded / totalSize) * 40) + 10; // 10-50%
+                            sendProgress(progress, 'Downloading installer...');
+                        }
+                    });
+
+                    response.pipe(file);
+
+                    file.on('finish', () => {
+                        file.close(() => {
+                            logApp(`Download complete: ${downloaded} bytes`, 'DEBUG');
+                            resolve();
+                        });
+                    });
+                };
+
+                // Start download
+                const protocol = downloadUrl.startsWith('https:') ? https : http;
+                protocol.get(downloadUrl, handleResponse).on('error', (err) => {
+                    file.close();
+                    if (fs.existsSync(installerPath)) {
+                        fs.unlinkSync(installerPath);
+                    }
+                    reject(err);
+                });
+
+                file.on('error', (err) => {
+                    if (fs.existsSync(installerPath)) {
+                        fs.unlinkSync(installerPath);
+                    }
+                    reject(err);
+                });
+            });
+
+            // Verify file was downloaded successfully
+            if (!fs.existsSync(installerPath)) {
+                sendProgress(0, 'Download failed');
+                return { error: 'Failed to download NVM installer - file not found' };
+            }
+
+            const fileStats = fs.statSync(installerPath);
+            if (fileStats.size < 1000) {
+                sendProgress(0, 'Download failed');
+                logApp(`Downloaded file is too small: ${fileStats.size} bytes`, 'ERROR');
+                try {
+                    fs.unlinkSync(installerPath);
+                } catch (e) {
+                    // Ignore
+                }
+                return { error: 'Failed to download NVM installer - file is incomplete or corrupted' };
+            }
+
+            logApp(`NVM installer downloaded: ${fileStats.size} bytes`, 'INFO');
+            sendProgress(50, 'Running installer...');
+
+            // Run installer silently with elevated privileges
+            // NVM installer requires Administrator rights
+            return new Promise((resolve, reject) => {
+                // Use PowerShell to run installer as Administrator
+                const psCommand = `Start-Process -FilePath '${installerPath}' -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' -Verb RunAs -Wait`;
+
+                exec(`powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "${psCommand}"`, {
+                    encoding: 'utf-8',
+                    timeout: 300000
+                }, async (error, stdout, stderr) => {
+
+                    // Cleanup installer
+                    try {
+                        await fsPromises.unlink(installerPath);
+                    } catch (e) {
+                        // Ignore
+                    }
+
+                    if (error) {
+                        logApp(`NVM installer failed: ${error.message}`, 'ERROR');
+                        if (stderr) {
+                            logApp(`Error details: ${stderr}`, 'ERROR');
+                        }
+                        sendProgress(0, 'Installation failed');
+                        resolve({ error: `Failed to install NVM: ${error.message}` });
+                        return;
+                    }
+
+                    sendProgress(80, 'Verifying installation...');
+
+                    // Wait a bit for installation to complete and environment to update
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+
+                    // Find NVM installation path
+                    // First try NVM_HOME environment variable (read fresh from registry)
+                    let nvmRoot = null;
+                    let nvmExe = null;
+
+                    try {
+                        const nvmHomeResult = execSync('reg query "HKCU\\Environment" /v NVM_HOME', {
+                            encoding: 'utf-8',
+                            stdio: ['pipe', 'pipe', 'pipe']
+                        });
+                        const nvmHomeMatch = nvmHomeResult.match(/NVM_HOME\s+REG_(?:EXPAND_)?SZ\s+(.+)/i);
+                        if (nvmHomeMatch && nvmHomeMatch[1]) {
+                            const nvmHomePath = nvmHomeMatch[1].trim();
+                            const exePath = path.join(nvmHomePath, 'nvm.exe');
+                            if (fs.existsSync(exePath)) {
+                                nvmRoot = nvmHomePath;
+                                nvmExe = exePath;
+                                logApp(`Found NVM via NVM_HOME: ${nvmHomePath}`, 'INFO');
+                            }
+                        }
+                    } catch (e) {
+                        // NVM_HOME not set, continue to search
+                    }
+
+                    // If not found via NVM_HOME, try common locations
+                    if (!nvmExe) {
+                        const userProfile = process.env.USERPROFILE;
+                        const possiblePaths = [
+                            path.join(process.env.APPDATA, 'nvm'),
+                            path.join(userProfile, 'AppData', 'Roaming', 'nvm'),
+                            path.join(process.env.ProgramFiles, 'nvm'),
+                            path.join(process.env['ProgramFiles(x86)'], 'nvm'),
+                            'C:\\nvm',
+                            'C:\\Program Files\\nvm',
+                            'C:\\Program Files (x86)\\nvm'
+                        ];
+
+                        for (const possiblePath of possiblePaths) {
+                            if (!possiblePath) continue;
+                            const exePath = path.join(possiblePath, 'nvm.exe');
+                            logApp(`Checking: ${exePath}`, 'DEBUG');
+                            if (fs.existsSync(exePath)) {
+                                nvmRoot = possiblePath;
+                                nvmExe = exePath;
+                                logApp(`Found NVM at: ${possiblePath}`, 'INFO');
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!nvmExe) {
+                        logApp('NVM installation verification failed - nvm.exe not found', 'ERROR');
+                        sendProgress(0, 'Installation verification failed');
+                        resolve({ error: 'NVM installed but nvm.exe not found. Please restart your computer and try again.' });
+                        return;
+                    }
+
+                    // Save to database
+                    const now = new Date().toISOString();
+                    const result = dbManager.query(
+                        `INSERT OR REPLACE INTO installed_apps (app_id, installed_version, install_path, exec_path, cli_path, custom_args, auto_start, show_on_dashboard, installed_at, updated_at)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+                        [appId, version, nvmRoot, nvmExe, nvmExe, '', 0, now, now]
+                    );
+
+                    if (result.error) {
+                        logApp(`Failed to save to database: ${result.error}`, 'ERROR');
+                        resolve({ error: result.error });
+                        return;
+                    }
+
+                    sendProgress(100, 'Installed!');
+                    logApp('NVM installation completed successfully', 'INSTALL');
+
+                    resolve({
+                        success: true,
+                        installPath: nvmRoot,
+                        execPath: nvmExe,
+                        cliPath: nvmExe
+                    });
+                });
+            });
+
+        } catch (err) {
+            logApp(`NVM installation error: ${err.message}`, 'ERROR');
+            sendProgress(0, 'Installation failed');
+            return { error: err.message };
+        }
+    }
+
+    /**
      * Install pyenv using official PowerShell script
      * @param {Object} event - IPC event
      * @param {string} appId - App ID (pyenv)
@@ -1004,6 +1255,11 @@ try {
             // Special handling for pyenv - use PowerShell installer script
             if (appId === 'pyenv') {
                 return await installPyenvUsingScript(event, appId, version, dbManager);
+            }
+
+            // Special handling for NVM - use exe installer
+            if (appId === 'nvm') {
+                return await installNvmUsingInstaller(event, appId, version, downloadUrl, dbManager);
             }
 
             const installContext = {
@@ -1572,6 +1828,69 @@ try {
             logApp(`Failed to remove from PATH: ${err.message}`, 'WARNING');
         }
 
+        // Special handling for NVM - remove environment variables and clean up
+        if (appId === 'nvm') {
+            try {
+                logApp('Removing NVM environment variables...', 'UNINSTALL');
+
+                // Remove NVM_HOME and NVM_SYMLINK environment variables
+                try {
+                    execSync('reg delete "HKCU\\Environment" /v NVM_HOME /f', { stdio: 'ignore' });
+                } catch (e) {
+                    // Variable might not exist
+                }
+
+                try {
+                    execSync('reg delete "HKCU\\Environment" /v NVM_SYMLINK /f', { stdio: 'ignore' });
+                } catch (e) {
+                    // Variable might not exist
+                }
+
+                // Remove NVM paths from PATH
+                if (appPath) {
+                    try {
+                        let userPath = '';
+                        const result = execSync(
+                            'reg query "HKCU\\Environment" /v Path',
+                            { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+                        );
+                        const match = result.match(/Path\s+REG_(?:EXPAND_)?SZ\s+(.+)/i);
+                        if (match && match[1]) {
+                            userPath = match[1].trim();
+                        }
+
+                        if (userPath) {
+                            const nvmPathLower = appPath.toLowerCase();
+                            const nvmSymlinkLower = (process.env.NVM_SYMLINK || 'C:\\Program Files\\nodejs').toLowerCase();
+
+                            // Filter out all NVM-related paths
+                            const filteredPaths = userPath.split(';').filter(p => {
+                                const normalized = p.toLowerCase().trim();
+                                return normalized !== nvmPathLower &&
+                                       normalized !== nvmPathLower + '\\' &&
+                                       normalized !== nvmSymlinkLower &&
+                                       normalized !== nvmSymlinkLower + '\\';
+                            });
+
+                            const newPath = filteredPaths.join(';');
+                            execSync(
+                                `reg add "HKCU\\Environment" /v Path /t REG_EXPAND_SZ /d "${newPath}" /f`,
+                                { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+                            );
+
+                            logApp('Removed NVM from PATH', 'UNINSTALL');
+                        }
+                    } catch (err) {
+                        logApp(`Failed to remove NVM from PATH: ${err.message}`, 'WARNING');
+                    }
+                }
+
+                logApp('NVM environment variables removed', 'UNINSTALL');
+            } catch (err) {
+                logApp(`Failed to remove NVM environment: ${err.message}`, 'WARNING');
+            }
+        }
+
         // Special handling for pyenv - remove environment variables and clean up
         if (appId === 'pyenv') {
             try {
@@ -1663,6 +1982,17 @@ try {
                 console.error(`Failed to remove pyenv installation:`, removeResult.error);
                 logApp(`Failed to remove pyenv installation: ${removeResult.error}`, 'WARNING');
                 return { success: true, warning: `pyenv uninstalled but failed to remove directory: ${removeResult.error}` };
+            }
+        }
+
+        // For NVM, also remove the actual installation directory
+        if (appId === 'nvm' && appPath && fs.existsSync(appPath)) {
+            logApp(`Removing NVM installation: ${appPath}`, 'UNINSTALL');
+            const removeResult = await removeDirectoryWithRetry(appPath, 5, 1000);
+            if (!removeResult.success) {
+                console.error(`Failed to remove NVM installation:`, removeResult.error);
+                logApp(`Failed to remove NVM installation: ${removeResult.error}`, 'WARNING');
+                return { success: true, warning: `NVM uninstalled but failed to remove directory: ${removeResult.error}` };
             }
         }
 
@@ -1886,16 +2216,8 @@ try {
     // List installed node versions (nvm list)
     ipcMain.handle('nvm-list', async () => {
         try {
-            const dbManager = getDbManager();
-            let nvmPath = 'nvm';
-            if (dbManager) {
-                const result = dbManager.query("SELECT cli_path FROM installed_apps WHERE app_id = 'nvm'");
-                if (result && result.length > 0 && result[0].cli_path) {
-                    nvmPath = result[0].cli_path;
-                }
-            }
-
-            const output = await runNvmCommand('list', nvmPath);
+            // Use 'nvm' command directly - installer adds it to PATH
+            const output = await runNvmCommand('list', 'nvm');
             const lines = output.split('\n');
             const installed = [];
             let current = '';
@@ -1965,20 +2287,8 @@ try {
     // Install version
     ipcMain.handle('nvm-install', async (event, version) => {
         try {
-            const dbManager = getDbManager();
-            let nvmPath = 'nvm';
-            if (dbManager) {
-                const result = dbManager.query("SELECT cli_path FROM installed_apps WHERE app_id = 'nvm'");
-                if (result && result.length > 0 && result[0].cli_path) {
-                    nvmPath = result[0].cli_path;
-                }
-            }
-
-            // This can take a while, send events?
-            // For now, simple await. nvm install output is streamed to stdout
-            // We can't easily stream it back with current runNvmCommand helper.
-            // Just return success/fail.
-            await runNvmCommand(`install ${version}`, nvmPath);
+            // Use 'nvm' command directly - installer adds it to PATH
+            await runNvmCommand(`install ${version}`, 'nvm');
             return { success: true };
         } catch (err) {
             // Check if it's just "already installed" or true error
@@ -1992,16 +2302,8 @@ try {
     // Uninstall version
     ipcMain.handle('nvm-uninstall', async (event, version) => {
         try {
-            const dbManager = getDbManager();
-            let nvmPath = 'nvm';
-            if (dbManager) {
-                const result = dbManager.query("SELECT cli_path FROM installed_apps WHERE app_id = 'nvm'");
-                if (result && result.length > 0 && result[0].cli_path) {
-                    nvmPath = result[0].cli_path;
-                }
-            }
-
-            await runNvmCommand(`uninstall ${version}`, nvmPath);
+            // Use 'nvm' command directly - installer adds it to PATH
+            await runNvmCommand(`uninstall ${version}`, 'nvm');
             return { success: true };
         } catch (err) {
             return { error: err.message };
@@ -2011,18 +2313,9 @@ try {
     // Use version
     ipcMain.handle('nvm-use', async (event, version) => {
         try {
-            const dbManager = getDbManager();
-            let nvmPath = 'nvm';
-            if (dbManager) {
-                const result = dbManager.query("SELECT cli_path FROM installed_apps WHERE app_id = 'nvm'");
-                if (result && result.length > 0 && result[0].cli_path) {
-                    nvmPath = result[0].cli_path;
-                }
-            }
-
+            // Use 'nvm' command directly - installer adds it to PATH
             // 'nvm use' requires Admin on Windows usually.
-            // The app should be run as Admin for this to work reliably if not using NVM for Windows >= 1.1.8 with developer mode enabled (?)
-            const output = await runNvmCommand(`use ${version}`, nvmPath);
+            const output = await runNvmCommand(`use ${version}`, 'nvm');
             if (output.includes('Now using')) {
                 return { success: true };
             } else {
