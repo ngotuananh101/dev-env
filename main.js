@@ -4,10 +4,30 @@
  * All IPC handlers are organized in separate modules under ./src/backend/handlers/
  */
 
-const { app, BrowserWindow, ipcMain, shell, Tray, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Tray, Menu, dialog } = require('electron');
 const path = require('path');
 const { execSync } = require('child_process');
 const DatabaseManager = require('./src/backend/database');
+
+// Handle Single Instance Lock
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  // If we didn't get the lock, it means another instance is running.
+  // Notify user and quit.
+  dialog.showErrorBox('Application Already Running', 'The application is already running. The existing window will be brought to the front.');
+  app.quit();
+} else {
+  // We got the lock, this is the primary instance.
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    // Someone tried to run a second instance, we should focus our window.
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      if (!mainWindow.isVisible()) mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+}
 
 // Global variables for tray
 let tray = null;
