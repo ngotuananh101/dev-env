@@ -250,16 +250,7 @@
           "type": "redis"
         }
       ],
-      "versions": [
-        {
-          "version": "8.4.0",
-          "filename": "redis-windows-8.4.0.zip",
-          "download_url": "https://archive.org/download/dev-env/redis/redis-windows-8.4.0.zip",
-          "size": 4575884,
-          "md5": "a75710d5e81735283d8e6e9dcc1626a7",
-          "sha1": "3e88f7dbe9e614acabf4e8f6facd3594ddfd364c"
-        }
-      ]
+      "versions": []
     },
     {
       "id": "postgresql",

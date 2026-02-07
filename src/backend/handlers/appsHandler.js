@@ -785,6 +785,10 @@ function register(ipcMain, context) {
      * Fetch MariaDB versions from REST API
      */
     ipcMain.handle('apps-get-versions', async (event, appId) => {
+        if (appId === 'redis') {
+            return await getRedisVersions();
+        }
+
         if (appId !== 'mariadb') return [];
 
         try {
@@ -873,6 +877,50 @@ function register(ipcMain, context) {
             return [];
         }
     });
+
+    /**
+    * Fetch Redis versions from GitHub API
+    */
+    const getRedisVersions = () => {
+        return new Promise((resolve) => {
+            const url = 'https://api.github.com/repos/zkteco-home/redis-windows/releases';
+            const https = require('https');
+            const options = {
+                headers: { 'User-Agent': 'node.js' }
+            };
+
+            https.get(url, options, (res) => {
+                let data = '';
+                res.on('data', (chunk) => data += chunk);
+                res.on('end', () => {
+                    try {
+                        const releases = JSON.parse(data);
+                        const versions = [];
+
+                        if (Array.isArray(releases)) {
+                            for (const release of releases) {
+                                versions.push({
+                                    version: release.tag_name,
+                                    filename: `redis-${release.tag_name}.zip`,
+                                    download_url: `https://github.com/zkteco-home/redis-windows/archive/refs/tags/${release.tag_name}.zip`,
+                                    size: 0,
+                                    md5: "",
+                                    sha1: ""
+                                });
+                            }
+                        }
+                        resolve(versions);
+                    } catch (e) {
+                        console.error('Failed to parse Redis API:', e);
+                        resolve([]);
+                    }
+                });
+            }).on('error', (err) => {
+                console.error('Failed to fetch Redis versions:', err);
+                resolve([]);
+            });
+        });
+    };
 
     /**
      * Install NVM using official exe installer
