@@ -40,6 +40,36 @@
       ]
     },
     {
+      "id": "pyenv",
+      "name": "pyenv",
+      "developer": "official",
+      "description": "Python Version Manager for Windows",
+      "category": "deployment",
+      "group": "python",
+      "icon": "",
+      "icon_file": "Python.svg",
+      "iconColor": "text-blue-400",
+      "autostart": false,
+      "exec_file": "pyenv\\bin\\pyenv.bat",
+      "cli_file": "pyenv\\bin\\pyenv.bat",
+      "configs": [],
+      "service_commands": {
+        "start": "",
+        "stop": "",
+        "restart": ""
+      },
+      "versions": [
+        {
+          "version": "3.1.1",
+          "filename": "pyenv-win-master.zip",
+          "download_url": "https://github.com/pyenv-win/pyenv-win/archive/master.zip",
+          "size": 0,
+          "md5": "",
+          "sha1": ""
+        }
+      ]
+    },
+    {
       "id": "nginx",
       "name": "Nginx",
       "developer": "official",

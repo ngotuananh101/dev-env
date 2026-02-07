@@ -45,5 +45,13 @@ module.exports = {
     nvmInstall: (version) => ipcRenderer.invoke('nvm-install', version),
     nvmUninstall: (version) => ipcRenderer.invoke('nvm-uninstall', version),
     nvmUse: (version) => ipcRenderer.invoke('nvm-use', version),
+
+    // pyenv Management
+    pyenvList: () => ipcRenderer.invoke('pyenv-list'),
+    pyenvListAvailable: () => ipcRenderer.invoke('pyenv-list-available'),
+    pyenvInstall: (version) => ipcRenderer.invoke('pyenv-install', version),
+    pyenvUninstall: (version) => ipcRenderer.invoke('pyenv-uninstall', version),
+    pyenvGlobal: (version) => ipcRenderer.invoke('pyenv-global', version),
+
     updateDefaultPhp: (version) => ipcRenderer.invoke('apps-update-default-php', version),
 };

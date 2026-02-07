@@ -396,6 +396,103 @@ async function configurePhpMyAdmin(dbManager, context) {
 }
 
 /**
+ * Post-install/Configure pyenv - Setup environment variables
+ * @param {Object} dbManager - Database Manager
+ * @param {string} installPath - pyenv installation path
+ * @returns {Promise<Object>} Result
+ */
+async function configurePyenv(dbManager, installPath) {
+    const { exec } = require('child_process');
+    const path = require('path');
+
+    logApp('Configuring pyenv environment variables...', 'CONFIG');
+
+    try {
+        // pyenv-win-master.zip extracts to pyenv-win-master/
+        // The actual pyenv structure is inside pyenv-win-master/pyenv/
+        const pyenvHome = path.join(installPath, 'pyenv-win-master', 'pyenv');
+        const pyenvBin = path.join(pyenvHome, 'bin');
+        const pyenvShims = path.join(pyenvHome, 'shims');
+
+        logApp(`PYENV_HOME: ${pyenvHome}`, 'CONFIG');
+        logApp(`PYENV_BIN: ${pyenvBin}`, 'CONFIG');
+
+        // Set system environment variables using setx
+        // Note: setx requires admin for system-wide vars, but works for user vars without admin
+        // We'll use user-level environment variables
+
+        return new Promise((resolve, reject) => {
+            const commands = [
+                `setx PYENV "${pyenvHome}"`,
+                `setx PYENV_HOME "${pyenvHome}"`,
+                `setx PYENV_ROOT "${pyenvHome}"`
+            ];
+
+            // Execute commands sequentially
+            let currentIndex = 0;
+            const executeNext = () => {
+                if (currentIndex >= commands.length) {
+                    // All commands executed, now add to PATH
+                    // Get current user PATH
+                    exec('powershell -Command "[Environment]::GetEnvironmentVariable(\'Path\', \'User\')"', (err, stdout) => {
+                        if (err) {
+                            logApp(`Failed to get PATH: ${err.message}`, 'ERROR');
+                            resolve({ success: false, error: err.message });
+                            return;
+                        }
+
+                        let currentPath = stdout.trim();
+                        const pathsToAdd = [pyenvBin, pyenvShims];
+                        let pathModified = false;
+
+                        pathsToAdd.forEach(p => {
+                            if (!currentPath.toLowerCase().includes(p.toLowerCase())) {
+                                currentPath = currentPath ? `${currentPath};${p}` : p;
+                                pathModified = true;
+                            }
+                        });
+
+                        if (pathModified) {
+                            // Update PATH
+                            const escapedPath = currentPath.replace(/"/g, '`"');
+                            exec(`powershell -Command "[Environment]::SetEnvironmentVariable('Path', '${escapedPath}', 'User')"`, (pathErr) => {
+                                if (pathErr) {
+                                    logApp(`Failed to update PATH: ${pathErr.message}`, 'ERROR');
+                                    resolve({ success: false, error: pathErr.message });
+                                } else {
+                                    logApp('pyenv environment variables configured successfully', 'CONFIG');
+                                    resolve({ success: true });
+                                }
+                            });
+                        } else {
+                            logApp('pyenv paths already in PATH', 'CONFIG');
+                            resolve({ success: true });
+                        }
+                    });
+                    return;
+                }
+
+                const cmd = commands[currentIndex];
+                exec(cmd, (error, stdout, stderr) => {
+                    if (error) {
+                        logApp(`Failed to execute: ${cmd} - ${error.message}`, 'WARNING');
+                    } else {
+                        logApp(`Executed: ${cmd}`, 'CONFIG');
+                    }
+                    currentIndex++;
+                    executeNext();
+                });
+            };
+
+            executeNext();
+        });
+    } catch (err) {
+        logApp(`Failed to configure pyenv: ${err.message}`, 'ERROR');
+        return { success: false, error: err.message };
+    }
+}
+
+/**
  * Register apps-related IPC handlers
  * @param {Electron.IpcMain} ipcMain - Electron IPC Main
  * @param {Object} context - Shared context
@@ -1545,6 +1642,186 @@ function register(ipcMain, context) {
                 // Often 'exit status 1' or 'Access is denied'
                 return { error: output || 'Failed to switch version' };
             }
+        } catch (err) {
+            return { error: err.message || err.toString() };
+        }
+    });
+
+    // ========== pyenv Management ==========
+
+    // List installed Python versions (pyenv versions)
+    ipcMain.handle('pyenv-list', async () => {
+        try {
+            const dbManager = getDbManager();
+            let pyenvPath = 'pyenv';
+            if (dbManager) {
+                const result = dbManager.query("SELECT cli_path FROM installed_apps WHERE app_id = 'pyenv'");
+                if (result && result.length > 0 && result[0].cli_path) {
+                    pyenvPath = result[0].cli_path;
+                }
+            }
+
+            const output = await runPyenvCommand('versions', pyenvPath);
+            const lines = output.split('\n');
+            const installed = [];
+            let current = '';
+
+            lines.forEach(line => {
+                line = line.trim();
+                if (!line) return;
+
+                const isCurrent = line.includes('*');
+
+                // Extract version using regex - pyenv shows versions like "* 3.12.1 (set by...)" or "  3.11.7"
+                const versionMatch = line.match(/(\d+\.\d+\.\d+)/);
+
+                if (versionMatch) {
+                    const cleanVersion = versionMatch[1];
+                    installed.push(cleanVersion);
+                    if (isCurrent) current = cleanVersion;
+                }
+            });
+
+            return { success: true, installed, current };
+        } catch (err) {
+            return { error: err.message };
+        }
+    });
+
+    // List available Python versions from python.org API
+    ipcMain.handle('pyenv-list-available', async () => {
+        try {
+            return new Promise((resolve, reject) => {
+                const https = require('https');
+
+                // Fetch from Python.org downloads API
+                https.get('https://www.python.org/api/v2/downloads/release/', {
+                    headers: { 'User-Agent': 'DevEnv' }
+                }, (res) => {
+                    let data = '';
+                    res.on('data', chunk => data += chunk);
+                    res.on('end', () => {
+                        try {
+                            const releases = JSON.parse(data);
+
+                            // Filter and process Python versions
+                            const versions = [];
+
+                            releases.forEach(release => {
+                                const name = release.name || '';
+
+                                // Match stable versions like "Python 3.12.1" or "Python 3.11.7"
+                                const versionMatch = name.match(/Python\s+(\d+\.\d+\.\d+)$/);
+
+                                if (versionMatch) {
+                                    const version = versionMatch[1];
+                                    const parts = version.split('.');
+                                    const major = parseInt(parts[0]);
+                                    const minor = parseInt(parts[1]);
+
+                                    // Only include Python 3.9+
+                                    if (major === 3 && minor >= 9) {
+                                        versions.push({
+                                            version: version,
+                                            date: release.release_date || '',
+                                            isPreRelease: release.is_published === false
+                                        });
+                                    }
+                                }
+                            });
+
+                            // Sort by version descending
+                            versions.sort((a, b) => {
+                                const partsA = a.version.split('.').map(Number);
+                                const partsB = b.version.split('.').map(Number);
+
+                                for (let i = 0; i < 3; i++) {
+                                    if (partsB[i] !== partsA[i]) return partsB[i] - partsA[i];
+                                }
+                                return 0;
+                            });
+
+                            // Limit to 30 most recent versions
+                            const limitedVersions = versions.slice(0, 30);
+
+                            resolve({
+                                success: true,
+                                versions: limitedVersions
+                            });
+                        } catch (e) {
+                            reject(e);
+                        }
+                    });
+                }).on('error', reject);
+            });
+        } catch (err) {
+            return { error: err.message };
+        }
+    });
+
+    // Install Python version
+    ipcMain.handle('pyenv-install', async (event, version) => {
+        try {
+            const dbManager = getDbManager();
+            let pyenvPath = 'pyenv';
+            if (dbManager) {
+                const result = dbManager.query("SELECT cli_path FROM installed_apps WHERE app_id = 'pyenv'");
+                if (result && result.length > 0 && result[0].cli_path) {
+                    pyenvPath = result[0].cli_path;
+                }
+            }
+
+            // pyenv install can take a while to download and install Python
+            await runPyenvCommand(`install ${version}`, pyenvPath);
+            return { success: true };
+        } catch (err) {
+            // Check if already installed
+            if (err && err.message && err.message.includes('already installed')) {
+                return { success: true, message: 'Already installed' };
+            }
+            return { error: err.message || 'Install failed' };
+        }
+    });
+
+    // Uninstall Python version
+    ipcMain.handle('pyenv-uninstall', async (event, version) => {
+        try {
+            const dbManager = getDbManager();
+            let pyenvPath = 'pyenv';
+            if (dbManager) {
+                const result = dbManager.query("SELECT cli_path FROM installed_apps WHERE app_id = 'pyenv'");
+                if (result && result.length > 0 && result[0].cli_path) {
+                    pyenvPath = result[0].cli_path;
+                }
+            }
+
+            // Use -f to force uninstall without confirmation
+            await runPyenvCommand(`uninstall -f ${version}`, pyenvPath);
+            return { success: true };
+        } catch (err) {
+            return { error: err.message };
+        }
+    });
+
+    // Set global Python version
+    ipcMain.handle('pyenv-global', async (event, version) => {
+        try {
+            const dbManager = getDbManager();
+            let pyenvPath = 'pyenv';
+            if (dbManager) {
+                const result = dbManager.query("SELECT cli_path FROM installed_apps WHERE app_id = 'pyenv'");
+                if (result && result.length > 0 && result[0].cli_path) {
+                    pyenvPath = result[0].cli_path;
+                }
+            }
+
+            const output = await runPyenvCommand(`global ${version}`, pyenvPath);
+            // pyenv global doesn't output much on success, just check for errors
+            if (output && output.toLowerCase().includes('error')) {
+                return { error: output || 'Failed to set global version' };
+            }
+
+            return { success: true };
         } catch (err) {
             return { error: err.message || err.toString() };
         }

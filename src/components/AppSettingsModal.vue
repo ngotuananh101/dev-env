@@ -82,6 +82,12 @@
                         v-else-if="activePanel === 'versions'"
                         :app="app"
                     />
+
+                    <!-- pyenv Versions Panel -->
+                    <AppSettingsPyenv
+                        v-else-if="activePanel === 'pyenv-versions'"
+                        :app="app"
+                    />
                 </div>
              </Transition>
         </div>
@@ -102,6 +108,7 @@ import AppSettingsLogs from './settings/AppSettingsLogs.vue';
 import AppSettingsExtensions from './settings/AppSettingsExtensions.vue';
 import AppSettingsPhpInfo from './settings/AppSettingsPhpInfo.vue';
 import AppSettingsNvm from './settings/AppSettingsNvm.vue';
+import AppSettingsPyenv from './settings/AppSettingsPyenv.vue';
 
 const toast = useToast();
 
@@ -138,6 +145,16 @@ const menuItems = computed(() => {
           label: 'Versions',
           tip: 'Manage Node.js versions',
           type: 'versions'
+      }];
+  }
+
+  // Special case for pyenv
+  if (props.app?.id === 'pyenv') {
+      return [{
+          id: 'pyenv-versions',
+          label: 'Versions',
+          tip: 'Manage Python versions',
+          type: 'pyenv-versions'
       }];
   }
 
@@ -210,7 +227,7 @@ const currentMenuItem = computed(() => menuItems.value.find(m => m.id === active
 watch(() => props.app?.id, () => {
     if (props.app?.id === 'phpmyadmin') {
         activePanel.value = props.app.configs?.[0]?.id || 'phpmyadmin_config';
-    } else if (props.app?.id === 'nvm') {
+    } else if (props.app?.id === 'nvm' || props.app?.id === 'pyenv') {
         activePanel.value = 'versions';
     } else {
         activePanel.value = 'service';
@@ -227,7 +244,7 @@ const serviceLogs = ref([]);
 let serviceLogUnsubscribe = null;
 
 const checkServiceStatus = async () => {
-    if (!props.app?.id || props.app?.id === 'nvm' || props.app?.id === 'phpmyadmin') return;
+    if (!props.app?.id || props.app?.id === 'nvm' || props.app?.id === 'phpmyadmin' || props.app?.id === 'pyenv') return;
     
     // Initial status check
     try {
