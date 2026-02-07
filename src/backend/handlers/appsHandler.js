@@ -48,6 +48,7 @@ const { runningNodeProcesses, restartWebServices } = require('./sitesHandler');
  */
 
 // Constants
+const APP_FILES_JSON_URL = 'https://cdn.jsdelivr.net/gh/ngotuananh101/dev-env@master/data/apps.json';
 const APP_FILES_XML_URL = 'https://archive.org/download/dev-env/dev-env_files.xml';
 const ARCHIVE_BASE_URL = 'https://archive.org/download/dev-env/';
 const { execSync } = require('child_process');
@@ -2753,6 +2754,41 @@ try {
     // Update apps list from XML
     ipcMain.handle('apps-update-list', async () => {
         try {
+            // Get lastest json file from github
+            const latestJson = await new Promise((resolve, reject) => {
+                const protocol = APP_FILES_JSON_URL.startsWith('https') ? https : http;
+
+                const request = protocol.get(APP_FILES_JSON_URL, (response) => {
+                    if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+                        const redirectUrl = response.headers.location;
+                        const redirectProtocol = redirectUrl.startsWith('https') ? https : http;
+                        return redirectProtocol.get(redirectUrl, handleResponse).on('error', reject);
+                    }
+                    handleResponse(response);
+
+                    function handleResponse(res) {
+                        if (res.statusCode !== 200) {
+                            resolve({ error: `HTTP Error: ${res.statusCode}` });
+                            return;
+                        }
+
+                        let data = '';
+                        res.on('data', chunk => data += chunk);
+                        res.on('end', () => resolve({ success: true, data }));
+                    }
+                });
+
+                request.on('error', (err) => resolve({ error: err.message }));
+                request.setTimeout(15000, () => {
+                    request.destroy();
+                    resolve({ error: 'Request timeout' });
+                });
+            });
+
+            if (latestJson.error) {
+                throw new Error(`Failed to fetch latest JSON: ${latestJson.error}`);
+            }
+
             const xmlData = await new Promise((resolve, reject) => {
                 const protocol = APP_FILES_XML_URL.startsWith('https') ? https : http;
 
@@ -2791,8 +2827,8 @@ try {
 
             let appsData;
             try {
-                const data = await fsPromises.readFile(appsJsonPath, 'utf-8');
-                appsData = JSON.parse(data);
+                // const data = await fsPromises.readFile(appsJsonPath, 'utf-8');
+                appsData = JSON.parse(latestJson.data);
             } catch (e) {
                 return { error: 'Failed to read apps.json' };
             }
