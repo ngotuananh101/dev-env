@@ -49,8 +49,6 @@ const { runningNodeProcesses, restartWebServices } = require('./sitesHandler');
 
 // Constants
 const APP_FILES_JSON_URL = 'https://cdn.jsdelivr.net/gh/ngotuananh101/dev-env@master/data/apps.json';
-const APP_FILES_XML_URL = 'https://archive.org/download/dev-env/dev-env_files.xml';
-const ARCHIVE_BASE_URL = 'https://archive.org/download/dev-env/';
 const { execSync } = require('child_process');
 
 // Shared state
@@ -132,101 +130,6 @@ function logApp(message, type = 'INFO') {
     } else {
         console.log(`${type}: ${message} (No logsDir)`);
     }
-}
-
-/**
- * Parse XML and extract versions for each app
- * @param {string} xmlString - XML content
- * @returns {Object} Versions object
- */
-function parseXmlFileVersions(xmlString) {
-    const versions = {};
-
-    const fileRegex = /<file\s+name="([^"]+)"[^>]*>([\s\S]*?)<\/file>/g;
-    let match;
-
-    while ((match = fileRegex.exec(xmlString)) !== null) {
-        const fileName = match[1];
-        const fileContent = match[2];
-
-        if (fileName.includes('_meta') || fileName.includes('.torrent') || fileName.endsWith('.xml')) {
-            continue;
-        }
-
-        const pathParts = fileName.split('/');
-        if (pathParts.length < 2) continue;
-
-        const appId = pathParts[0].toLowerCase();
-        const zipName = pathParts[1];
-
-        const version = extractVersionFromFilename(zipName, appId);
-        if (!version) continue;
-
-        const size = extractXmlValue(fileContent, 'size');
-        const md5 = extractXmlValue(fileContent, 'md5');
-        const sha1 = extractXmlValue(fileContent, 'sha1');
-
-        if (!versions[appId]) {
-            versions[appId] = [];
-        }
-
-        versions[appId].push({
-            version,
-            filename: zipName,
-            download_url: ARCHIVE_BASE_URL + fileName,
-            size: size ? parseInt(size) : 0,
-            md5: md5 || '',
-            sha1: sha1 || ''
-        });
-    }
-
-    for (const appId in versions) {
-        versions[appId].sort((a, b) => compareVersions(b.version, a.version));
-    }
-
-    return versions;
-}
-
-/**
- * Extract version number from filename
- * @param {string} filename - Filename to parse
- * @param {string} appId - App identifier
- * @returns {string|null} Version string or null
- */
-function extractVersionFromFilename(filename, appId) {
-    let versionMatch;
-
-    if (appId === 'nginx') {
-        versionMatch = filename.match(/nginx-(\d+\.\d+\.\d+)/i);
-    } else if (appId === 'apache') {
-        versionMatch = filename.match(/httpd-(\d+\.\d+\.\d+)/i);
-    } else if (appId.startsWith('php')) {
-        versionMatch = filename.match(/php-(\d+\.\d+\.\d+)/i);
-    } else if (appId === 'redis') {
-        versionMatch = filename.match(/redis-windows-(\d+\.\d+\.\d+)/i);
-    } else if (appId === 'mysql') {
-        versionMatch = filename.match(/mysql-(\d+\.\d+\.\d+)/i);
-    } else if (appId === 'mariadb') {
-        versionMatch = filename.match(/mariadb-(\d+\.\d+\.\d+)/i);
-    } else if (appId === 'postgresql') {
-        versionMatch = filename.match(/postgresql-(\d+\.\d+(?:\.\d+)?)/i);
-    } else {
-        versionMatch = filename.match(/(\d+\.\d+\.\d+)/);
-    }
-
-    return versionMatch ? versionMatch[1] : null;
-}
-
-/**
- * Extract value from XML content
- * @param {string} content - XML content
- * @param {string} tag - Tag name
- * @returns {string|null} Value or null
- */
-function extractXmlValue(content, tag) {
-    const regex = new RegExp(`<${tag}>([^<]+)</${tag}>`);
-    const match = content.match(regex);
-    return match ? match[1] : null;
 }
 
 /**
@@ -496,124 +399,6 @@ async function configurePhpMyAdmin(dbManager, context) {
     } catch (err) {
         logApp(`Failed to configure phpMyAdmin: ${err.message}`, 'ERROR');
         console.error(err);
-    }
-}
-
-/**
- * Post-install/Configure pyenv - Setup environment variables
- * @param {Object} dbManager - Database Manager
- * @param {string} installPath - pyenv installation path
- * @returns {Promise<Object>} Result
- */
-async function configurePyenv(dbManager, installPath) {
-    const { exec } = require('child_process');
-    const path = require('path');
-    const fs = require('fs');
-
-    logApp('Configuring pyenv environment variables...', 'CONFIG');
-
-    try {
-        // pyenv-win-master.zip can extract to different structures
-        // Try to find the correct path
-        let pyenvHome = null;
-        const possiblePaths = [
-            path.join(installPath, 'pyenv-win-master', 'pyenv-win'),
-            path.join(installPath, 'pyenv-win-master', 'pyenv'),
-            path.join(installPath, 'pyenv')
-        ];
-
-        for (const possiblePath of possiblePaths) {
-            const binPath = path.join(possiblePath, 'bin', 'pyenv.bat');
-            if (fs.existsSync(binPath)) {
-                pyenvHome = possiblePath;
-                logApp(`Found pyenv structure at: ${possiblePath}`, 'CONFIG');
-                break;
-            }
-        }
-
-        if (!pyenvHome) {
-            logApp('Could not find pyenv directory structure', 'ERROR');
-            return { success: false, error: 'pyenv directory not found' };
-        }
-
-        const pyenvBin = path.join(pyenvHome, 'bin');
-        const pyenvShims = path.join(pyenvHome, 'shims');
-
-        logApp(`PYENV_HOME: ${pyenvHome}`, 'CONFIG');
-        logApp(`PYENV_BIN: ${pyenvBin}`, 'CONFIG');
-
-        // Set system environment variables using setx
-        // Note: setx requires admin for system-wide vars, but works for user vars without admin
-        // We'll use user-level environment variables
-
-        return new Promise((resolve, reject) => {
-            const commands = [
-                `setx PYENV "${pyenvHome}"`,
-                `setx PYENV_HOME "${pyenvHome}"`,
-                `setx PYENV_ROOT "${pyenvHome}"`
-            ];
-
-            // Execute commands sequentially
-            let currentIndex = 0;
-            const executeNext = () => {
-                if (currentIndex >= commands.length) {
-                    // All commands executed, now add to PATH
-                    // Get current user PATH
-                    exec('powershell -Command "[Environment]::GetEnvironmentVariable(\'Path\', \'User\')"', (err, stdout) => {
-                        if (err) {
-                            logApp(`Failed to get PATH: ${err.message}`, 'ERROR');
-                            resolve({ success: false, error: err.message });
-                            return;
-                        }
-
-                        let currentPath = stdout.trim();
-                        const pathsToAdd = [pyenvBin, pyenvShims];
-                        let pathModified = false;
-
-                        pathsToAdd.forEach(p => {
-                            if (!currentPath.toLowerCase().includes(p.toLowerCase())) {
-                                currentPath = currentPath ? `${currentPath};${p}` : p;
-                                pathModified = true;
-                            }
-                        });
-
-                        if (pathModified) {
-                            // Update PATH
-                            const escapedPath = currentPath.replace(/"/g, '`"');
-                            exec(`powershell -Command "[Environment]::SetEnvironmentVariable('Path', '${escapedPath}', 'User')"`, (pathErr) => {
-                                if (pathErr) {
-                                    logApp(`Failed to update PATH: ${pathErr.message}`, 'ERROR');
-                                    resolve({ success: false, error: pathErr.message });
-                                } else {
-                                    logApp('pyenv environment variables configured successfully', 'CONFIG');
-                                    resolve({ success: true });
-                                }
-                            });
-                        } else {
-                            logApp('pyenv paths already in PATH', 'CONFIG');
-                            resolve({ success: true });
-                        }
-                    });
-                    return;
-                }
-
-                const cmd = commands[currentIndex];
-                exec(cmd, (error, stdout, stderr) => {
-                    if (error) {
-                        logApp(`Failed to execute: ${cmd} - ${error.message}`, 'WARNING');
-                    } else {
-                        logApp(`Executed: ${cmd}`, 'CONFIG');
-                    }
-                    currentIndex++;
-                    executeNext();
-                });
-            };
-
-            executeNext();
-        });
-    } catch (err) {
-        logApp(`Failed to configure pyenv: ${err.message}`, 'ERROR');
-        return { success: false, error: err.message };
     }
 }
 
@@ -3313,64 +3098,15 @@ try {
                 throw new Error(`Failed to fetch latest JSON: ${latestJson.error}`);
             }
 
-            const xmlData = await new Promise((resolve, reject) => {
-                const protocol = APP_FILES_XML_URL.startsWith('https') ? https : http;
-
-                const request = protocol.get(APP_FILES_XML_URL, (response) => {
-                    if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
-                        const redirectUrl = response.headers.location;
-                        const redirectProtocol = redirectUrl.startsWith('https') ? https : http;
-                        return redirectProtocol.get(redirectUrl, handleResponse).on('error', reject);
-                    }
-                    handleResponse(response);
-
-                    function handleResponse(res) {
-                        if (res.statusCode !== 200) {
-                            resolve({ error: `HTTP Error: ${res.statusCode}` });
-                            return;
-                        }
-
-                        let data = '';
-                        res.on('data', chunk => data += chunk);
-                        res.on('end', () => resolve({ success: true, data }));
-                    }
-                });
-
-                request.on('error', (err) => resolve({ error: err.message }));
-                request.setTimeout(15000, () => {
-                    request.destroy();
-                    resolve({ error: 'Request timeout' });
-                });
-            });
-
-            if (xmlData.error) {
-                return xmlData;
-            }
-
-            const fileVersions = parseXmlFileVersions(xmlData.data);
-
             let appsData;
             try {
-                // const data = await fsPromises.readFile(appsJsonPath, 'utf-8');
                 appsData = JSON.parse(latestJson.data);
+                appsData.lastUpdated = new Date().toISOString();
+                await fsPromises.writeFile(appsJsonPath, JSON.stringify(appsData, null, 2), 'utf-8');
+                return { success: true, updatedCount: 0, data: appsData };
             } catch (e) {
                 return { error: 'Failed to read apps.json' };
             }
-
-            let updatedCount = 0;
-            for (const app of appsData.apps) {
-                const versions = fileVersions[app.id];
-                if (versions && versions.length > 0) {
-                    app.versions = versions;
-                    updatedCount++;
-                }
-            }
-
-            appsData.lastUpdated = new Date().toISOString();
-
-            await fsPromises.writeFile(appsJsonPath, JSON.stringify(appsData, null, 2), 'utf-8');
-
-            return { success: true, updatedCount, data: appsData };
         } catch (error) {
             console.error('Failed to update apps list:', error);
             return { error: error.message };
