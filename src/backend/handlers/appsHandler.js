@@ -48,7 +48,7 @@ const { runningNodeProcesses, restartWebServices } = require('./sitesHandler');
  */
 
 // Constants
-const APP_FILES_JSON_URL = 'https://cdn.jsdelivr.net/gh/ngotuananh101/dev-env@master/data/apps.json';
+const APP_FILES_JSON_URL = 'https://raw.githubusercontent.com/ngotuananh101/dev-env/refs/heads/main/data/apps.json';
 const { execSync } = require('child_process');
 
 // Shared state
