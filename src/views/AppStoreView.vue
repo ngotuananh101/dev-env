@@ -118,7 +118,7 @@
           </div>
           <!-- Add to PATH -->
           <div class="px-2 py-2 w-24 min-w-24 text-center">
-            <label v-if="app.status === 'installed' && app.installPath && app.id !== 'phpmyadmin'"
+            <label v-if="app.status === 'installed' && app.installPath && app.id !== 'phpmyadmin' && app.id !== 'pyenv'"
               class="relative inline-flex items-center cursor-pointer" @click.prevent="appsStore.togglePath(app)">
               <input type="checkbox" :checked="app.inPath" class="sr-only peer">
               <div

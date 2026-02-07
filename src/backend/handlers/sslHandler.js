@@ -32,16 +32,13 @@ async function initializeSSL(userDataPath) {
     try {
         // Check if CA already exists
         if (fs.existsSync(caKeyPath) && fs.existsSync(caCertPath)) {
-            console.log('[SSL] CA already exists, loading...');
             const caKey = fs.readFileSync(caKeyPath, 'utf-8');
             const caCert = fs.readFileSync(caCertPath, 'utf-8');
             caInstance = { key: caKey, cert: caCert };
-            console.log('[SSL] CA loaded successfully');
             return { success: true, message: 'CA loaded', isNew: false };
         }
 
         // Create new CA
-        console.log('[SSL] Creating new CA...');
         const ca = await mkcert.createCA({
             organization: 'DevEnv Local CA',
             countryCode: 'VN',
@@ -55,8 +52,6 @@ async function initializeSSL(userDataPath) {
         fs.writeFileSync(caCertPath, ca.cert);
 
         caInstance = ca;
-        console.log('[SSL] CA created and saved successfully');
-        console.log(`[SSL] CA Certificate: ${caCertPath}`);
 
         // Auto-install CA to system on first creation
         const installResult = await installCAToSystem(caCertPath);
@@ -97,12 +92,10 @@ function checkCAInstalled() {
 
         // If command succeeds and contains certificate info, it's installed
         caInstalledInSystem = result.includes('DevEnv Local CA');
-        console.log(`[SSL] CA installed in system: ${caInstalledInSystem}`);
         return caInstalledInSystem;
     } catch (error) {
         // If certutil returns error, certificate is not found
         caInstalledInSystem = false;
-        console.log('[SSL] CA not found in system trust store');
         return false;
     }
 }
@@ -124,11 +117,8 @@ async function installCAToSystem(caCertPath) {
 
     // First check if already installed
     if (checkCAInstalled()) {
-        console.log('[SSL] CA already installed in system');
         return { success: true, alreadyInstalled: true };
     }
-
-    console.log('[SSL] Installing CA to Windows trust store...');
 
     try {
         // Use PowerShell to run certutil with admin privileges
@@ -142,10 +132,8 @@ async function installCAToSystem(caCertPath) {
                 setTimeout(() => {
                     const installed = checkCAInstalled();
                     if (installed) {
-                        console.log('[SSL] CA installed successfully');
                         resolve({ success: true, alreadyInstalled: false });
                     } else {
-                        console.log('[SSL] CA installation may have been cancelled or failed');
                         resolve({ success: false, error: 'Installation cancelled or failed' });
                     }
                 }, 1000);
@@ -186,7 +174,6 @@ async function generateCertificate(domain) {
     try {
         // Check if cert already exists
         if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
-            console.log(`[SSL] Certificate for ${domain} already exists`);
             return {
                 success: true,
                 exists: true,
@@ -195,8 +182,6 @@ async function generateCertificate(domain) {
                 domain
             };
         }
-
-        console.log(`[SSL] Generating certificate for ${domain}...`);
 
         const cert = await mkcert.createCert({
             ca: caInstance,
@@ -208,7 +193,6 @@ async function generateCertificate(domain) {
         fs.writeFileSync(keyPath, cert.key);
         fs.writeFileSync(certPath, cert.cert);
 
-        console.log(`[SSL] Certificate generated for ${domain}`);
 
         return {
             success: true,
@@ -305,7 +289,6 @@ function deleteCertificate(domain) {
         if (fs.existsSync(keyPath)) fs.unlinkSync(keyPath);
         if (fs.existsSync(certPath)) fs.unlinkSync(certPath);
 
-        console.log(`[SSL] Deleted certificate for ${domain}`);
         return { success: true };
     } catch (error) {
         console.error(`[SSL] Failed to delete certificate for ${domain}:`, error);

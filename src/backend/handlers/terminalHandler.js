@@ -12,7 +12,6 @@ let ptyModule = null;
 // Try to load node-pty
 try {
     ptyModule = require('node-pty');
-    console.log("SUCCESS: node-pty loaded successfully.");
 } catch (e) {
     console.error("FAILURE: node-pty failed to load.", e);
 }
@@ -35,7 +34,6 @@ function register(ipcMain, context) {
 
         if (ptyProcess) {
             if (options.cwd) {
-                console.log("Changing dir to:", requestedCwd);
                 ptyProcess.resize(80, 30);
                 ptyProcess.write(`Set-Location -Path "${requestedCwd}"; Clear-Host\r\n`);
             }
@@ -59,7 +57,6 @@ function register(ipcMain, context) {
                 }
             });
 
-            console.log("PTY spawned PID:", ptyProcess.pid, "CWD:", requestedCwd);
         } catch (err) {
             console.error("PTY Spawn error:", err);
             event.sender.send('terminal-data', `Error spawning shell: ${err.message}\r\n`);

@@ -1120,7 +1120,6 @@ async function restartWebServices(dbManager) {
                 const appData = app[0];
                 const status = getAppServiceStatus(service, appData.exec_path);
                 if (status.running) {
-                    console.log(`Restarting ${service} to apply changes...`);
                     await stopAppService(service, appData.exec_path);
                     await new Promise(resolve => setTimeout(resolve, 1000));
                     await startAppService(service, appData.exec_path);
