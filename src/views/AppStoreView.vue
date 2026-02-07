@@ -60,13 +60,7 @@
       </div>
 
       <!-- Virtual Scroller for Apps -->
-      <RecycleScroller
-        class="flex-1"
-        :items="filteredApps"
-        :item-size="50"
-        key-field="id"
-        v-slot="{ item: app }"
-      >
+      <RecycleScroller class="flex-1" :items="filteredApps" :item-size="50" key-field="id" v-slot="{ item: app }">
         <div class="flex items-center hover:bg-[#2a2d3e] transition-colors h-12.5 border-b border-gray-800">
           <!-- Software name -->
           <div class="px-2 py-2 w-40 min-w-40">
@@ -179,7 +173,8 @@
         <!-- Header -->
         <div class="flex items-center justify-between p-4 border-b border-gray-700">
           <div class="flex items-center space-x-3">
-            <img v-if="installingApp?.iconContent" :src="installingApp.iconContent" class="w-6 h-6" :alt="installingApp?.name" />
+            <img v-if="installingApp?.iconContent" :src="installingApp.iconContent" class="w-6 h-6"
+              :alt="installingApp?.name" />
             <component v-else :is="getAppIcon(installingApp?.icon)" class="w-6 h-6" :class="installingApp?.iconColor" />
             <div>
               <h3 class="text-white font-medium">Install {{ installingApp?.name }}</h3>
@@ -195,26 +190,27 @@
         <div class="p-4">
           <!-- Version Selection -->
           <div v-if="!isInstalling" class="space-y-3">
-             <div v-if="isLoadingVersions" class="flex flex-col items-center justify-center p-8 space-y-3">
-                <RotateCw class="w-8 h-8 text-blue-500 animate-spin" />
-                <span class="text-gray-400">Loading versions...</span>
+            <div v-if="isLoadingVersions" class="flex flex-col items-center justify-center p-8 space-y-3">
+              <RotateCw class="w-8 h-8 text-blue-500 animate-spin" />
+              <span class="text-gray-400">Loading versions...</span>
             </div>
-            <div v-else-if="!installingApp?.versions || installingApp?.versions.length === 0" class="text-center p-8 text-gray-500">
-                No versions available for this application.
+            <div v-else-if="!installingApp?.versions || installingApp?.versions.length === 0"
+              class="text-center p-8 text-gray-500">
+              No versions available for this application.
             </div>
             <div v-else>
-                <label class="text-gray-300 text-sm">Select Version:</label>
-                <div class="space-y-2 max-h-48 overflow-y-auto mt-2">
+              <label class="text-gray-300 text-sm">Select Version:</label>
+              <div class="space-y-2 max-h-48 overflow-y-auto mt-2">
                 <label v-for="ver in installingApp?.versions" :key="ver.version"
-                    class="flex items-center space-x-3 p-3 bg-background rounded cursor-pointer hover:bg-[#333] border border-transparent"
-                    :class="{ 'border-blue-500 bg-[#333]': selectedVersion?.version === ver.version }">
-                    <input type="radio" :value="ver" v-model="selectedVersion" class="text-blue-500">
-                    <div class="flex-1">
+                  class="flex items-center space-x-3 p-3 bg-background rounded cursor-pointer hover:bg-[#333] border border-transparent"
+                  :class="{ 'border-blue-500 bg-[#333]': selectedVersion?.version === ver.version }">
+                  <input type="radio" :value="ver" v-model="selectedVersion" class="text-blue-500">
+                  <div class="flex-1">
                     <span class="text-white">{{ ver.version }}</span>
-                    <span class="text-gray-500 text-xs ml-2">{{ formatBytes(ver.size) }}</span>
-                    </div>
+                    <span v-if="ver.size > 0" class="text-gray-500 text-xs ml-2">{{ formatBytes(ver.size) }}</span>
+                  </div>
                 </label>
-                </div>
+              </div>
             </div>
           </div>
 
@@ -248,7 +244,8 @@
             @click="isInstalling ? cancelInstall() : closeInstallModal()">
             {{ isCancelling ? 'Cancelling...' : (isInstalling ? 'Cancel' : 'Close') }}
           </BaseButton>
-          <BaseButton variant="success" :disabled="!selectedVersion || isInstalling || isLoadingVersions" @click="confirmInstall">
+          <BaseButton variant="success" :disabled="!selectedVersion || isInstalling || isLoadingVersions"
+            @click="confirmInstall">
             {{ isInstalling ? 'Installing...' : 'Install' }}
           </BaseButton>
         </div>
@@ -418,29 +415,29 @@ const openInstallModal = (app) => {
 
   // Check if we need to fetch versions (MariaDB)
   if (app.id === 'mariadb') {
-      isLoadingVersions.value = true;
-      // Clear existing versions to avoid confusion
-      installingApp.value = { ...app, versions: [] };
-      
-      window.sysapi.apps.getVersions('mariadb')
-        .then(versions => {
-            if (installingApp.value && installingApp.value.id === 'mariadb') {
-                installingApp.value.versions = versions;
-                if (versions.length > 0) {
-                    selectedVersion.value = versions[0];
-                }
-            }
-        })
-        .catch(err => {
-            console.error('Failed to fetch versions:', err);
-            toast.error('Failed to fetch versions');
-        })
-        .finally(() => {
-            isLoadingVersions.value = false;
-        });
+    isLoadingVersions.value = true;
+    // Clear existing versions to avoid confusion
+    installingApp.value = { ...app, versions: [] };
+
+    window.sysapi.apps.getVersions('mariadb')
+      .then(versions => {
+        if (installingApp.value && installingApp.value.id === 'mariadb') {
+          installingApp.value.versions = versions;
+          if (versions.length > 0) {
+            selectedVersion.value = versions[0];
+          }
+        }
+      })
+      .catch(err => {
+        console.error('Failed to fetch versions:', err);
+        toast.error('Failed to fetch versions');
+      })
+      .finally(() => {
+        isLoadingVersions.value = false;
+      });
   } else {
-      isLoadingVersions.value = false;
-      selectedVersion.value = app.versions && app.versions.length > 0 ? app.versions[0] : null;
+    isLoadingVersions.value = false;
+    selectedVersion.value = app.versions && app.versions.length > 0 ? app.versions[0] : null;
   }
 };
 
