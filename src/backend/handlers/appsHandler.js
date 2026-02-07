@@ -794,6 +794,14 @@ function register(ipcMain, context) {
             return await getPhpVersions(branch);
         }
 
+        if (appId === 'nginx') {
+            return await getNginxVersions();
+        }
+
+        if (appId === 'postgresql') {
+            return await getPostgresVersions();
+        }
+
         if (appId !== 'mariadb') return [];
 
         try {
@@ -1287,6 +1295,144 @@ try {
             return { error: err.message };
         }
     }
+
+    /**
+     * Fetch Nginx versions from nginx.org
+     */
+    const getNginxVersions = () => {
+        return new Promise((resolve) => {
+            const url = 'https://nginx.org/en/download.html';
+            const https = require('https');
+
+            https.get(url, (res) => {
+                let data = '';
+                res.on('data', (chunk) => data += chunk);
+                res.on('end', () => {
+                    try {
+                        const regex = /href="\/download\/nginx-([\d\.]+)\.zip"/g;
+                        let match;
+                        const versions = [];
+                        const seen = new Set();
+
+                        while ((match = regex.exec(data)) !== null) {
+                            const version = match[1];
+                            if (!seen.has(version)) {
+                                seen.add(version);
+                                versions.push({
+                                    version: version,
+                                    filename: `nginx-${version}.zip`,
+                                    download_url: `https://nginx.org/download/nginx-${version}.zip`,
+                                    size: 0,
+                                    md5: "",
+                                    sha1: ""
+                                });
+                            }
+                        }
+                        resolve(versions);
+                    } catch (e) {
+                        console.error('Failed to parse Nginx versions:', e);
+                        resolve([]);
+                    }
+                });
+            }).on('error', (err) => {
+                console.error('Failed to fetch Nginx versions:', err);
+                resolve([]);
+            });
+        });
+    };
+
+    /**
+     * Fetch PostgreSQL versions from EnterpriseDB
+     */
+    const getPostgresVersions = () => {
+        return new Promise((resolve) => {
+            const url = 'https://www.enterprisedb.com/download-postgresql-binaries';
+            const https = require('https');
+            const options = {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                }
+            };
+
+            https.get(url, options, (res) => {
+                let data = '';
+                res.on('data', (chunk) => data += chunk);
+                res.on('end', () => {
+                    try {
+                        const html = data;
+                        const versions = [];
+                        const winRegex = /Windows x86-64/g;
+                        let match;
+                        const seen = new Set();
+
+                        while ((match = winRegex.exec(html)) !== null) {
+                            const winIndex = match.index;
+
+                            // Look at context around "Windows x86-64"
+                            // 400 chars before, 400 chars after
+                            const start = Math.max(0, winIndex - 400);
+                            const end = Math.min(html.length, winIndex + 400);
+                            const context = html.substring(start, end);
+
+                            // Check for "Not supported" close to "Windows x86-64"
+                            const notSupportedIndex = context.indexOf('Not supported');
+                            if (notSupportedIndex !== -1) {
+                                const winRelIndex = winIndex - start;
+                                if (Math.abs(notSupportedIndex - winRelIndex) < 150) {
+                                    continue; // Skip unsupported
+                                }
+                            }
+
+                            // Find link AFTER "Windows x86-64"
+                            const linkMatch = context.match(/href="([^"]*getfile\.jsp\?fileid=\d+)"/);
+
+                            if (linkMatch) {
+                                const link = linkMatch[1];
+
+                                // Find version BEFORE "Windows x86-64"
+                                const beforeWin = context.substring(0, 400); // approx context before
+                                // Try structural regex first: >X.Y<
+                                const verRegex = />(\d{1,2}\.\d+(\.\d+)?)</g;
+                                let verMatch;
+                                let lastVer = null;
+
+                                while ((verMatch = verRegex.exec(beforeWin)) !== null) {
+                                    lastVer = verMatch[1];
+                                }
+
+                                // Fallback to word regex if no >X.Y< found
+                                if (!lastVer) {
+                                    const simpleVer = /\b(\d{1,2}\.\d+(\.\d+)?)\b/g;
+                                    while ((verMatch = simpleVer.exec(beforeWin)) !== null) {
+                                        lastVer = verMatch[1];
+                                    }
+                                }
+
+                                if (lastVer && !seen.has(lastVer)) {
+                                    seen.add(lastVer);
+                                    versions.push({
+                                        version: lastVer,
+                                        filename: `postgresql-${lastVer}-windows-x64-binaries.zip`,
+                                        download_url: link,
+                                        size: 0,
+                                        md5: "",
+                                        sha1: ""
+                                    });
+                                }
+                            }
+                        }
+                        resolve(versions);
+                    } catch (e) {
+                        console.error('Failed to parse PostgreSQL versions:', e);
+                        resolve([]);
+                    }
+                });
+            }).on('error', (err) => {
+                console.error('Failed to fetch PostgreSQL versions:', err);
+                resolve([]);
+            });
+        });
+    };
 
     /**
      * Install pyenv using official PowerShell script

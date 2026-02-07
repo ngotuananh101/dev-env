@@ -278,56 +278,7 @@
           "type": "postgresql"
         }
       ],
-      "versions": [
-        {
-          "version": "18.1",
-          "filename": "postgresql-18.1-2-windows-x64-binaries.zip",
-          "download_url": "https://archive.org/download/dev-env/postgresql/postgresql-18.1-2-windows-x64-binaries.zip",
-          "size": 337451273,
-          "md5": "4aab8c633b9c9e38aa8a990b3d7653a6",
-          "sha1": "beb84e10f9c71e984fa647588733d4e5231853ad"
-        },
-        {
-          "version": "17.7",
-          "filename": "postgresql-17.7-2-windows-x64-binaries.zip",
-          "download_url": "https://archive.org/download/dev-env/postgresql/postgresql-17.7-2-windows-x64-binaries.zip",
-          "size": 333961446,
-          "md5": "d382d8f04f46b37abca03ebcd65b31cc",
-          "sha1": "f57285f89b252b511c05a353837b6a6dbaa4ee19"
-        },
-        {
-          "version": "16.11",
-          "filename": "postgresql-16.11-2-windows-x64-binaries.zip",
-          "download_url": "https://archive.org/download/dev-env/postgresql/postgresql-16.11-2-windows-x64-binaries.zip",
-          "size": 325818924,
-          "md5": "207d16f14a4c4ebcf18c91cb55f0a007",
-          "sha1": "cead964ce03fd6d48dfa766c4b89eb13a2a543e5"
-        },
-        {
-          "version": "15.15",
-          "filename": "postgresql-15.15-2-windows-x64-binaries.zip",
-          "download_url": "https://archive.org/download/dev-env/postgresql/postgresql-15.15-2-windows-x64-binaries.zip",
-          "size": 323749571,
-          "md5": "5d74bdf3de4132eabcdf31d3c2fa7986",
-          "sha1": "b2509791a732b7720727a88ccf4ac7e3542231ea"
-        },
-        {
-          "version": "14.20",
-          "filename": "postgresql-14.20-2-windows-x64-binaries.zip",
-          "download_url": "https://archive.org/download/dev-env/postgresql/postgresql-14.20-2-windows-x64-binaries.zip",
-          "size": 321337681,
-          "md5": "40b98d4be4065bc3e0a815f5d494b327",
-          "sha1": "151c416c3e26352004d7c26dd160978f61316423"
-        },
-        {
-          "version": "13.23",
-          "filename": "postgresql-13.23-1-windows-x64-binaries.zip",
-          "download_url": "https://archive.org/download/dev-env/postgresql/postgresql-13.23-1-windows-x64-binaries.zip",
-          "size": 318646219,
-          "md5": "acbd1b88a2f79d97c4d7502eb711258c",
-          "sha1": "da37b14042f5b6e43ab81df5d36906a3dfe367ef"
-        }
-      ]
+      "versions": []
     },
     {
       "id": "php8.2",
