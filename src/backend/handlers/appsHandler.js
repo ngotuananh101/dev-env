@@ -836,7 +836,8 @@ function register(ipcMain, context) {
                                 await dbManager.query("UPDATE settings SET value = ? WHERE key = 'default_php_version'", [phpVersion]);
                                 logApp(`Default PHP version updated to ${phpVersion}`, 'CONFIG');
                             }
-                        } else if (appId === 'apache') {
+                        }
+                        else if (appId === 'apache') {
                             logApp('Configuring Apache...', 'CONFIG');
                             try {
                                 const serverRoot = path.dirname(path.dirname(execPath));
@@ -897,7 +898,8 @@ function register(ipcMain, context) {
                                 logApp(`Failed to configure Apache: ${configErr.message}`, 'ERROR');
                                 console.error('Apache config error:', configErr);
                             }
-                        } else if (appId === 'nginx') {
+                        }
+                        else if (appId === 'nginx') {
                             logApp('Configuring Nginx...', 'CONFIG');
                             try {
                                 const serverRoot = path.dirname(execPath);
@@ -943,7 +945,8 @@ function register(ipcMain, context) {
                                 logApp(`Failed to configure Nginx: ${configErr.message}`, 'ERROR');
                                 console.error('Nginx config error:', configErr);
                             }
-                        } else if (appId === 'phpmyadmin') {
+                        }
+                        else if (appId === 'phpmyadmin') {
                             await configurePhpMyAdmin(dbManager, context, execPath);
                         }
                     }
@@ -1692,7 +1695,6 @@ function register(ipcMain, context) {
                 path.join(installPath, 'log'),
                 path.join(path.dirname(app.exec_path), 'logs'),
                 path.join(path.dirname(app.exec_path), 'log'),
-                // For MySQL/MariaDB, logs might be in data folder
                 path.join(installPath, 'data')
             ];
 

@@ -23,6 +23,9 @@ let onServiceChangeCallback = null;
 // Import logApp function reference
 let logAppFn = null;
 
+// Context
+let currentContext = {};
+
 function logApp(message, type = 'INFO') {
     if (logAppFn) {
         logAppFn(message, type);
@@ -152,6 +155,22 @@ async function startAppService(appId, execPath, args) {
                         });
                     }
 
+                    // Load default config
+                    const defaultIniPath = path.join(dataDir, 'my.ini');
+                    const templateIniPath = path.join(currentContext.appDir, 'data', 'config', 'my.ini');
+                    // check if template config exists
+                    if (fs.existsSync(templateIniPath)) {
+                        let iniContent = fs.readFileSync(templateIniPath, 'utf-8');
+                        // Replace [dataDir] placeholder
+                        iniContent = iniContent.replace(/\[dataDir\]/g, dataDir.replace(/\\/g, '/'));
+                        // Replace [pluginDir] placeholder
+                        const pluginDir = path.join(baseDir, 'lib', 'plugin').replace(/\\/g, '/');
+                        iniContent = iniContent.replace(/\[pluginDir\]/g, pluginDir);
+
+                        fs.writeFileSync(defaultIniPath, iniContent, 'utf-8');
+                        logApp(`Wrote default my.ini config to ${defaultIniPath}`, 'SERVICE');
+                    }
+
                     logApp(`${appId === 'mariadb' ? 'MariaDB' : 'MySQL'} initialized successfully.`, 'SERVICE');
                 } catch (initErr) {
                     logApp(`${appId === 'mariadb' ? 'MariaDB' : 'MySQL'} initialization failed: ${initErr.message}`, 'ERROR');
@@ -186,6 +205,25 @@ async function startAppService(appId, execPath, args) {
                         cwd: execDir,
                         stdio: 'inherit'
                     });
+
+                    // Load default config
+                    const defaultConfPath = path.join(dataDir, 'postgresql.conf');
+                    const localConfPath = path.join(currentContext.appDir, 'data', 'config', 'postgresql.local.conf');
+                    // Check if local config exists
+                    if (fs.existsSync(localConfPath)) {
+                        let confContent = fs.readFileSync(defaultConfPath, 'utf-8');
+
+                        // Include custom config at the end of postgresql.conf
+                        confContent += `\n# Include custom local config\ninclude 'postgresql.local.conf'\n`;
+
+                        // Copy local config file
+                        const localConfDestPath = path.join(dataDir, 'postgresql.local.conf');
+                        fs.copyFileSync(localConfPath, localConfDestPath);
+                        logApp(`Copied local config to ${localConfDestPath}`, 'SERVICE');
+
+                        fs.writeFileSync(defaultConfPath, confContent, 'utf-8');
+                        logApp(`Updated postgresql.conf to include local config`, 'SERVICE');
+                    }
 
                     logApp('PostgreSQL initialized successfully.', 'SERVICE');
                 } catch (initErr) {
@@ -273,6 +311,8 @@ async function startAppService(appId, execPath, args) {
  * @param {Object} context - Shared context
  */
 function register(ipcMain, context) {
+    currentContext = context;
+
     const { getDbManager } = context;
 
     // Use shared logApp if provided

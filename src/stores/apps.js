@@ -306,14 +306,6 @@ export const useAppsStore = defineStore('apps', () => {
         try {
             const startArgs = app.service_commands?.start || app.customArgs || '';
             const stopArgs = app.service_commands?.stop || '';
-            // Assuming window.sysapi.apps.restartService exists or we chain stop/start?
-            // The view used `restartServiceApi` from composable. 
-            // Let's assume there is a restart capability or the composable did logic.
-            // If composable did logic, we should probably check it.
-            // For now, I'll assume sysapi.apps.restartService exists or I implement stop-then-start.
-            // Safest is stop then start if no direct restart.
-            // Actually, let's check `d:\Source\ponta\dev-env\src\backend\handlers\appsHandler.js` if possible or just assume standard.
-            // I'll leave it simple:
             const result = await window.sysapi.apps.restartService(app.id, app.execPath, startArgs, stopArgs);
             if (result.success) {
                 app.serviceRunning = true;
