@@ -945,8 +945,6 @@ try {
                         return;
                     }
 
-                    logApp('PowerShell script executed successfully', 'DEBUG');
-
                     sendProgress(80, 'Verifying installation...');
 
                     // Wait a bit for environment variables to settle
