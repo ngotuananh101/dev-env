@@ -95,24 +95,7 @@
         "stop": "-s stop",
         "restart": "-s reload"
       },
-      "versions": [
-        {
-          "version": "1.29.4",
-          "filename": "nginx-1.29.4.zip",
-          "download_url": "https://archive.org/download/dev-env/nginx/nginx-1.29.4.zip",
-          "size": 2754422,
-          "md5": "3158f5532b5696a715bca8df45ff4500",
-          "sha1": "9af178035693fe67463e852eb01220042e23c040"
-        },
-        {
-          "version": "1.28.1",
-          "filename": "nginx-1.28.1.zip",
-          "download_url": "https://archive.org/download/dev-env/nginx/nginx-1.28.1.zip",
-          "size": 2738025,
-          "md5": "0c749bf9ca7793e44dbe282b0297a89d",
-          "sha1": "293865640071981e4383a9b3612ed501c8a13fcf"
-        }
-      ]
+      "versions": []
     },
     {
       "id": "apache",
