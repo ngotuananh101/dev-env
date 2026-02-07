@@ -413,8 +413,8 @@ const openInstallModal = (app) => {
   isCancelling.value = false;
   selectedVersion.value = null;
 
-  // Check if we need to fetch versions (MariaDB or Redis)
-  if (app.id === 'mariadb' || app.id === 'redis') {
+  // Check if we need to fetch versions (MariaDB, Redis, or PHP)
+  if (app.id === 'mariadb' || app.id === 'redis' || app.id.startsWith('php')) {
     isLoadingVersions.value = true;
     // Clear existing versions to avoid confusion
     installingApp.value = { ...app, versions: [] };

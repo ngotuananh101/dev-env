@@ -350,16 +350,7 @@
           "type": "php"
         }
       ],
-      "versions": [
-        {
-          "version": "8.2.30",
-          "filename": "php-8.2.30-nts-Win32-vs16-x64.zip",
-          "download_url": "https://archive.org/download/dev-env/php8.2/php-8.2.30-nts-Win32-vs16-x64.zip",
-          "size": 31854948,
-          "md5": "30a129e6068aac4636e2270bbf5a9b1c",
-          "sha1": "5d9f4e558ab2fe485070c651589476fb8d702042"
-        }
-      ]
+      "versions": []
     },
     {
       "id": "php8.3",
@@ -382,24 +373,7 @@
           "type": "php"
         }
       ],
-      "versions": [
-        {
-          "version": "8.3.30",
-          "filename": "php-8.3.30-nts-Win32-vs16-x64.zip",
-          "download_url": "https://archive.org/download/dev-env/php8.3/php-8.3.30-nts-Win32-vs16-x64.zip",
-          "size": 32258211,
-          "md5": "6b7fdf1b07b3cad7ef88ff0a1e5d72bf",
-          "sha1": "e34796f44d25d2dcea557d6627c9d5dc4200e6b1"
-        },
-        {
-          "version": "8.3.29",
-          "filename": "php-8.3.29-nts-Win32-vs16-x64.zip",
-          "download_url": "https://archive.org/download/dev-env/php8.3/php-8.3.29-nts-Win32-vs16-x64.zip",
-          "size": 32253427,
-          "md5": "d118f058bfcca87e3eb3db65da7ab158",
-          "sha1": "a87274bc3d18bde1365841891d50d5794c6cb774"
-        }
-      ]
+      "versions": []
     },
     {
       "id": "php8.4",
@@ -422,24 +396,7 @@
           "type": "php"
         }
       ],
-      "versions": [
-        {
-          "version": "8.4.17",
-          "filename": "php-8.4.17-nts-Win32-vs17-x64.zip",
-          "download_url": "https://archive.org/download/dev-env/php8.4/php-8.4.17-nts-Win32-vs17-x64.zip",
-          "size": 33876164,
-          "md5": "520212f79464a668f07df32b81dc9443",
-          "sha1": "d0c6dd9d6d1b264de3cddc04d092e4f4ad790dbf"
-        },
-        {
-          "version": "8.4.16",
-          "filename": "php-8.4.16-nts-Win32-vs17-x64.zip",
-          "download_url": "https://archive.org/download/dev-env/php8.4/php-8.4.16-nts-Win32-vs17-x64.zip",
-          "size": 33518157,
-          "md5": "8937c723d7317090f6985a77ab43c412",
-          "sha1": "707c6f12aa317aaed7c96c9f0e4effe0cb10540c"
-        }
-      ]
+      "versions": []
     },
     {
       "id": "php8.5",
@@ -462,24 +419,7 @@
           "type": "php"
         }
       ],
-      "versions": [
-        {
-          "version": "8.5.2",
-          "filename": "php-8.5.2-nts-Win32-vs17-x64.zip",
-          "download_url": "https://archive.org/download/dev-env/php8.5/php-8.5.2-nts-Win32-vs17-x64.zip",
-          "size": 34939853,
-          "md5": "cd04fccfcb4f4c5a2c9a7e4cdbc08c1e",
-          "sha1": "0c0a95d1208b34a787fec4727209e469bf0de1a8"
-        },
-        {
-          "version": "8.5.1",
-          "filename": "php-8.5.1-nts-Win32-vs17-x64.zip",
-          "download_url": "https://archive.org/download/dev-env/php8.5/php-8.5.1-nts-Win32-vs17-x64.zip",
-          "size": 34580983,
-          "md5": "49adb917236ac7edd6e9f8e54f977062",
-          "sha1": "65482d2cc30642e4f8056a6305373abbbb3da852"
-        }
-      ]
+      "versions": []
     },
     {
       "id": "phpmyadmin",

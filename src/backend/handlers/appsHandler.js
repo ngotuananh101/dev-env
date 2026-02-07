@@ -789,6 +789,11 @@ function register(ipcMain, context) {
             return await getRedisVersions();
         }
 
+        if (appId.startsWith('php') && !isNaN(parseFloat(appId.replace('php', '')))) {
+            const branch = appId.replace('php', '');
+            return await getPhpVersions(branch);
+        }
+
         if (appId !== 'mariadb') return [];
 
         try {
@@ -917,6 +922,89 @@ function register(ipcMain, context) {
                 });
             }).on('error', (err) => {
                 console.error('Failed to fetch Redis versions:', err);
+                resolve([]);
+            });
+        });
+    };
+
+    /**
+    * Fetch PHP versions from PHP.net API
+    * @param {string} branch - PHP branch (e.g., "8.2", "8.3")
+    */
+    const getPhpVersions = (branch) => {
+        return new Promise((resolve) => {
+            const url = `https://www.php.net/releases/index.php?json&version=${branch}`;
+            const https = require('https');
+
+            // Helper to check URL existence and content type
+            const checkUrl = (url) => {
+                return new Promise((resolveCheck) => {
+                    const req = https.request(url, { method: 'HEAD' }, (res) => {
+                        const isSuccess = res.statusCode >= 200 && res.statusCode < 400;
+                        const contentType = res.headers['content-type'] || '';
+                        const isZip = contentType.includes('zip') || contentType.includes('octet-stream');
+                        resolveCheck(isSuccess && isZip);
+                    });
+                    req.on('error', () => resolveCheck(false));
+                    req.end();
+                });
+            };
+
+            https.get(url, (res) => {
+                let data = '';
+                res.on('data', (chunk) => data += chunk);
+                res.on('end', async () => {
+                    try {
+                        const json = JSON.parse(data);
+                        const version = json.version; // e.g., "8.2.30"
+
+                        if (version) {
+                            // Determine VS version: 8.4+ uses VS17, older uses VS16 (mostly)
+                            const isVS17 = parseFloat(branch) >= 8.4;
+                            const vsString = isVS17 ? 'vs17' : 'vs16';
+                            const filename = `php-${version}-nts-Win32-${vsString}-x64.zip`;
+
+                            // Potential URLs
+                            const urls = [
+                                // Archives (user provided)
+                                `https://downloads.php.net/~windows/releases/archives/${filename}`,
+                                // Standard Release
+                                `https://windows.php.net/downloads/releases/${filename}`,
+                                // QA / RC
+                                `https://windows.php.net/downloads/releases/qa/${filename}`
+                            ];
+
+                            let validUrl = null;
+                            for (const u of urls) {
+                                if (await checkUrl(u)) {
+                                    validUrl = u;
+                                    break;
+                                }
+                            }
+
+                            if (validUrl) {
+                                resolve([{
+                                    version: version,
+                                    filename: filename,
+                                    download_url: validUrl,
+                                    size: 0,
+                                    md5: "",
+                                    sha1: ""
+                                }]);
+                            } else {
+                                console.warn(`No valid URL found for PHP ${version}`);
+                                resolve([]);
+                            }
+                        } else {
+                            resolve([]);
+                        }
+                    } catch (e) {
+                        console.error(`Failed to parse PHP API for ${branch}:`, e);
+                        resolve([]);
+                    }
+                });
+            }).on('error', (err) => {
+                console.error(`Failed to fetch PHP ${branch} versions:`, err);
                 resolve([]);
             });
         });
