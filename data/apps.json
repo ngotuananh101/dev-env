@@ -50,8 +50,8 @@
       "icon_file": "Python.svg",
       "iconColor": "text-blue-400",
       "autostart": false,
-      "exec_file": "pyenv\\bin\\pyenv.bat",
-      "cli_file": "pyenv\\bin\\pyenv.bat",
+      "exec_file": "pyenv",
+      "cli_file": "pyenv",
       "configs": [],
       "service_commands": {
         "start": "",
@@ -60,9 +60,9 @@
       },
       "versions": [
         {
-          "version": "3.1.1",
-          "filename": "pyenv-win-master.zip",
-          "download_url": "https://github.com/pyenv-win/pyenv-win/archive/master.zip",
+          "version": "stable",
+          "filename": "install-pyenv-win.ps1",
+          "download_url": "https://raw.githubusercontent.com/pyenv-win/pyenv-win/master/pyenv-win/install-pyenv-win.ps1",
           "size": 0,
           "md5": "",
           "sha1": ""

@@ -227,8 +227,10 @@ const currentMenuItem = computed(() => menuItems.value.find(m => m.id === active
 watch(() => props.app?.id, () => {
     if (props.app?.id === 'phpmyadmin') {
         activePanel.value = props.app.configs?.[0]?.id || 'phpmyadmin_config';
-    } else if (props.app?.id === 'nvm' || props.app?.id === 'pyenv') {
+    } else if (props.app?.id === 'nvm') {
         activePanel.value = 'versions';
+    } else if (props.app?.id === 'pyenv') {
+        activePanel.value = 'pyenv-versions';
     } else {
         activePanel.value = 'service';
     }

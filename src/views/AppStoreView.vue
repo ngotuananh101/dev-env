@@ -92,7 +92,7 @@
           </div>
           <!-- Status -->
           <div class="px-2 py-2 w-16 min-w-16 text-center">
-            <div v-if="app.status === 'installed' && app.execPath && !['nvm', 'phpmyadmin'].includes(app.id)"
+            <div v-if="app.status === 'installed' && app.execPath && !['nvm', 'phpmyadmin', 'pyenv'].includes(app.id)"
               class="flex items-center justify-center space-x-1">
               <!-- Service is running -->
               <template v-if="app.serviceRunning">
