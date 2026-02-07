@@ -452,7 +452,7 @@ const openPgAdmin = async () => {
 };
 
 const openPhpMyAdmin = () => {
-  window.sysapi.sites.openBrowser('http://localhost/phpmyadmin');
+  window.sysapi.sites.openBrowser('http://localhost/phpmyadmin/');
 };
 
 const dropDatabase = async (dbName) => {
@@ -502,6 +502,7 @@ const changePassword = async (username, host) => {
   loading.value = true;
   try {
     const result = await dbStore.changePassword(
+      activeTab.value,
       username,
       host,
       userPasswords.value[username]

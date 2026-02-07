@@ -341,7 +341,7 @@ async function configurePhpMyAdmin(dbManager, context) {
         fastcgi_param  SCRIPT_FILENAME $request_filename;
     }
 }`;
-                const nginxStaticDir = path.join(appDir, 'static', 'nginx');
+                const nginxStaticDir = path.join(context.userDataPath, 'static', 'nginx');
                 if (!fs.existsSync(nginxStaticDir)) {
                     await fsPromises.mkdir(nginxStaticDir, { recursive: true });
                 }
@@ -359,7 +359,7 @@ async function configurePhpMyAdmin(dbManager, context) {
         SetHandler "proxy:fcgi://127.0.0.1:${phpPort}"
     </FilesMatch>
 </Directory>`;
-                const apacheStaticDir = path.join(appDir, 'static', 'apache');
+                const apacheStaticDir = path.join(context.userDataPath, 'static', 'apache');
                 if (!fs.existsSync(apacheStaticDir)) {
                     await fsPromises.mkdir(apacheStaticDir, { recursive: true });
                 }
