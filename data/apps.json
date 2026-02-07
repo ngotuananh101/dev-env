@@ -140,24 +140,7 @@
         "stop": "-k stop",
         "restart": "-k restart"
       },
-      "versions": [
-        {
-          "version": "2.4.66",
-          "filename": "httpd-2.4.66-260107-Win64-VS18.zip",
-          "download_url": "https://archive.org/download/dev-env/apache/httpd-2.4.66-260107-Win64-VS18.zip",
-          "size": 12363215,
-          "md5": "4870f836409d98e87fd8153c4617b3f9",
-          "sha1": "76d95b781bd9a1c18fc4b5e8c3697bce3d73a5ab"
-        },
-        {
-          "version": "2.4.66",
-          "filename": "httpd-2.4.66-260131-Win64-VS18.zip",
-          "download_url": "https://archive.org/download/dev-env/apache/httpd-2.4.66-260131-Win64-VS18.zip",
-          "size": 12328196,
-          "md5": "3ffc88dbb414e25dbb0c93da277591eb",
-          "sha1": "fe6b214790a1a42e237e5315d9630f42d6bd27bd"
-        }
-      ]
+      "versions": []
     },
     {
       "id": "mysql",

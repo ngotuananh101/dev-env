@@ -802,6 +802,10 @@ function register(ipcMain, context) {
             return await getPostgresVersions();
         }
 
+        if (appId === 'apache') {
+            return await getApacheVersions();
+        }
+
         if (appId !== 'mariadb') return [];
 
         try {
@@ -1429,6 +1433,73 @@ try {
                 });
             }).on('error', (err) => {
                 console.error('Failed to fetch PostgreSQL versions:', err);
+                resolve([]);
+            });
+        });
+    };
+
+    /**
+     * Fetch Apache versions from Apache Lounge
+     */
+    const getApacheVersions = () => {
+        return new Promise((resolve) => {
+            const url = 'https://www.apachelounge.com/download/';
+            const https = require('https');
+            const options = {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                }
+            };
+
+            https.get(url, options, (res) => {
+                let data = '';
+                res.on('data', (chunk) => data += chunk);
+                res.on('end', () => {
+                    try {
+                        const html = data;
+                        // Regex: href="VS18/binaries/httpd-2.4.66-260131-Win64-VS18.zip"
+                        // Target: httpd-([\d\.]+)-([\d]+)-Win64-VS(\d+).zip
+                        // Simplified to capture relative url and components
+                        const regex = /href="([^"]*httpd-([\d\.]+)-([a-zA-Z0-9]+)-Win64-VS(\d+)\.zip)"/g;
+                        let match;
+                        const versions = [];
+                        const seen = new Set();
+
+                        while ((match = regex.exec(html)) !== null) {
+                            const relativeUrl = match[1];
+                            const version = match[2]; // e.g. 2.4.66
+                            const build = match[3];   // e.g. 260131
+                            const vs = match[4];      // e.g. 18
+                            const fullVersion = `${version}-${build}`;
+
+                            if (!seen.has(fullVersion)) {
+                                seen.add(fullVersion);
+                                // Construct full URL. Apache Lounge links are sometimes relative to current path or root.
+                                // The regex captures "VS18/binaries/..." usually.
+                                // If it starts with http, use it. Otherwise append to base.
+                                let downloadUrl = relativeUrl;
+                                if (!downloadUrl.startsWith('http')) {
+                                    downloadUrl = `https://www.apachelounge.com/download/${relativeUrl}`;
+                                }
+
+                                versions.push({
+                                    version: version,
+                                    filename: `httpd-${version}-${build}-Win64-VS${vs}.zip`,
+                                    download_url: downloadUrl,
+                                    size: 0,
+                                    md5: "",
+                                    sha1: ""
+                                });
+                            }
+                        }
+                        resolve(versions);
+                    } catch (e) {
+                        console.error('Failed to parse Apache versions:', e);
+                        resolve([]);
+                    }
+                });
+            }).on('error', (err) => {
+                console.error('Failed to fetch Apache versions:', err);
                 resolve([]);
             });
         });
