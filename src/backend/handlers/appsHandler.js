@@ -782,6 +782,99 @@ function register(ipcMain, context) {
     });
 
     /**
+     * Fetch MariaDB versions from REST API
+     */
+    ipcMain.handle('apps-get-versions', async (event, appId) => {
+        if (appId !== 'mariadb') return [];
+
+        try {
+            return new Promise((resolve) => {
+                const get = (url) => {
+                    return new Promise((resolve, reject) => {
+                        const https = require('https');
+                        https.get(url, (res) => {
+                            let data = '';
+                            res.on('data', chunk => data += chunk);
+                            res.on('end', () => {
+                                if (res.statusCode >= 200 && res.statusCode < 300) {
+                                    try {
+                                        resolve(JSON.parse(data));
+                                    } catch (e) {
+                                        reject(new Error(`Failed to parse JSON from ${url}: ${e.message}`));
+                                    }
+                                } else {
+                                    reject(new Error(`HTTP ${res.statusCode} for ${url}`));
+                                }
+                            });
+                        }).on('error', reject);
+                    });
+                };
+
+                (async () => {
+                    try {
+                        const rootData = await get('https://downloads.mariadb.org/rest-api/mariadb/');
+
+                        if (!rootData.major_releases) {
+                            console.error('Invalid API response: missing major_releases');
+                            resolve([]);
+                            return;
+                        }
+
+                        const majorVersions = rootData.major_releases
+                            .map(r => r.release_id)
+                            .filter(id => parseFloat(id) >= 10.0);
+
+                        const allVersions = [];
+
+                        // Fetch details for each major version in parallel
+                        const promises = majorVersions.map(async (majorVer) => {
+                            try {
+                                const majorData = await get(`https://downloads.mariadb.org/rest-api/mariadb/${majorVer}/`);
+
+                                if (majorData.releases) {
+                                    for (const [releaseVer, details] of Object.entries(majorData.releases)) {
+                                        // Check if it has a Windows zip
+                                        const hasWinZip = details.files && details.files.some(f =>
+                                        (f.file_name.endsWith('-winx64.zip') ||
+                                            (f.package_type === 'ZIP file' && f.os === 'Windows' && f.cpu === 'x86_64'))
+                                        );
+
+                                        if (hasWinZip) {
+                                            allVersions.push({
+                                                version: releaseVer,
+                                                filename: `mariadb-${releaseVer}-winx64.zip`,
+                                                download_url: `https://mirror.mariadb.org/mariadb-${releaseVer}/winx64-packages/mariadb-${releaseVer}-winx64.zip`,
+                                                size: 0,
+                                                md5: "",
+                                                sha1: ""
+                                            });
+                                        }
+                                    }
+                                }
+                            } catch (err) {
+                                console.error(`Failed to fetch/parse ${majorVer}:`, err.message);
+                            }
+                        });
+
+                        await Promise.all(promises);
+
+                        // Sort versions descending
+                        allVersions.sort((a, b) => compareVersions(b.version, a.version));
+
+                        resolve(allVersions);
+                    } catch (error) {
+                        console.error('Error fetching MariaDB versions:', error);
+                        resolve([]);
+                    }
+                })();
+            });
+        } catch (error) {
+            console.error('Error in get-versions:', error);
+            return [];
+        }
+    });
+
+    /**
      * Install NVM using official exe installer
      * @param {Object} event - IPC event
      * @param {string} appId - App ID (nvm)

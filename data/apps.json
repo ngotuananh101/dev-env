@@ -228,32 +228,7 @@
           "type": "mysql"
         }
       ],
-      "versions": [
-        {
-          "version": "12.1.2",
-          "filename": "mariadb-12.1.2-winx64.zip",
-          "download_url": "https://archive.org/download/dev-env/mariadb/mariadb-12.1.2-winx64.zip",
-          "size": 97415578,
-          "md5": "645d1a66128d39b0aeac5ccac9b27626",
-          "sha1": "9f179dfa966b2390fbefc0e640a25cc522603a7f"
-        },
-        {
-          "version": "11.8.5",
-          "filename": "mariadb-11.8.5-winx64.zip",
-          "download_url": "https://archive.org/download/dev-env/mariadb/mariadb-11.8.5-winx64.zip",
-          "size": 95876446,
-          "md5": "13079bbe82c77714010352ec041991b9",
-          "sha1": "5e91285de2822a87278cbaf270ebbe018a90c906"
-        },
-        {
-          "version": "10.11.15",
-          "filename": "mariadb-10.11.15-winx64.zip",
-          "download_url": "https://archive.org/download/dev-env/mariadb/mariadb-10.11.15-winx64.zip",
-          "size": 93255302,
-          "md5": "271f2cb86c482ff956bcba8592677290",
-          "sha1": "9590bbbc4eb86cfe4fc45ec05ff945c7532062c3"
-        }
-      ]
+      "versions": []
     },
     {
       "id": "redis",

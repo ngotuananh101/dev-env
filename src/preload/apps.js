@@ -4,6 +4,7 @@ module.exports = {
     getList: () => ipcRenderer.invoke('apps-get-list'),
     updateList: () => ipcRenderer.invoke('apps-update-list'),
     readIcon: (filename) => ipcRenderer.invoke('apps-read-icon', filename),
+    getVersions: (appId) => ipcRenderer.invoke('apps-get-versions', appId),
     install: (appId, version, downloadUrl, filename, execFile, group, defaultArgs, autostart, cliFile) => ipcRenderer.invoke('apps-install', appId, version, downloadUrl, filename, execFile, group, defaultArgs, autostart, cliFile),
     cancelInstall: (appId) => ipcRenderer.invoke('apps-cancel-install', appId),
     uninstall: (appId) => ipcRenderer.invoke('apps-uninstall', appId),
