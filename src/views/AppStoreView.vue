@@ -414,7 +414,7 @@ const openInstallModal = (app) => {
   selectedVersion.value = null;
 
   // Check if we need to fetch versions (MariaDB, Redis, PHP, Nginx, PostgreSQL, Apache, or MySQL)
-  if (app.id === 'mariadb' || app.id === 'redis' || app.id.startsWith('php') || app.id === 'nginx' || app.id === 'postgresql' || app.id === 'apache' || app.id === 'mysql') {
+  if (app.id === 'mariadb' || app.id === 'redis' || (app.id.startsWith('php') && app.id !== 'phpmyadmin') || app.id === 'nginx' || app.id === 'postgresql' || app.id === 'apache' || app.id === 'mysql') {
     isLoadingVersions.value = true;
     // Clear existing versions to avoid confusion
     installingApp.value = { ...app, versions: [] };
