@@ -238,7 +238,11 @@ async function runNvmCommand(command, dbManager = null) {
     const { exec } = require('child_process');
 
     const execPromise = (cmd) => new Promise((resolve, reject) => {
-        exec(cmd, (error, stdout, stderr) => {
+        exec(cmd, {
+            encoding: 'utf-8',
+            timeout: 60000, // 1 minute timeout
+            maxBuffer: 1024 * 1024 // 1MB buffer
+        }, (error, stdout, stderr) => {
             if (error) {
                 // Sometimes stdout has useful info even on error
                 if (stdout && !error.message.includes('not recognized')) {
@@ -2048,14 +2052,40 @@ try {
             }
         }
 
-        // For NVM, also remove the actual installation directory
+        // For NVM, also remove the actual installation directory and run uninstaller
         if (appId === 'nvm' && appPath && fs.existsSync(appPath)) {
-            logApp(`Removing NVM installation: ${appPath}`, 'UNINSTALL');
-            const removeResult = await removeDirectoryWithRetry(appPath, 5, 1000);
-            if (!removeResult.success) {
-                console.error(`Failed to remove NVM installation:`, removeResult.error);
-                logApp(`Failed to remove NVM installation: ${removeResult.error}`, 'WARNING');
-                return { success: true, warning: `NVM uninstalled but failed to remove directory: ${removeResult.error}` };
+            logApp(`Uninstalling NVM from: ${appPath}`, 'UNINSTALL');
+
+            // Try to find uninstaller
+            const uninstallerName = ['unins000.exe', 'unins001.exe'].find(name => fs.existsSync(path.join(appPath, name)));
+
+            if (uninstallerName) {
+                const uninstallerPath = path.join(appPath, uninstallerName);
+                logApp(`Running NVM uninstaller: ${uninstallerPath}`, 'UNINSTALL');
+
+                try {
+                    // Run uninstaller silently
+                    // /VERYSILENT /SUPPRESSMSGBOXES /NORESTART are standard Inno Setup flags
+                    execSync(`"${uninstallerPath}" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART`, { stdio: 'ignore' });
+
+                    // Wait a bit for it to finish releasing files
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+
+                } catch (err) {
+                    logApp(`Failed to run NVM uninstaller: ${err.message}`, 'WARNING');
+                }
+            }
+
+            // Clean up directory if it still exists (uninstaller might leave some files or user specific data)
+            if (fs.existsSync(appPath)) {
+                logApp(`Cleaning up NVM directory: ${appPath}`, 'UNINSTALL');
+                const removeResult = await removeDirectoryWithRetry(appPath, 5, 1000);
+                if (!removeResult.success) {
+                    console.error(`Failed to remove NVM installation:`, removeResult.error);
+                    logApp(`Failed to remove NVM installation: ${removeResult.error}`, 'WARNING');
+                    // Don't fail the whole uninstall if directory removal fails partially
+                    // return { success: true, warning: ... }; 
+                }
             }
         }
 
