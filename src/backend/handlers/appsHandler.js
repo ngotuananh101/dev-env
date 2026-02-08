@@ -2140,8 +2140,7 @@ try {
 
                 if (autoStartValue === 1) {
                     sendProgress(100, 'Starting app...');
-                    await new Promise(r => setTimeout(r, 3000));
-                    await serviceHandler.startAppService(appId, cliPath, args);
+                    await serviceHandler.startAppService(appId, execPath, args);
                 }
 
                 return { success: true, installPath: appInstallDir, execPath, cliPath };
