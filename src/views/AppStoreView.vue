@@ -301,15 +301,6 @@ onMounted(async () => {
   const saved = localStorage.getItem('recentlyUsedApps');
   if (saved) {
     recentlyUsed.value = JSON.parse(saved);
-  } else {
-    // Demo data
-    recentlyUsed.value = [
-      { id: 'webhook', name: 'WebHook', icon: 'Globe', iconColor: 'text-blue-400' },
-      { id: 'postgresql', name: 'PostgreSQL Manager', icon: 'Database', iconColor: 'text-blue-400' },
-      { id: 'log-cleanup', name: 'Log cleanup', icon: 'FileCode', iconColor: 'text-green-400' },
-      { id: 'nodejs', name: 'Node.js version manager', icon: 'Terminal', iconColor: 'text-green-400' },
-      { id: 'linux-tools', name: 'Linux Tools', icon: 'Terminal', iconColor: 'text-purple-400' }
-    ];
   }
 
   // Load apps from JSON file

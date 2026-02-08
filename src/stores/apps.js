@@ -85,6 +85,16 @@ export const useAppsStore = defineStore('apps', () => {
     const isUpdating = computed(() => isUpdatingList.value);
 
     const togglePath = async (app) => {
+        // Check if app id is start with php and action is add to path
+        if (app.id.startsWith('php') && app.inPath == false) {
+            // Check if another php version is already in path
+            const anotherPhp = apps.value.find(app => app.id.startsWith('php') && app.inPath == true);
+            if (anotherPhp) {
+                toast.error(`Cannot add ${app.name} to PATH because ${anotherPhp.name} is already in PATH. Please remove ${anotherPhp.name} from PATH first.`);
+                return;
+            }
+        }
+
         let cliDir = app.cliDir;
         if (!cliDir) {
             if (app.cliPath) {

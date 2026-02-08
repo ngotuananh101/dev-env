@@ -2025,6 +2025,21 @@ try {
                     const foundCliPath = await findFile(appInstallDir, cliFile);
                     if (foundCliPath) {
                         cliPath = foundCliPath;
+                        if (appId.startsWith('php')) {
+                            // Auto install composer to exec path
+                            logApp('Installing composer...', 'INSTALL');
+                            try {
+                                const composerPath = path.join(path.dirname(cliPath), 'composer.phar');
+                                const composerInstallResult = await installComposer(context, foundCliPath, composerPath);
+                                if (composerInstallResult.error) {
+                                    logApp(`Failed to install composer: ${composerInstallResult.error}`, 'ERROR');
+                                } else {
+                                    logApp('Composer installed successfully', 'INSTALL');
+                                }
+                            } catch (error) {
+                                logApp(`Failed to install composer: ${error.message}`, 'ERROR');
+                            }
+                        }
                     }
                 }
 
@@ -2066,6 +2081,10 @@ try {
                 activeInstalls.delete(appId);
             }
         } catch (fatalError) {
+            // If has an error reove appId from active install
+            if (activeInstalls.has(appId)) {
+                activeInstalls.delete(appId);
+            }
             console.error('Fatal install error:', fatalError);
             return { error: `Fatal Error: ${fatalError.message}` };
         }
