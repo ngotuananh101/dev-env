@@ -403,6 +403,42 @@ async function configurePhpMyAdmin(dbManager, context) {
 }
 
 /**
+ * Install Composer for PHP
+ * @param {Object} context - App Context
+ * @param {string} targetPath - Full path to save composer.phar
+ */
+async function installComposer(context, targetPath) {
+    const fs = require('fs');
+    const fsPromises = fs.promises;
+    const https = require('https');
+    const path = require('path');
+
+    return new Promise((resolve, reject) => {
+        const file = fs.createWriteStream(path.join(targetPath, 'composer.phar'));
+        const request = https.get("https://getcomposer.org/composer.phar", function (response) {
+            response.pipe(file);
+
+            file.on('finish', async function () {
+                file.close(async () => {
+                    try {
+                        // Create composer.bat
+                        const batContent = '@php "%~dp0composer.phar" %*';
+                        const batPath = path.join(targetPath, 'composer.bat');
+                        await fsPromises.writeFile(batPath, batContent, 'utf-8');
+                        resolve({ success: true });
+                    } catch (err) {
+                        resolve({ error: err.message });
+                    }
+                });
+            });
+        }).on('error', function (err) {
+            fs.unlink(targetPath, () => { }); // Delete the file async. (But we need the cb)
+            resolve({ error: err.message });
+        });
+    });
+}
+
+/**
  * Register apps-related IPC handlers
  * @param {Electron.IpcMain} ipcMain - Electron IPC Main
  * @param {Object} context - Shared context
@@ -1591,6 +1627,7 @@ try {
             if (!dbManager) {
                 return { error: 'Database not initialized' };
             }
+            let needReConfigPHPMyAdmin = false;
 
             if (activeInstalls.has(appId)) {
                 const ctx = activeInstalls.get(appId);
@@ -1879,6 +1916,7 @@ try {
                                 const phpVersion = appId.replace('php', '');
                                 await dbManager.query("UPDATE settings SET value = ? WHERE key = 'default_php_version'", [phpVersion]);
                                 logApp(`Default PHP version updated to ${phpVersion}`, 'CONFIG');
+                                needReConfigPHPMyAdmin = true;
                             }
                         }
                         else if (appId === 'apache') {
@@ -1935,6 +1973,8 @@ try {
                                     // Write config
                                     await fsPromises.writeFile(targetPath, configContent, 'utf-8');
                                     logApp(`Apache configuration updated at ${targetPath}`, 'CONFIG');
+
+                                    needReConfigPHPMyAdmin = true;
                                 } else {
                                     logApp(`Apache template config not found at ${templatePath}`, 'WARNING');
                                 }
@@ -1982,6 +2022,8 @@ try {
                                     // Write config
                                     await fsPromises.writeFile(targetPath, configContent, 'utf-8');
                                     logApp(`Nginx configuration updated at ${targetPath}`, 'CONFIG');
+
+                                    needReConfigPHPMyAdmin = true;
                                 } else {
                                     logApp(`Nginx template config not found at ${templatePath}`, 'WARNING');
                                 }
@@ -1991,7 +2033,7 @@ try {
                             }
                         }
                         else if (appId === 'phpmyadmin') {
-                            await configurePhpMyAdmin(dbManager, context, execPath);
+                            needReConfigPHPMyAdmin = true;
                         }
                     }
                 }
@@ -2029,8 +2071,8 @@ try {
                             // Auto install composer to exec path
                             logApp('Installing composer...', 'INSTALL');
                             try {
-                                const composerPath = path.join(path.dirname(cliPath), 'composer.phar');
-                                const composerInstallResult = await installComposer(context, foundCliPath, composerPath);
+                                const installComposerPath = path.dirname(foundCliPath);
+                                const composerInstallResult = await installComposer(context, installComposerPath);
                                 if (composerInstallResult.error) {
                                     logApp(`Failed to install composer: ${composerInstallResult.error}`, 'ERROR');
                                 } else {
@@ -2059,7 +2101,9 @@ try {
                 sendProgress(100, 'Installed!');
                 logApp(`Successfully installed ${appId}`, 'INSTALL');
 
-                await configurePhpMyAdmin(dbManager, context);
+                if (needReConfigPHPMyAdmin) {
+                    await configurePhpMyAdmin(dbManager, context);
+                }
 
                 return { success: true, installPath: appInstallDir, execPath, cliPath };
             } catch (error) {
@@ -2078,7 +2122,9 @@ try {
 
                 return { error: error.message, cancelled: ctx?.cancelled };
             } finally {
-                activeInstalls.delete(appId);
+                if (activeInstalls.has(appId)) {
+                    activeInstalls.delete(appId);
+                }
             }
         } catch (fatalError) {
             // If has an error reove appId from active install
