@@ -2088,10 +2088,11 @@ try {
                 // Save to database
                 const now = new Date().toISOString();
                 const autoStartValue = autostart ? 1 : 0;
+                const args = defaultArgs || '';
                 const result = dbManager.query(
                     `INSERT OR REPLACE INTO installed_apps (app_id, installed_version, install_path, exec_path, cli_path, custom_args, auto_start, show_on_dashboard, installed_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
-                    [appId, version, appInstallDir, execPath, cliPath, defaultArgs || '', autoStartValue, now, now]
+                    [appId, version, appInstallDir, execPath, cliPath, args, autoStartValue, now, now]
                 );
 
                 if (result.error) {
@@ -2102,7 +2103,13 @@ try {
                 logApp(`Successfully installed ${appId}`, 'INSTALL');
 
                 if (needReConfigPHPMyAdmin) {
+                    sendProgress(100, 'Configuring phpMyAdmin...');
                     await configurePhpMyAdmin(dbManager, context);
+                }
+
+                if (autoStartValue === 1) {
+                    sendProgress(100, 'Starting app...');
+                    await serviceHandler.startAppService(appId, cliPath, args);
                 }
 
                 return { success: true, installPath: appInstallDir, execPath, cliPath };

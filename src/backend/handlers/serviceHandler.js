@@ -94,18 +94,19 @@ async function startAppService(appId, execPath, args) {
             logApp(`Created logs folder: ${logsDir}`, 'SERVICE');
         }
 
-        // Create temp folders if needed (nginx requires these)
-        const tempFolders = ['temp/client_body_temp', 'temp/proxy_temp', 'temp/fastcgi_temp', 'temp/uwsgi_temp', 'temp/scgi_temp'];
-        for (const folder of tempFolders) {
-            const folderPath = path.join(execDir, ...folder.split('/'));
-            if (!fs.existsSync(folderPath)) {
-                fs.mkdirSync(folderPath, { recursive: true });
+        if (appId === 'nginx') {
+            // Create temp folders if needed (nginx requires these)
+            const tempFolders = ['temp/client_body_temp', 'temp/proxy_temp', 'temp/fastcgi_temp', 'temp/uwsgi_temp', 'temp/scgi_temp'];
+            for (const folder of tempFolders) {
+                const folderPath = path.join(execDir, ...folder.split('/'));
+                if (!fs.existsSync(folderPath)) {
+                    fs.mkdirSync(folderPath, { recursive: true });
+                }
             }
+            logApp(`Ensured temp folders exist in ${execDir}`, 'SERVICE');
         }
-        logApp(`Ensured temp folders exist in ${execDir}`, 'SERVICE');
-
         // MySQL/MariaDB Initialization
-        if (appId === 'mysql' || appId === 'mariadb') {
+        else if (appId === 'mysql' || appId === 'mariadb') {
             const dataDir = path.join(execDir, '..', 'data');
             if (!fs.existsSync(dataDir)) {
                 logApp(`${appId === 'mariadb' ? 'MariaDB' : 'MySQL'} data directory not found at ${dataDir}. Initializing...`, 'SERVICE');
