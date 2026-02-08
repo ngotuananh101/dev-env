@@ -25,8 +25,13 @@ module.exports = {
     // Service logs
     getServiceLogs: (appId) => ipcRenderer.invoke('app-service-get-logs', appId),
     clearServiceLogs: (appId) => ipcRenderer.invoke('app-service-clear-logs', appId),
-    onServiceLog: (callback) => {
-        const handler = (event, data) => callback(data);
+    onServiceLog: (appId, callback) => {
+        const handler = (event, data) => {
+            // Only call callback if data is for this appId
+            if (data.appId === appId) {
+                callback(data);
+            }
+        };
         ipcRenderer.on('service-log', handler);
         return () => ipcRenderer.removeListener('service-log', handler);
     },
