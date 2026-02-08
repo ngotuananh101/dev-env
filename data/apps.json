@@ -188,7 +188,7 @@
         {
           "id": "mongodb_conf",
           "name": "mongod.cfg",
-          "file": "bin/mongod.cfg",
+          "file": "mongod.cfg",
           "type": "mongodb"
         }
       ],

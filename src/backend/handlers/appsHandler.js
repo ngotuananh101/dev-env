@@ -1906,10 +1906,27 @@ try {
                 try {
                     await new Promise((resolve, reject) => {
                         const workerPath = path.join(__dirname, '..', 'workers', 'extractWorker.js');
+
+                        // Determine 7za.exe path
+                        let sevenZipPath;
+                        if (!context.app.isPackaged) {
+                            sevenZipPath = path.join(context.appDir, 'data', 'bin', '7z', '7za.exe');
+                        } else {
+                            sevenZipPath = path.join(process.resourcesPath, 'data', 'bin', '7z', '7za.exe');
+                        }
+
+                        // Fallback if not found in resources
+                        if (!fs.existsSync(sevenZipPath)) {
+                            // Try source dir as fallback even in prod if somehow relevant or mixed env
+                            const fallback = path.join(context.appDir, 'data', 'bin', '7z', '7za.exe');
+                            if (fs.existsSync(fallback)) sevenZipPath = fallback;
+                        }
+
                         const worker = new Worker(workerPath, {
                             workerData: {
                                 zipPath,
-                                appInstallDir
+                                appInstallDir,
+                                sevenZipPath
                             }
                         });
 
@@ -1927,8 +1944,20 @@ try {
                                     sendProgress(50, 'Extracting...', `Starting extraction of ${msg.totalEntries} files`);
                                     break;
                                 case 'progress':
-                                    const extractPercent = 50 + Math.round((msg.extractedCount / msg.totalEntries) * 40);
-                                    sendProgress(extractPercent, 'Extracting...', `Extracted ${msg.extractedCount} / ${msg.totalEntries} files`);
+                                    let extractPercent;
+                                    let detail;
+
+                                    if (msg.percent !== undefined && (msg.totalEntries === undefined || msg.totalEntries === 0)) {
+                                        // specific 7zip percent mode or generic mode
+                                        extractPercent = 50 + Math.round(msg.percent * 0.4);
+                                        detail = msg.logDetail || `Extracting... ${msg.percent}%`;
+                                    } else {
+                                        // Standard count mode
+                                        extractPercent = 50 + Math.round((msg.extractedCount / msg.totalEntries) * 40);
+                                        detail = `Extracted ${msg.extractedCount} / ${msg.totalEntries} files`;
+                                    }
+
+                                    sendProgress(extractPercent, 'Extracting...', detail);
                                     break;
                                 case 'warning':
                                     logApp(msg.message, 'WARNING');
@@ -2133,38 +2162,6 @@ try {
                             } catch (configErr) {
                                 logApp(`Failed to configure Nginx: ${configErr.message}`, 'ERROR');
                                 console.error('Nginx config error:', configErr);
-                            }
-                        }
-                        // Post-extraction file restructuring for specific apps
-                        if (appId === 'mysql') {
-                            // MySQL comes as a zip with a root folder like "mysql-8.0.33-winx64".
-                            // We need to move contents to "mysql" folder in appDir
-                            const files = await fsPromises.readdir(appInstallDir); // Use appInstallDir here
-                            const rootFolder = files.find(f => f.startsWith('mysql-') && fs.lstatSync(path.join(appInstallDir, f)).isDirectory());
-
-                            if (rootFolder) {
-                                const rootFolderPath = path.join(appInstallDir, rootFolder);
-                                const items = await fsPromises.readdir(rootFolderPath);
-
-                                for (const item of items) {
-                                    await fsPromises.rename(path.join(rootFolderPath, item), path.join(appInstallDir, item));
-                                }
-                                await fsPromises.rmdir(rootFolderPath);
-                            }
-                        } else if (appId === 'mongodb') {
-                            // MongoDB comes as a zip with a root folder "mongodb-win32-x86_64-windows-<version>"
-                            // We need to move contents to "mongodb" folder in appDir
-                            const files = await fsPromises.readdir(appInstallDir); // Use appInstallDir here
-                            const rootFolder = files.find(f => f.startsWith('mongodb-') && fs.lstatSync(path.join(appInstallDir, f)).isDirectory());
-
-                            if (rootFolder) {
-                                const rootFolderPath = path.join(appInstallDir, rootFolder);
-                                const items = await fsPromises.readdir(rootFolderPath);
-
-                                for (const item of items) {
-                                    await fsPromises.rename(path.join(rootFolderPath, item), path.join(appInstallDir, item));
-                                }
-                                await fsPromises.rmdir(rootFolderPath);
                             }
                         }
                         else if (appId === 'phpmyadmin') {

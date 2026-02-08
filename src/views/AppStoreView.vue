@@ -509,14 +509,11 @@ const confirmInstall = async () => {
   // Listen for progress updates
   progressCleanup = window.sysapi.apps.onInstallProgress((data) => {
     if (data.appId === installingApp.value.id) {
-      installProgress.value = data.progress;
-      installStatus.value = data.status;
-
       // Add detailed log if available
       if (data.logDetail) {
         const lastLog = installLogs.value[installLogs.value.length - 1];
-        // Update last log if same type, otherwise add new
-        if (lastLog && lastLog.includes(data.status.replace('...', ''))) {
+        // Update last log if status is the same, otherwise add new
+        if (installStatus.value === data.status && lastLog) {
           // Replace last log with updated detail
           installLogs.value[installLogs.value.length - 1] = `[${new Date().toLocaleTimeString()}] ${data.logDetail}`;
         } else {
@@ -530,8 +527,7 @@ const confirmInstall = async () => {
         }
       } else {
         // Fallback to status for logs without detail
-        const lastLog = installLogs.value[installLogs.value.length - 1];
-        if (!lastLog || !lastLog.includes(data.status)) {
+        if (installStatus.value !== data.status) {
           installLogs.value.push(`[${new Date().toLocaleTimeString()}] ${data.status}`);
           // Auto scroll
           if (logsContainer.value) {
@@ -541,6 +537,9 @@ const confirmInstall = async () => {
           }
         }
       }
+
+      installProgress.value = data.progress;
+      installStatus.value = data.status;
     }
   });
 
