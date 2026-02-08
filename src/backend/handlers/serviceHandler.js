@@ -193,21 +193,58 @@ async function startAppService(appId, execPath, args) {
                 logApp(`Created MongoDB db path: ${dbPath}`, 'SERVICE');
             }
 
+            // Config file handling
+            // The user removed the move logic, so execDir might be inside bin
+            // We expect mongod.cfg to be next to bin or inside based on apps.json config
+            // apps.json says "file": "mongod.cfg", which usually means relative to app root or bin? 
+            // Usually we put config in app root.
+
+            // execDir is .../bin
+            const configPath = path.join(execDir, 'mongod.cfg');
+
+            if (!fs.existsSync(configPath)) {
+                logApp(`mongod.cfg not found at ${configPath}. Creating from template...`, 'SERVICE');
+                const templatePath = path.join(currentContext.appDir, 'data', 'config', 'mongod.cfg');
+
+                if (fs.existsSync(templatePath)) {
+                    let content = fs.readFileSync(templatePath, 'utf-8');
+                    // Replace placeholders
+                    // YAML expects forward slashes or escaped backslashes
+                    const dbPathFixed = dbPath.replace(/\\/g, '/');
+                    const logPath = path.join(logsDir, 'mongod.log').replace(/\\/g, '/');
+
+                    content = content.replace('[dbPath]', dbPathFixed);
+                    content = content.replace('[logPath]', logPath);
+
+                    fs.writeFileSync(configPath, content, 'utf-8');
+                    logApp(`Created default mongod.cfg at ${configPath}`, 'SERVICE');
+                } else {
+                    logApp(`Template mongod.cfg not found at ${templatePath}`, 'WARNING');
+                }
+            }
+
             // Append MongoDB args
-            // If args already contains --dbpath, don't add it.
-            if (!args || !args.includes('--dbpath')) {
-                args = (args || '') + ` --dbpath "${dbPath}"`;
-            }
-            if (!args || !args.includes('--port')) {
-                args = (args || '') + ` --port 27017`;
-            }
-            if (!args || !args.includes('--bind_ip')) {
-                args = (args || '') + ` --bind_ip 127.0.0.1`;
-            }
-            // Logs
-            const logFile = path.join(logsDir, 'mongod.log');
-            if (!args || !args.includes('--logpath')) {
-                args = (args || '') + ` --logpath "${logFile}"`;
+            // Use config file if available
+            if (fs.existsSync(configPath)) {
+                if (!args || !args.includes('--config') || !args.includes('-f')) {
+                    args = (args || '') + ` --config "${configPath}"`;
+                }
+            } else {
+                // Fallback to manual args if config creation failed
+                if (!args || !args.includes('--dbpath')) {
+                    args = (args || '') + ` --dbpath "${dbPath}"`;
+                }
+                if (!args || !args.includes('--port')) {
+                    args = (args || '') + ` --port 27017`;
+                }
+                if (!args || !args.includes('--bind_ip')) {
+                    args = (args || '') + ` --bind_ip 127.0.0.1`;
+                }
+                // Logs
+                const logFile = path.join(logsDir, 'mongod.log');
+                if (!args || !args.includes('--logpath')) {
+                    args = (args || '') + ` --logpath "${logFile}"`;
+                }
             }
         }
         // PostgreSQL Initialization
