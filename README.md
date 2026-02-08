@@ -110,4 +110,4 @@ dev-env/
 
 ## 📄 License
 
-ISC
+MIT License
