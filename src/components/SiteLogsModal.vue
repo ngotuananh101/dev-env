@@ -115,6 +115,7 @@ const updateEditor = () => {
 // Load log content
 const loadLog = async () => {
   isLoading.value = true;
+  console.log('Loading log:', currentFilename.value);
   try {
     const result = await window.sysapi.logs.readFile(currentFilename.value);
     if (result.error) {

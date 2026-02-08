@@ -8,6 +8,7 @@ const fsPromises = require('fs').promises;
 const path = require('path');
 
 let logsDir = null;
+let siteLogsDir = null;
 
 /**
  * Register logs-related IPC handlers
@@ -82,19 +83,25 @@ function register(ipcMain, context) {
     // Read specific log file (e.g. domain.access.log)
     ipcMain.handle('logs-read-file', async (event, filename) => {
         try {
+            const dbManager = context.getDbManager();
             // Security check: ensure filename is just a filename, not a path
             const baseName = path.basename(filename);
             if (baseName !== filename) {
                 return { error: 'Invalid filename' };
             }
-
-            const logFile = path.join(logsDir, filename);
-            if (!fs.existsSync(logFile)) {
-                return { content: '', error: null };
+            const webServices = ['nginx', 'apache'];
+            for (const service of webServices) {
+                const app = dbManager.query('SELECT * FROM installed_apps WHERE app_id = ?', [service]);
+                if (app && app.length > 0) {
+                    const appData = app[0];
+                    const cliFile = appData.cli_path;
+                    const logFile = path.join(path.dirname(cliFile), 'logs', filename);
+                    if (fs.existsSync(logFile)) {
+                        return { content: fs.readFileSync(logFile, 'utf-8') };
+                    }
+                }
             }
-
-            const content = await fsPromises.readFile(logFile, 'utf-8');
-            return { content };
+            return { content: '', error: null };
         } catch (error) {
             console.error('Failed to read log file:', error);
             return { error: error.message };
@@ -104,20 +111,28 @@ function register(ipcMain, context) {
     // Clear specific log file
     ipcMain.handle('logs-clear-file', async (event, filename) => {
         try {
+            const dbManager = context.getDbManager();
+            // Security check: ensure filename is just a filename, not a path
             const baseName = path.basename(filename);
             if (baseName !== filename) {
                 return { error: 'Invalid filename' };
             }
-
-            const logFile = path.join(logsDir, filename);
-            // Truncate file instead of deleting to keep permissions/existence
-            if (fs.existsSync(logFile)) {
-                await fsPromises.writeFile(logFile, '', 'utf-8');
+            const webServices = ['nginx', 'apache'];
+            for (const service of webServices) {
+                const app = dbManager.query('SELECT * FROM installed_apps WHERE app_id = ?', [service]);
+                if (app && app.length > 0) {
+                    const appData = app[0];
+                    const cliFile = appData.cli_path;
+                    const logFile = path.join(path.dirname(cliFile), 'logs', filename);
+                    if (fs.existsSync(logFile)) {
+                        await fsPromises.writeFile(logFile, '', 'utf-8');
+                        return { success: true };
+                    }
+                }
             }
-
             return { success: true };
         } catch (error) {
-            console.error('Failed to clear log file:', error);
+            console.error('Failed to read log file:', error);
             return { error: error.message };
         }
     });
