@@ -1432,12 +1432,44 @@ $ProgressPreference = 'SilentlyContinue'
 try {
     Write-Host "=== Starting pyenv-win installation ===" -ForegroundColor Green
     
+    # Clean up existing installation if present
+    $pyenvDir = "$env:USERPROFILE\\.pyenv"
+    if (Test-Path $pyenvDir) {
+        Write-Host "Found existing .pyenv directory. Cleaning up..." -ForegroundColor Yellow
+        try {
+            Remove-Item -Path $pyenvDir -Recurse -Force -ErrorAction Stop
+            Write-Host "Cleanup successful." -ForegroundColor Green
+        } catch {
+            Write-Warning "Could not remove existing .pyenv directory. Installation might fail."
+            Write-Warning $_.Exception.Message
+        }
+    }
+
     $installerUrl = "https://raw.githubusercontent.com/pyenv-win/pyenv-win/master/pyenv-win/install-pyenv-win.ps1"
     $installerPath = "$env:TEMP\\install-pyenv-win.ps1"
     
     Write-Host "Downloading: $installerUrl" -ForegroundColor Yellow
-    Invoke-WebRequest -UseBasicParsing -Uri $installerUrl -OutFile $installerPath -ErrorAction Stop
-    Write-Host "Downloaded to: $installerPath" -ForegroundColor Green
+    
+    # Download with retry
+    $maxRetries = 3
+    $retryCount = 0
+    $downloaded = $false
+    
+    while (-not $downloaded -and $retryCount -lt $maxRetries) {
+        try {
+            Invoke-WebRequest -UseBasicParsing -Uri $installerUrl -OutFile $installerPath -ErrorAction Stop
+            $downloaded = $true
+        } catch {
+            $retryCount++
+            Write-Host "Download failed (Attempt $retryCount/$maxRetries): $_" -ForegroundColor Red
+            Start-Sleep -Seconds 2
+        }
+    }
+    
+    if (-not $downloaded) {
+        throw "Failed to download installer after $maxRetries attempts"
+    }
+
     Write-Host "Downloaded to: $installerPath" -ForegroundColor Green
     
     if (!(Test-Path $installerPath)) {
@@ -1447,6 +1479,10 @@ try {
     $scriptSize = (Get-Item $installerPath).Length
     Write-Host "Script size: $scriptSize bytes"
     
+    if ($scriptSize -lt 100) {
+        throw "Downloaded script is too small ($scriptSize bytes). Likely invalid."
+    }
+
     Write-Host "Executing installer..." -ForegroundColor Yellow
     & $installerPath
     

@@ -86,9 +86,5 @@ dev-env/
 ISC
 
 ## TODO
-[x] Chặn việc add nhiều PHP vào PATH
-[x] Tự động cài composer khi cài đặt PHP
-[x] Kích hoạt tự động vài PHP Ext hay dùng
-[ ] Kiểm tra lại app cần auto start khi cài đặt
 [ ] Thêm tính năng gỡ certificate khỏi hệ điều hành
 [ ] Tùy chọn start cùng windows
