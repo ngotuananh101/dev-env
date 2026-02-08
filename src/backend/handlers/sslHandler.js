@@ -92,9 +92,11 @@ function checkCAInstalled() {
 
         // If command succeeds and contains certificate info, it's installed
         caInstalledInSystem = result.includes('DevEnv Local CA');
+        console.log(`[SSL] Check CA installed: ${caInstalledInSystem}`);
         return caInstalledInSystem;
     } catch (error) {
         // If certutil returns error, certificate is not found
+        // console.log('[SSL] Check CA error (likely not found):', error.message);
         caInstalledInSystem = false;
         return false;
     }
@@ -141,6 +143,51 @@ async function installCAToSystem(caCertPath) {
         });
     } catch (error) {
         console.error('[SSL] Failed to install CA:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+
+/**
+ * Uninstall CA certificate from Windows Trusted Root store
+ * Requires admin privileges - will prompt UAC
+ * @returns {Promise<Object>} - Result
+ */
+async function uninstallCAToSystem() {
+    // First check if installed
+    if (!checkCAInstalled()) {
+        return { success: true, notInstalled: true };
+    }
+
+    try {
+        // Use PowerShell to run certutil with admin privileges via cmd.exe
+        // This matches the pattern used in installCAToSystem for consistency
+        const command = `certutil -delstore -f ROOT "DevEnv Local CA"`;
+        const psCommand = `Start-Process -FilePath 'cmd.exe' -ArgumentList '/c ${command.replace(/"/g, '\\"')}' -Verb RunAs -Wait`;
+        console.log(`[SSL] Uninstalling CA via command: ${command}`);
+        console.log(`[SSL] PowerShell command: ${psCommand}`);
+
+        return new Promise((resolve) => {
+            exec(`powershell -Command "${psCommand}"`, (error, stdout, stderr) => {
+                if (error) {
+                    console.error('[SSL] Uninstall exec error:', error);
+                }
+                if (stdout) console.log('[SSL] Uninstall stdout:', stdout);
+                if (stderr) console.error('[SSL] Uninstall stderr:', stderr);
+
+                // Give Windows a moment to update the store
+                setTimeout(() => {
+                    const installed = checkCAInstalled();
+                    if (!installed) {
+                        resolve({ success: true, uninstalled: true });
+                    } else {
+                        resolve({ success: false, error: 'Uninstallation cancelled or failed' });
+                    }
+                }, 1000);
+            });
+        });
+    } catch (error) {
+        console.error('[SSL] Failed to uninstall CA:', error);
         return { success: false, error: error.message };
     }
 }
@@ -256,8 +303,8 @@ function getSSLStatus() {
     const caCertPath = sslDir ? path.join(sslDir, 'ca.crt') : null;
     const caExists = caCertPath && fs.existsSync(caCertPath);
 
-    // Check if CA is installed in system (only if we haven't checked yet)
-    if (caExists && !caInstalledInSystem) {
+    // Check if CA is installed in system
+    if (caExists) {
         checkCAInstalled();
     }
 
@@ -328,6 +375,11 @@ function register(ipcMain, context) {
     ipcMain.handle('ssl-install-ca', async () => {
         return await installCAToSystem();
     });
+
+    // Uninstall CA from system (manual trigger)
+    ipcMain.handle('ssl-uninstall-ca', async () => {
+        return await uninstallCAToSystem();
+    });
 }
 
 module.exports = {
@@ -338,5 +390,6 @@ module.exports = {
     getSSLStatus,
     deleteCertificate,
     checkCAInstalled,
-    installCAToSystem
+    installCAToSystem,
+    uninstallCAToSystem
 };

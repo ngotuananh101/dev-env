@@ -57,12 +57,16 @@
                         class="flex items-center justify-between p-4 bg-gray-900/50 rounded-lg border border-gray-700/50 hover:border-gray-600 transition-colors">
                         <div class="space-y-1">
                             <span class="block text-sm font-medium text-white">Close to System Tray</span>
-                            <span class="block text-xs text-gray-500">When clicking the X button, minimize to system tray instead of quitting the app.</span>
+                            <span class="block text-xs text-gray-500">When clicking the X button, minimize to system
+                                tray instead of
+                                quitting the app.</span>
                         </div>
                         <BaseSwitch v-model="settings.close_to_tray" @update:modelValue="saveCloseToTray" />
                     </div>
                     <p class="text-xs text-gray-500">
-                        Note: The minimize button (-) will always minimize to system tray. Use "Quit App" from sidebar or tray menu to fully exit.
+                        Note: The minimize button (-) will always minimize to system tray. Use "Quit App" from sidebar
+                        or tray menu
+                        to fully exit.
                     </p>
                 </div>
             </BaseCard>
@@ -106,6 +110,13 @@
                             <ShieldCheck class="w-4 h-4" />
                         </template>
                         {{ installingCA ? 'Installing...' : 'Install CA to System' }}
+                    </BaseButton>
+
+                    <BaseButton v-else variant="danger" :disabled="uninstallingCA" @click="uninstallCA">
+                        <template #icon>
+                            <ShieldOff class="w-4 h-4" />
+                        </template>
+                        {{ uninstallingCA ? 'Uninstalling...' : 'Uninstall CA from System' }}
                     </BaseButton>
 
                     <BaseButton variant="secondary" @click="refreshSSLStatus">
@@ -152,17 +163,17 @@
 </template>
 
 <script setup>
-import {onMounted, ref} from 'vue';
-import {useDatabaseStore} from '../stores/database';
-import {Copy, Monitor, RefreshCw, Save, Settings, ShieldCheck} from 'lucide-vue-next';
-import {useToast} from 'vue-toastification';
+import { onMounted, ref } from 'vue';
+import { useDatabaseStore } from '../stores/database';
+import { Copy, Monitor, RefreshCw, Save, Settings, ShieldCheck, ShieldOff } from 'lucide-vue-next';
+import { useToast } from 'vue-toastification';
 import BaseCard from '../components/BaseCard.vue';
 import BaseButton from '../components/BaseButton.vue';
 import BaseModal from '../components/BaseModal.vue';
 import BaseInput from '../components/BaseInput.vue';
 import BaseSelect from '../components/BaseSelect.vue';
 import BaseSwitch from '../components/BaseSwitch.vue';
-import {copyToClipboard} from '../utils/helpers';
+import { copyToClipboard } from '../utils/helpers';
 
 const dbStore = useDatabaseStore();
 const toast = useToast();
@@ -191,12 +202,13 @@ const sslStatus = ref({
     caCertPath: null
 });
 const installingCA = ref(false);
+const uninstallingCA = ref(false);
 const loadingSSL = ref(false);
 
 const refreshSSLStatus = async () => {
     loadingSSL.value = true;
     try {
-      sslStatus.value = await window.sysapi.ssl.getStatus();
+        sslStatus.value = await window.sysapi.ssl.getStatus();
     } catch (error) {
         console.error('Failed to get SSL status:', error);
     } finally {
@@ -223,6 +235,28 @@ const installCA = async () => {
         toast.error('Failed to install CA');
     } finally {
         installingCA.value = false;
+    }
+};
+
+const uninstallCA = async () => {
+    uninstallingCA.value = true;
+    try {
+        const result = await window.sysapi.ssl.uninstallCA();
+        if (result.success) {
+            if (result.notInstalled) {
+                toast.info('CA is not installed in system');
+            } else {
+                toast.success('CA uninstalled successfully!');
+            }
+            await refreshSSLStatus();
+        } else {
+            toast.error(`Failed to uninstall CA: ${result.error || 'Cancelled by user'}`);
+        }
+    } catch (error) {
+        console.error('Failed to uninstall CA:', error);
+        toast.error('Failed to uninstall CA');
+    } finally {
+        uninstallingCA.value = false;
     }
 };
 
