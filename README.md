@@ -1,29 +1,49 @@
 # Dev-Env
 
-A modern Electron-based development environment manager for Windows. Provides a sleek dashboard interface for managing development tools, databases, and web servers.
+A modern, Electron-based local development environment manager for Windows. `Dev-Env` provides a sleek dashboard to manage development tools, web servers, databases, and projects with ease.
 
-## Features
+## ✨ Features
 
-- 📊 **System Dashboard** - Real-time CPU, RAM, and disk monitoring
-- 🛒 **App Store** - Install and manage development tools (Nginx, Apache, MySQL, PostgreSQL, etc.)
-- 📁 **File Manager** - Browse and manage files with built-in viewer
-- 💻 **Terminal** - Integrated terminal emulator
-- 🔧 **Service Manager** - Start/stop installed applications
+### �️ Dashboard & Monitoring
+- **Real-time System Stats**: Monitor CPU usage, RAM consumption, and Disk space.
+- **Service Status**: At-a-glance view of running services and their health.
 
-## Tech Stack
+### � App Store & Service Manager
+- **One-Click Installation**: Easily install development tools like **PHP** (multiple versions), **Nginx**, **Apache**, **MySQL**, **MariaDB**, **PostgreSQL**, **Redis**, and **phpMyAdmin**.
+- **Version Management**: Switch between different versions of PHP or databases effortlessly.
+- **Service Control**: Start, stop, and restart services individually or all at once.
+- **Process Management**: Auto-start services on app launch (configurable).
 
-- **Frontend**: Vue 3 + Vite + Tailwind CSS v4
-- **Backend**: Electron 40 + Node.js
-- **Database**: SQLite (better-sqlite3)
-- **Terminal**: xterm.js + node-pty
+### 🌐 Site Management
+- **Virtual Hosts**: Create and manage local websites (e.g., `myproject.local`) with automatic `hosts` file updates.
+- **Auto-Discovery**: Automatically create sites from a root directory.
+- **Template System**: Configurable domain templates (default: `[site].local`).
+- **Tech Stack Support**: Support for PHP, Node.js, and static HTML sites.
+- **Reverse Proxy**: Built-in support for proxying to other local ports (e.g., for Node.js apps).
 
-## Prerequisites
+### 🔒 SSL & Security
+- **Local HTTPS**: Integrated `mkcert` support for trusted local SSL certificates.
+- **CA Management**: Install/Uninstall the local Certificate Authority (CA) to the system trust store directly from Settings.
+- **Automatic Certs**: Automatically generate SSL certificates for created sites.
 
-- Node.js 18+ 
-- Windows 10/11 (64-bit)
-- Visual Studio Build Tools (for native modules)
+### 🛠️ Developer Tools
+- **Configuration Editor**: Built-in editor for config files (`nginx.conf`, `php.ini`, etc.) with syntax highlighting.
+- **Terminal**: Integrated terminal emulator (`xterm.js`) for running commands without leaving the app.
+- **Database Manager**: Create and delete databases and users directly from the UI.
+- **File Manager**: Browse project files and logs.
 
-## Installation
+### ⚙️ Settings & Customization
+- **Startup Behavior**: Option to start the application automatically with Windows.
+- **System Tray**: Minimize to system tray to keep services running in the background.
+- **Theme**: Dark mode optimized UI.
+
+## 🚀 Getting Started
+
+### Prerequisites
+- **OS**: Windows 10/11 (64-bit)
+- **Runtime**: Node.js 18+ installed
+
+### Installation
 
 ```bash
 # Clone the repository
@@ -33,54 +53,59 @@ cd dev-env
 # Install dependencies
 npm install
 
-# Rebuild native modules for Electron
+# Rebuild native modules (required for node-pty/better-sqlite3)
 npm run rebuild
 ```
 
-## Development
+### Development
 
 ```bash
-# Start development server with hot reload
+# Start development server (Vite + Electron)
 npm run dev
 ```
 
-## Build
+### Build for Production
 
 ```bash
-# Build for production
+# Create a distributable installer (NSIS)
 npm run build
 ```
 
-## Project Structure
+## 📂 Project Structure
 
 ```
 dev-env/
-├── main.js              # Electron main process
-├── preload.js           # Preload scripts for IPC
-├── index.html           # Entry HTML
+├── main.js                  # Electron main process entry
+├── preload.js               # Main preload script (loads src/preload)
 ├── src/
-│   ├── App.vue          # Root Vue component
-│   ├── main.js          # Vue app entry
-│   ├── main.css         # Tailwind CSS
-│   ├── views/           # Page components
-│   ├── components/      # Reusable components
-│   ├── router/          # Vue Router config
-│   └── backend/         # Backend utilities
-├── data/
-│   └── apps.json        # App store catalog
-├── apps/                # Installed applications
-├── logs/                # Application logs
-└── dist/                # Build output
+│   ├── main.js              # Vue application entry
+│   ├── App.vue              # Root Vue component
+│   ├── main.css             # Tailwind CSS entry
+│   ├── views/               # Page views (Dashboard, Apps, Sites, etc.)
+│   ├── components/          # Reusable UI components
+│   ├── stores/              # Pinia state management
+│   ├── router/              # Vue Router configuration
+│   ├── composables/         # Shared Vue composables
+│   ├── utils/               # Frontend utility functions
+│   ├── preload/             # Preload scripts source
+│   └── backend/             # Backend logic & IPC handlers
+│       ├── handlers/        # IPC handlers by module
+│       ├── workers/         # Background workers
+│       └── database.js      # SQLite connection & schema
+├── data/                    # App data & resources
+├── build/                   # Build assets (icons)
+├── dist/                    # Frontend build output
+└── release/                 # Packaged application output
 ```
 
-## App Store Features
+## 🏗️ Tech Stack
 
-- Download and install development tools
-- Version selection for each app
-- Installation progress with detailed logs
-- Cancel ongoing installations
-- Exclusive group restriction (e.g., only one web server at a time)
+- **Core**: [Electron](https://www.electronjs.org/)
+- **Frontend**: [Vue 3](https://vuejs.org/) + [Vite](https://vitejs.dev/) + [Tailwind CSS](https://tailwindcss.com/)
+- **Backend/IPC**: Node.js
+- **Database**: SQLite ([better-sqlite3](https://github.com/WiseLibs/better-sqlite3))
+- **Terminal**: [xterm.js](https://xtermjs.org/) + [node-pty](https://github.com/microsoft/node-pty)
 
-## License
+## 📄 License
 
 ISC
