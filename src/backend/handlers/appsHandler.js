@@ -2068,11 +2068,11 @@ try {
                     if (foundCliPath) {
                         cliPath = foundCliPath;
                         if (appId.startsWith('php')) {
+                            const folderForConposerAndIni = path.dirname(foundCliPath);
                             // Auto install composer to exec path
                             logApp('Installing composer...', 'INSTALL');
                             try {
-                                const installComposerPath = path.dirname(foundCliPath);
-                                const composerInstallResult = await installComposer(context, installComposerPath);
+                                const composerInstallResult = await installComposer(context, folderForConposerAndIni);
                                 if (composerInstallResult.error) {
                                     logApp(`Failed to install composer: ${composerInstallResult.error}`, 'ERROR');
                                 } else {
@@ -2080,6 +2080,37 @@ try {
                                 }
                             } catch (error) {
                                 logApp(`Failed to install composer: ${error.message}`, 'ERROR');
+                            }
+
+                            // Enable some PHP extensions
+                            logApp('Enabling PHP extensions...', 'INSTALL');
+                            try {
+                                const iniPath = path.join(folderForConposerAndIni, 'php.ini');
+                                if (!fs.existsSync(iniPath)) {
+                                    logApp(`PHP ini file not found at ${iniPath}`, 'ERROR');
+                                } else {
+                                    const listExt = [
+                                        'php_curl',
+                                        'php_fileinfo',
+                                        'php_gd',
+                                        'php_mbstring',
+                                        'php_mysqli',
+                                        'php_openssl',
+                                        'php_pdo_mysql',
+                                        'php_pdo_sqlite',
+                                        'php_sodium',
+                                        'php_sqlite3',
+                                        'php_zip'
+                                    ];
+                                    for (const ext of listExt) {
+                                        let result = await togglePhpExtension(iniPath, { name: ext, filename: ext + '.dll' }, true);
+                                        if (result.error) {
+                                            logApp(`Failed to enable PHP extension ${ext}: ${result.error}`, 'ERROR');
+                                        }
+                                    }
+                                }
+                            } catch (error) {
+                                logApp(`Failed to enable PHP extensions: ${error.message}`, 'ERROR');
                             }
                         }
                     }
@@ -2109,6 +2140,7 @@ try {
 
                 if (autoStartValue === 1) {
                     sendProgress(100, 'Starting app...');
+                    await new Promise(r => setTimeout(r, 3000));
                     await serviceHandler.startAppService(appId, cliPath, args);
                 }
 
@@ -2595,90 +2627,10 @@ try {
 
             const app = apps[0];
             const phpIniPath = path.join(app.install_path, 'php.ini');
-
             if (!fs.existsSync(phpIniPath)) {
                 return { error: 'php.ini not found' };
             }
-
-            let content = await fsPromises.readFile(phpIniPath, 'utf-8');
-            let lines = content.split(/\r?\n/);
-
-            // Name variations to look for
-            const name = extension.name;
-            const filename = extension.filename; // e.g. php_mysqli.dll
-
-            // Construct absolute path for the extension
-            // Only relevant for enabling, but good to have
-            const extAbsPath = path.join(app.install_path, 'ext', filename);
-
-            if (enable) {
-                // Enable: Check if ALREADY ENABLED (active)
-                let activeExists = false;
-                for (let i = 0; i < lines.length; i++) {
-                    const line = lines[i].trim();
-                    // Skip comments
-                    if (line.startsWith(';')) continue;
-
-                    const cleanLine = line; // It's already trimmed and check for ; passed
-                    if (cleanLine.startsWith('extension=')) {
-                        const val = cleanLine.substring(10).trim().replace(/['"]/g, '');
-                        const base = path.basename(val);
-                        // Check against name, filename, or absolute path
-                        if (base.toLowerCase() === filename.toLowerCase() ||
-                            base.toLowerCase() === name.toLowerCase() ||
-                            base.toLowerCase() === (name + '.dll').toLowerCase()) {
-                            activeExists = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (!activeExists) {
-                    // Insert new line (absolute path)
-                    const newLine = `extension="${extAbsPath}"`;
-
-                    // Find insertion point: after ;zend_extension=opcache
-                    let insertIdx = -1;
-                    for (let i = 0; i < lines.length; i++) {
-                        // Loose check for opcache directive
-                        if (lines[i].includes('zend_extension=opcache')) {
-                            insertIdx = i;
-                            break;
-                        }
-                    }
-
-                    if (insertIdx !== -1) {
-                        lines.splice(insertIdx + 1, 0, newLine);
-                    } else {
-                        // Fallback: append to end
-                        lines.push(newLine);
-                    }
-                }
-                await fsPromises.writeFile(phpIniPath, lines.join('\n'), 'utf-8');
-
-            } else {
-                // Disable: Remove lines completely
-                const newLines = lines.filter(line => {
-                    const trimLine = line.trim();
-                    const cleanLine = trimLine.replace(/^;/, '').trim();
-                    if (cleanLine.startsWith('extension=')) {
-                        const val = cleanLine.substring(10).trim().replace(/['"]/g, '');
-                        const base = path.basename(val);
-                        if (base.toLowerCase() === filename.toLowerCase() ||
-                            base.toLowerCase() === name.toLowerCase() ||
-                            base.toLowerCase() === (name + '.dll').toLowerCase()) {
-                            return false; // Remove this line
-                        }
-                    }
-                    return true; // Keep other lines
-                });
-
-                if (newLines.length !== lines.length) {
-                    await fsPromises.writeFile(phpIniPath, newLines.join('\n'), 'utf-8');
-                }
-            }
-
-            return { success: true };
+            return await togglePhpExtension(phpIniPath, extension, enable);
 
         } catch (error) {
             console.error('Failed to toggle extension:', error);
@@ -3366,6 +3318,99 @@ try {
             return { error: err.message };
         }
     });
+
+    // Toggle PHP Extension
+    async function togglePhpExtension(phpIniPath, extension, enable) {
+        try {
+            let content = await fsPromises.readFile(phpIniPath, 'utf-8');
+            let lines = content.split(/\r?\n/);
+
+            // Name variations to look for
+            const name = extension.name;
+            const filename = extension.filename; // e.g. php_mysqli.dll
+
+            // Construct absolute path for the extension
+            // Only relevant for enabling, but good to have
+            const extAbsPath = path.join(path.dirname(phpIniPath), 'ext', filename);
+            if (!fs.existsSync(extAbsPath)) {
+                logApp(`Extension file not found at ${extAbsPath}`, 'ERROR');
+                return { error: 'Extension file not found' };
+            }
+
+            if (enable) {
+                // Enable: Check if ALREADY ENABLED (active)
+                let activeExists = false;
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    // Skip comments
+                    if (line.startsWith(';')) continue;
+
+                    const cleanLine = line; // It's already trimmed and check for ; passed
+                    if (cleanLine.startsWith('extension=')) {
+                        const val = cleanLine.substring(10).trim().replace(/['"]/g, '');
+                        const base = path.basename(val);
+                        // Check against name, filename, or absolute path
+                        if (base.toLowerCase() === filename.toLowerCase() ||
+                            base.toLowerCase() === name.toLowerCase() ||
+                            base.toLowerCase() === (name + '.dll').toLowerCase()) {
+                            activeExists = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!activeExists) {
+                    // Insert new line (absolute path)
+                    const newLine = `extension="${extAbsPath}"`;
+
+                    // Find insertion point: after ;zend_extension=opcache
+                    let insertIdx = -1;
+                    for (let i = 0; i < lines.length; i++) {
+                        // Loose check for opcache directive
+                        if (lines[i].includes('zend_extension=opcache')) {
+                            insertIdx = i;
+                            break;
+                        }
+                    }
+
+                    if (insertIdx !== -1) {
+                        lines.splice(insertIdx + 1, 0, newLine);
+                    } else {
+                        // Fallback: append to end
+                        lines.push(newLine);
+                    }
+                }
+                await fsPromises.writeFile(phpIniPath, lines.join('\n'), 'utf-8');
+
+            } else {
+                // Disable: Remove lines completely
+                const newLines = lines.filter(line => {
+                    const trimLine = line.trim();
+                    const cleanLine = trimLine.replace(/^;/, '').trim();
+                    if (cleanLine.startsWith('extension=')) {
+                        const val = cleanLine.substring(10).trim().replace(/['"]/g, '');
+                        const base = path.basename(val);
+                        if (base.toLowerCase() === filename.toLowerCase() ||
+                            base.toLowerCase() === name.toLowerCase() ||
+                            base.toLowerCase() === (name + '.dll').toLowerCase()) {
+                            return false; // Remove this line
+                        }
+                    }
+                    return true; // Keep other lines
+                });
+
+                if (newLines.length !== lines.length) {
+                    await fsPromises.writeFile(phpIniPath, newLines.join('\n'), 'utf-8');
+                }
+            }
+
+            return { success: true };
+
+        } catch (error) {
+            console.error('Failed to toggle extension:', error);
+            return { error: error.message };
+        }
+    }
 }
 
 // Export for use by other handlers
