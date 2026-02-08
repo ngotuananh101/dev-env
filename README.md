@@ -2,13 +2,15 @@
 
 A modern, Electron-based local development environment manager for Windows. `Dev-Env` provides a sleek dashboard to manage development tools, web servers, databases, and projects with ease.
 
+<img src="https://i.ibb.co/2f6TSmh/image.png" alt="Screenshot" width="1200" height="720">
+
 ## ✨ Features
 
-### �️ Dashboard & Monitoring
+### 🖥️ Dashboard & Monitoring
 - **Real-time System Stats**: Monitor CPU usage, RAM consumption, and Disk space.
 - **Service Status**: At-a-glance view of running services and their health.
 
-### � App Store & Service Manager
+### 📦 App Store & Service Manager
 - **One-Click Installation**: Easily install development tools like **PHP** (multiple versions), **Nginx**, **Apache**, **MySQL**, **MariaDB**, **PostgreSQL**, **Redis**, and **phpMyAdmin**.
 - **Version Management**: Switch between different versions of PHP or databases effortlessly.
 - **Service Control**: Start, stop, and restart services individually or all at once.
