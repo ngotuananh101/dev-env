@@ -63,6 +63,17 @@
                         </div>
                         <BaseSwitch v-model="settings.close_to_tray" @update:modelValue="saveCloseToTray" />
                     </div>
+
+                    <!-- Start with Windows -->
+                    <div
+                        class="flex items-center justify-between p-4 bg-gray-900/50 rounded-lg border border-gray-700/50 hover:border-gray-600 transition-colors">
+                        <div class="space-y-1">
+                            <span class="block text-sm font-medium text-white">Start with Windows</span>
+                            <span class="block text-xs text-gray-500">Automatically start the application when you log
+                                in to Windows.</span>
+                        </div>
+                        <BaseSwitch v-model="settings.start_with_windows" @update:modelValue="saveStartWithWindows" />
+                    </div>
                     <p class="text-xs text-gray-500">
                         Note: The minimize button (-) will always minimize to system tray. Use "Quit App" from sidebar
                         or tray menu
@@ -182,7 +193,8 @@ const settings = ref({
     site_template: '',
     site_auto_create: false,
     default_php_version: '',
-    close_to_tray: true
+    close_to_tray: true,
+    start_with_windows: false
 });
 
 const phpVersions = ref([]);
@@ -293,6 +305,25 @@ const saveCloseToTray = async (value) => {
     }
 };
 
+// Auto-save start_with_windows setting when toggled
+const saveStartWithWindows = async (value) => {
+    try {
+        const result = await window.sysapi.system.toggleStartup(value);
+        if (result.success) {
+            toast.success(value ? 'App will start with Windows' : 'App will not start with Windows');
+        } else {
+            // Revert on failure
+            settings.value.start_with_windows = !value;
+            toast.error(`Failed to update startup setting: ${result.error}`);
+        }
+    } catch (error) {
+        console.error('Failed to save start_with_windows setting:', error);
+        // Revert on failure
+        settings.value.start_with_windows = !value;
+        toast.error('Failed to save setting');
+    }
+};
+
 onMounted(async () => {
     await dbStore.loadSettings();
     settings.value.site_template = dbStore.settings.site_template || '[site].local';
@@ -301,6 +332,16 @@ onMounted(async () => {
     settings.value.site_auto_create = dbStore.settings.site_auto_create === 'true' || dbStore.settings.site_auto_create === true;
     // Close to tray setting (default: true)
     settings.value.close_to_tray = dbStore.settings.close_to_tray !== 'false' && dbStore.settings.close_to_tray !== false;
+
+    // Load startup status
+    try {
+        const startupResult = await window.sysapi.system.getStartupStatus();
+        if (startupResult.success) {
+            settings.value.start_with_windows = startupResult.enabled;
+        }
+    } catch (error) {
+        console.error('Failed to load startup status:', error);
+    }
 
     // Load installed PHP versions
     try {

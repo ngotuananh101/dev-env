@@ -14,6 +14,12 @@ const api = {
     getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
     quitApp: () => ipcRenderer.send('app-quit'),
 
+    // System Settings
+    system: {
+        getStartupStatus: () => ipcRenderer.invoke('get-startup-status'),
+        toggleStartup: (enabled) => ipcRenderer.invoke('toggle-startup', enabled)
+    },
+
     // Modules
     db: { ...db, query: db.query }, // Ensure query is available both in db namespace and generally if needed, but here it matches usage
     database: db, // Aliasing database to db module methods (as in original: db.query was separate, database.listDatabases was separate namespace but let's check)

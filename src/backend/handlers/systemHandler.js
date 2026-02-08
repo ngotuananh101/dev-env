@@ -172,6 +172,31 @@ function register(ipcMain, context) {
         }
         return { error: 'Database not initialized' };
     });
+
+    // Get startup status
+    ipcMain.handle('get-startup-status', () => {
+        try {
+            const settings = app.getLoginItemSettings();
+            return { success: true, enabled: settings.openAtLogin };
+        } catch (error) {
+            console.error('Failed to get startup status:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Toggle startup
+    ipcMain.handle('toggle-startup', (event, enabled) => {
+        try {
+            app.setLoginItemSettings({
+                openAtLogin: enabled,
+                path: app.getPath('exe') // Explicitly set path to current executable
+            });
+            return { success: true, enabled };
+        } catch (error) {
+            console.error('Failed to toggle startup:', error);
+            return { success: false, error: error.message };
+        }
+    });
 }
 
 module.exports = { register };

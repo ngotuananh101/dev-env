@@ -84,7 +84,3 @@ dev-env/
 ## License
 
 ISC
-
-## TODO
-[ ] Thêm tính năng gỡ certificate khỏi hệ điều hành
-[ ] Tùy chọn start cùng windows
