@@ -631,6 +631,10 @@ function register(ipcMain, context) {
             return await getMysqlVersions();
         }
 
+        if (appId === 'mongodb') {
+            return await getMongodbVersions();
+        }
+
         if (appId !== 'mariadb') return [];
 
         try {
@@ -1401,6 +1405,69 @@ try {
     };
 
     /**
+     * Fetch MongoDB versions from official full.json
+     */
+    const getMongodbVersions = () => {
+        return new Promise((resolve) => {
+            const url = 'https://downloads.mongodb.org/current.json';
+            const https = require('https');
+
+            https.get(url, (res) => {
+                let data = '';
+                res.on('data', (chunk) => data += chunk);
+                res.on('end', () => {
+                    try {
+                        const json = JSON.parse(data);
+                        const versions = [];
+                        const seen = new Set();
+
+                        if (json.versions) {
+                            for (const v of json.versions) {
+                                // Filter out -rc, -alpha (optional but recommended for stability)
+                                if (v.version.includes('-rc') || v.version.includes('-alpha') || v.version.includes('-beta')) {
+                                    continue;
+                                }
+
+                                // We want Windows x86_64 Base (Community) edition
+                                const winDownload = v.downloads?.find(d => d.target === 'windows' && d.arch === 'x86_64' && d.edition === 'base');
+
+                                if (winDownload && winDownload.archive) {
+                                    if (!seen.has(v.version)) {
+                                        seen.add(v.version);
+                                        const downloadUrl = winDownload.archive.url;
+                                        // Use path.basename from the url
+                                        const filename = downloadUrl.split('/').pop();
+
+                                        versions.push({
+                                            version: v.version,
+                                            filename: filename,
+                                            download_url: downloadUrl,
+                                            size: 0,
+                                            md5: "",
+                                            sha1: ""
+                                        });
+                                    }
+                                }
+                            }
+                        }
+
+                        // Sort versions using existing compareVersions
+                        versions.sort((a, b) => compareVersions(b.version, a.version));
+
+                        resolve(versions);
+                    } catch (e) {
+                        console.error('Failed to parse MongoDB versions:', e);
+                        resolve([]);
+                    }
+                });
+            }).on('error', (err) => {
+                console.error('Failed to fetch MongoDB versions:', err);
+                resolve([]);
+            });
+        });
+    };
+
+    /**
      * Install pyenv using official PowerShell script
      * @param {Object} event - IPC event
      * @param {string} appId - App ID (pyenv)
@@ -2066,6 +2133,38 @@ try {
                             } catch (configErr) {
                                 logApp(`Failed to configure Nginx: ${configErr.message}`, 'ERROR');
                                 console.error('Nginx config error:', configErr);
+                            }
+                        }
+                        // Post-extraction file restructuring for specific apps
+                        if (appId === 'mysql') {
+                            // MySQL comes as a zip with a root folder like "mysql-8.0.33-winx64".
+                            // We need to move contents to "mysql" folder in appDir
+                            const files = await fsPromises.readdir(appInstallDir); // Use appInstallDir here
+                            const rootFolder = files.find(f => f.startsWith('mysql-') && fs.lstatSync(path.join(appInstallDir, f)).isDirectory());
+
+                            if (rootFolder) {
+                                const rootFolderPath = path.join(appInstallDir, rootFolder);
+                                const items = await fsPromises.readdir(rootFolderPath);
+
+                                for (const item of items) {
+                                    await fsPromises.rename(path.join(rootFolderPath, item), path.join(appInstallDir, item));
+                                }
+                                await fsPromises.rmdir(rootFolderPath);
+                            }
+                        } else if (appId === 'mongodb') {
+                            // MongoDB comes as a zip with a root folder "mongodb-win32-x86_64-windows-<version>"
+                            // We need to move contents to "mongodb" folder in appDir
+                            const files = await fsPromises.readdir(appInstallDir); // Use appInstallDir here
+                            const rootFolder = files.find(f => f.startsWith('mongodb-') && fs.lstatSync(path.join(appInstallDir, f)).isDirectory());
+
+                            if (rootFolder) {
+                                const rootFolderPath = path.join(appInstallDir, rootFolder);
+                                const items = await fsPromises.readdir(rootFolderPath);
+
+                                for (const item of items) {
+                                    await fsPromises.rename(path.join(rootFolderPath, item), path.join(appInstallDir, item));
+                                }
+                                await fsPromises.rmdir(rootFolderPath);
                             }
                         }
                         else if (appId === 'phpmyadmin') {

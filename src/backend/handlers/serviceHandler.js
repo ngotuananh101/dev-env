@@ -179,6 +179,37 @@ async function startAppService(appId, execPath, args) {
                 }
             }
         }
+        // MongoDB Initialization
+        else if (appId === 'mongodb') {
+            const dataDir = path.join(execDir, '..', 'data');
+            if (!fs.existsSync(dataDir)) {
+                logApp(`MongoDB data directory not found at ${dataDir}. Creating...`, 'SERVICE');
+                fs.mkdirSync(dataDir, { recursive: true });
+            }
+            // Ensure dbpath exists (MongoDB requires this)
+            const dbPath = path.join(dataDir, 'db');
+            if (!fs.existsSync(dbPath)) {
+                fs.mkdirSync(dbPath, { recursive: true });
+                logApp(`Created MongoDB db path: ${dbPath}`, 'SERVICE');
+            }
+
+            // Append MongoDB args
+            // If args already contains --dbpath, don't add it.
+            if (!args || !args.includes('--dbpath')) {
+                args = (args || '') + ` --dbpath "${dbPath}"`;
+            }
+            if (!args || !args.includes('--port')) {
+                args = (args || '') + ` --port 27017`;
+            }
+            if (!args || !args.includes('--bind_ip')) {
+                args = (args || '') + ` --bind_ip 127.0.0.1`;
+            }
+            // Logs
+            const logFile = path.join(logsDir, 'mongod.log');
+            if (!args || !args.includes('--logpath')) {
+                args = (args || '') + ` --logpath "${logFile}"`;
+            }
+        }
         // PostgreSQL Initialization
         else if (appId === 'postgresql') {
             const dataDir = path.join(execDir, '..', 'data');

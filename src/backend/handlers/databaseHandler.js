@@ -60,6 +60,8 @@ function execCommand(command, options = {}) {
 function getDbType(appId) {
     if (appId === 'mysql' || appId === 'mariadb') return 'mysql';
     if (appId === 'postgresql') return 'postgresql';
+    if (appId === 'mongodb') return 'mongodb';
+    if (appId === 'redis') return 'redis';
     return null;
 }
 
@@ -85,6 +87,8 @@ function getDbCliPaths(appId, execPath) {
         result = { client: path.join(binDir, 'psql.exe') };
     } else if (appId === 'redis') {
         result = { client: path.join(binDir, 'redis-cli.exe') };
+    } else if (appId === 'mongodb') {
+        result = { client: path.join(binDir, 'mongosh.exe') };
     }
 
 
@@ -161,6 +165,39 @@ function register(ipcMain, context) {
                     .split('\n')
                     .map(line => line.trim())
                     .filter(line => line && line !== 'postgres');
+
+                // Get saved credentials
+                const savedCreds = dbManager.query('SELECT * FROM created_databases WHERE app_id = ?', [appId]);
+                const credMap = new Map();
+                if (savedCreds && Array.isArray(savedCreds)) {
+                    savedCreds.forEach(c => credMap.set(c.db_name, c));
+                }
+
+                const databases = realDbs.map(dbName => {
+                    const info = credMap.get(dbName);
+                    return {
+                        name: dbName,
+                        username: info ? info.username : '',
+                        password: info ? info.password : '',
+                        host: info ? info.host : 'localhost'
+                    };
+                });
+
+                return { databases };
+            } else if (dbType === 'mongodb') {
+                const result = await execCommand(
+                    `"${cliPaths.client}" --quiet --eval "db.adminCommand('listDatabases').databases.forEach(db => print(db.name))"`,
+                    { cwd: path.dirname(cliPaths.client) }
+                );
+
+                if (result.error) {
+                    return { error: result.error };
+                }
+
+                const realDbs = result.stdout
+                    .split('\n')
+                    .map(line => line.trim())
+                    .filter(line => line && !['admin', 'config', 'local'].includes(line));
 
                 // Get saved credentials
                 const savedCreds = dbManager.query('SELECT * FROM created_databases WHERE app_id = ?', [appId]);
@@ -269,6 +306,23 @@ function register(ipcMain, context) {
                         console.error('Failed to create user:', uErr);
                     }
                 }
+            } else if (dbType === 'mongodb') {
+                // 1. Create Database (MongoDB creates it when collection is created)
+                let createCmd = `use ${dbName}; db.createCollection('init');`;
+
+                // 2. Create User (if provided)
+                if (username && password) {
+                    createCmd += ` db.createUser({user: '${username}', pwd: '${password}', roles: [{ role: 'readWrite', db: '${dbName}' }]});`;
+                }
+
+                const result = await execCommand(
+                    `"${cliPaths.client}" --quiet --eval "${createCmd}"`,
+                    { cwd: path.dirname(cliPaths.client) }
+                );
+
+                if (result.error && !result.stdout.includes('ok: 1')) {
+                    return { error: result.error };
+                }
             } else {
                 return { error: 'Unsupported database type' };
             }
@@ -318,6 +372,16 @@ function register(ipcMain, context) {
                 );
 
                 if (result.error) {
+                    return { error: result.error };
+                }
+                return { success: true };
+            } else if (dbType === 'mongodb') {
+                const result = await execCommand(
+                    `"${cliPaths.client}" --quiet --eval "use ${dbName}; db.dropDatabase();"`,
+                    { cwd: path.dirname(cliPaths.client) }
+                );
+
+                if (result.error && !result.stdout.includes('ok: 1')) {
                     return { error: result.error };
                 }
                 return { success: true };
@@ -381,6 +445,26 @@ function register(ipcMain, context) {
                     .map(user => ({ user, host: 'local' }));
 
                 return { users };
+            } else if (dbType === 'mongodb') {
+                const result = await execCommand(
+                    `"${cliPaths.client}" --quiet --eval "db.getUsers().forEach(u => print(u.user + '\\t' + u.db))"`,
+                    { cwd: path.dirname(cliPaths.client) }
+                );
+
+                if (result.error) {
+                    return { error: result.error };
+                }
+
+                const users = result.stdout
+                    .split('\n')
+                    .map(line => line.trim())
+                    .filter(Boolean)
+                    .map(line => {
+                        const [user, db] = line.split('\t');
+                        return { user, host: db };
+                    });
+
+                return { users };
             }
 
             return { error: 'Unsupported database type' };
@@ -421,6 +505,16 @@ function register(ipcMain, context) {
                 );
 
                 if (result.error) {
+                    return { error: result.error };
+                }
+                return { success: true };
+            } else if (dbType === 'mongodb') {
+                const result = await execCommand(
+                    `"${cliPaths.client}" --quiet --eval "db.changeUserPassword('${username}', '${newPassword}')"`,
+                    { cwd: path.dirname(cliPaths.client) }
+                );
+
+                if (result.error && !result.stdout.includes('ok: 1')) {
                     return { error: result.error };
                 }
                 return { success: true };

@@ -26,8 +26,8 @@
       <div class="flex items-center space-x-3">
         <div v-for="app in recentlyUsed" :key="app.id"
           class="flex items-center space-x-1.5 px-2 py-1 hover:bg-gray-700 rounded cursor-pointer text-xs">
-          <img v-if="app.iconContent" :src="app.iconContent" class="w-4 h-4" :alt="app.name" />
-          <component v-else :is="getAppIcon(app.icon)" class="w-4 h-4" :class="app.iconColor" />
+          <img v-if="app.iconContent" :src="app.iconContent" class="w-5 h-5" :alt="app.name" />
+          <component v-else :is="getAppIcon(app.icon)" class="w-5 h-5" :class="app.iconColor" />
           <span>{{ app.name }}</span>
         </div>
       </div>
@@ -64,10 +64,10 @@
         <div class="flex items-center hover:bg-[#2a2d3e] transition-colors h-12.5 border-b border-gray-800">
           <!-- Software name -->
           <div class="px-2 py-2 w-40 min-w-40">
-            <div class="flex items-center space-x-2">
-              <img v-if="app.iconContent" :src="app.iconContent" class="w-4 h-4" alt="app icon" />
-              <component v-else :is="getAppIcon(app.icon)" class="w-4 h-4" :class="app.iconColor" />
-              <span class="text-white font-medium">{{ app.name }}</span>
+            <div class="flex items-center space-x-3">
+              <img v-if="app.iconContent" :src="app.iconContent" class="w-5 h-5" alt="app icon" />
+              <component v-else :is="getAppIcon(app.icon)" class="w-5 h-5" :class="app.iconColor" />
+              <span class="text-white font-normal">{{ app.name }}</span>
             </div>
           </div>
           <!-- Developer -->
@@ -404,8 +404,8 @@ const openInstallModal = (app) => {
   isCancelling.value = false;
   selectedVersion.value = null;
 
-  // Check if we need to fetch versions (MariaDB, Redis, PHP, Nginx, PostgreSQL, Apache, or MySQL)
-  if (app.id === 'mariadb' || app.id === 'redis' || (app.id.startsWith('php') && app.id !== 'phpmyadmin') || app.id === 'nginx' || app.id === 'postgresql' || app.id === 'apache' || app.id === 'mysql') {
+  // Check if we need to fetch versions (MariaDB, Redis, PHP, Nginx, PostgreSQL, Apache, MySQL, or MongoDB)
+  if (app.id === 'mariadb' || app.id === 'redis' || (app.id.startsWith('php') && app.id !== 'phpmyadmin') || app.id === 'nginx' || app.id === 'postgresql' || app.id === 'apache' || app.id === 'mysql' || app.id === 'mongodb') {
     isLoadingVersions.value = true;
     // Clear existing versions to avoid confusion
     installingApp.value = { ...app, versions: [] };

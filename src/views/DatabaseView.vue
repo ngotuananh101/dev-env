@@ -302,7 +302,7 @@ const loadDbApps = async () => {
   try {
     // Query installed_apps table directly (including Redis)
     const result = await window.sysapi.db.query(
-      "SELECT * FROM installed_apps WHERE app_id IN ('mysql', 'mariadb', 'postgresql', 'redis')"
+      "SELECT * FROM installed_apps WHERE app_id IN ('mysql', 'mariadb', 'postgresql', 'redis', 'mongodb')"
     );
 
     // Check for phpMyAdmin
@@ -317,13 +317,15 @@ const loadDbApps = async () => {
           'mysql': 'MySQL',
           'mariadb': 'MariaDB',
           'postgresql': 'PostgreSQL',
-          'redis': 'Redis'
+          'redis': 'Redis',
+          'mongodb': 'MongoDB'
         };
         const colorMap = {
           'mysql': 'text-orange-500',
           'mariadb': 'text-cyan-500',
           'postgresql': 'text-blue-600',
-          'redis': 'text-red-500'
+          'redis': 'text-red-500',
+          'mongodb': 'text-green-500'
         };
         return {
           id: app.app_id,

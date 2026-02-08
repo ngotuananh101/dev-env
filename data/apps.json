@@ -172,6 +172,29 @@
       "versions": []
     },
     {
+      "id": "mongodb",
+      "name": "MongoDB",
+      "developer": "official",
+      "description": "MongoDB is a source-available cross-platform document-oriented database program!",
+      "category": "deployment",
+      "group": "mongodb",
+      "icon": "Database",
+      "icon_file": "Mongodb.svg",
+      "iconColor": "text-green-600",
+      "autostart": true,
+      "exec_file": "bin/mongod.exe",
+      "cli_file": "bin/mongosh.exe",
+      "configs": [
+        {
+          "id": "mongodb_conf",
+          "name": "mongod.cfg",
+          "file": "bin/mongod.cfg",
+          "type": "mongodb"
+        }
+      ],
+      "versions": []
+    },
+    {
       "id": "redis",
       "name": "Redis",
       "developer": "official",
