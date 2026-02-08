@@ -37,7 +37,6 @@ Desktop.ini
 
 # Package manager
 *.tgz
-package-lock.json
 
 # Electron
 out/
