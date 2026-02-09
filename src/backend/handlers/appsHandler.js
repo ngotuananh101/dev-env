@@ -1087,7 +1087,7 @@ try {
             // Write PowerShell script to temp file
             await fsPromises.writeFile(tempScriptPath, psScriptContent, 'utf-8');
 
-            sendProgressWithLog(event, appId, 30, 'Downloading and Installing NVM...');
+            sendProgressWithLog(event, appId, 20, 'Downloading and Installing NVM...');
 
             return new Promise((resolve, reject) => {
                 // Execute PowerShell script file
@@ -1117,7 +1117,7 @@ try {
                         return;
                     }
 
-                    sendProgressWithLog(event, appId, 80, 'Verifying installation...');
+                    sendProgressWithLog(event, appId, 90, 'Verifying installation...');
 
                     // Wait a bit for environment variables to settle
                     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -1849,7 +1849,7 @@ try {
             // Write PowerShell script to temp file
             await fsPromises.writeFile(tempScriptPath, psScriptContent, 'utf-8');
 
-            sendProgressWithLog(event, appId, 50, 'Installing pyenv-win...');
+            sendProgressWithLog(event, appId, 20, 'Installing pyenv-win...');
 
             return new Promise((resolve, reject) => {
                 // Execute PowerShell script file
@@ -1879,7 +1879,7 @@ try {
                         return;
                     }
 
-                    sendProgressWithLog(event, appId, 80, 'Verifying installation...');
+                    sendProgressWithLog(event, appId, 90, 'Verifying installation...');
 
                     // Find pyenv installation path
                     const userProfile = process.env.USERPROFILE;
@@ -2055,7 +2055,8 @@ try {
                 let lastStatus = '';
 
 
-                sendProgressWithLog(event, appId, 0, 'Downloading...');
+                sendProgressWithLog(event, appId, 0, 'Starting installation...');
+                sendProgressWithLog(event, appId, 10, 'Downloading...');
 
                 // Download file with progress
                 await new Promise((resolve, reject) => {
@@ -2099,13 +2100,19 @@ try {
                                 }
                                 downloadedSize += chunk.length;
                                 if (totalSize > 0) {
-                                    const percent = Math.round((downloadedSize / totalSize) * 50);
+                                    // Generic app progress:
+                                    // 0-10%: Prep
+                                    // 10-50%: Downloading (40%)
+                                    // 50-90%: Extracting (40%)
+                                    // 90-100%: Post-processing
+                                    const downloadPercent = downloadedSize / totalSize;
+                                    const percent = 10 + Math.round(downloadPercent * 40);
                                     const downloadedMB = (downloadedSize / (1024 * 1024)).toFixed(2);
                                     const totalMB = (totalSize / (1024 * 1024)).toFixed(2);
                                     sendProgressWithLog(event, appId, percent, 'Downloading...', `Downloaded ${downloadedMB} MB / ${totalMB} MB`);
                                 } else {
                                     const downloadedMB = (downloadedSize / (1024 * 1024)).toFixed(2);
-                                    sendProgressWithLog(event, appId, 25, 'Downloading...', `Downloaded ${downloadedMB} MB`);
+                                    sendProgressWithLog(event, appId, 15, 'Downloading...', `Downloaded ${downloadedMB} MB`);
                                 }
                             });
 
@@ -2192,6 +2199,7 @@ try {
                                         detail = msg.logDetail || `Extracting... ${msg.percent}%`;
                                     } else {
                                         // Standard count mode
+                                        // Scale 0-100 of extraction to 50-90 global progress
                                         extractPercent = 50 + Math.round((msg.extractedCount / msg.totalEntries) * 40);
                                         detail = `Extracted ${msg.extractedCount} / ${msg.totalEntries} files`;
                                     }
@@ -2202,7 +2210,7 @@ try {
                                     logApp(msg.message, 'WARNING');
                                     break;
                                 case 'complete':
-                                    sendProgressWithLog(event, appId, 90, 'Finishing...');
+                                    sendProgressWithLog(event, appId, 90, 'Finalizing installation...');
                                     resolve();
                                     break;
                                 case 'error':
@@ -2508,22 +2516,26 @@ try {
                     [appId, version, appInstallDir, execPath, cliPath, args, autoStartValue, now, now]
                 );
 
+                // Post-processing: 90-100%
+                sendProgressWithLog(event, appId, 90, 'Finalizing installation...');
+
                 if (result.error) {
                     return { error: result.error };
                 }
 
-                sendProgressWithLog(event, appId, 100, 'Installed!');
                 logApp(`Successfully installed ${appId}`, 'INSTALL');
 
                 if (needReConfigPHPMyAdmin) {
-                    sendProgressWithLog(event, appId, 100, 'Configuring phpMyAdmin...');
+                    sendProgressWithLog(event, appId, 95, 'Configuring phpMyAdmin...');
                     await configurePhpMyAdmin(dbManager, context);
                 }
 
                 if (autoStartValue === 1) {
-                    sendProgressWithLog(event, appId, 100, 'Starting app...');
+                    sendProgressWithLog(event, appId, 95, 'Starting app...');
                     await serviceHandler.startAppService(appId, execPath, args);
                 }
+
+                sendProgressWithLog(event, appId, 100, 'Installed!');
 
                 return { success: true, installPath: appInstallDir, execPath, cliPath };
             } catch (error) {
