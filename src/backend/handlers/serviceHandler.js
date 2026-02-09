@@ -303,6 +303,22 @@ async function startAppService(appId, execPath, args) {
             const dataDir2 = path.join(execDir, '..', 'data');
             args = args + ` -D "${dataDir2}"`;
         }
+        // Elasticsearch Initialization
+        else if (appId === 'elasticsearch') {
+            const esRoot = path.join(execDir, '..');
+            const dataDir = path.join(esRoot, 'data');
+            const esLogsDir = path.join(esRoot, 'logs');
+
+            // Create necessary directories
+            if (!fs.existsSync(dataDir)) {
+                fs.mkdirSync(dataDir, { recursive: true });
+                logApp(`Created Elasticsearch data directory: ${dataDir}`, 'SERVICE');
+            }
+            if (!fs.existsSync(esLogsDir)) {
+                fs.mkdirSync(esLogsDir, { recursive: true });
+                logApp(`Created Elasticsearch logs directory: ${esLogsDir}`, 'SERVICE');
+            }
+        }
 
         // Parse args properly, respecting quoted strings
         let cmdArgs = [];
@@ -320,10 +336,17 @@ async function startAppService(appId, execPath, args) {
         addServiceLog(appId, 'info', `Starting ${appId}...`);
         addServiceLog(appId, 'info', `Command: ${execPathNormalized} ${cmdArgs.join(' ')}`);
 
-        const proc = spawn(execPathNormalized, cmdArgs, {
+        // Use shell for .bat files on Windows
+        const isBatchFile = execPathNormalized.toLowerCase().endsWith('.bat') || execPathNormalized.toLowerCase().endsWith('.cmd');
+
+        // When using shell mode, quote the path to handle spaces
+        const execCommand = isBatchFile ? `"${execPathNormalized}"` : execPathNormalized;
+
+        const proc = spawn(execCommand, cmdArgs, {
             cwd: execDir,
             detached: false,
-            stdio: ['ignore', 'pipe', 'pipe']
+            stdio: ['ignore', 'pipe', 'pipe'],
+            shell: isBatchFile
         });
 
         // Stream stdout
@@ -348,8 +371,12 @@ async function startAppService(appId, execPath, args) {
         proc.on('exit', (code) => {
             logApp(`Service ${appId} exited with code ${code}`, 'SERVICE');
             addServiceLog(appId, 'info', `Process exited with code ${code}`);
-            runningProcesses.delete(appId);
-            notifyServiceChange();
+            // For batch files that spawn background processes (like Elasticsearch),
+            // don't remove from runningProcesses - the actual service may still be running
+            if (!isBatchFile) {
+                runningProcesses.delete(appId);
+                notifyServiceChange();
+            }
         });
 
         runningProcesses.set(appId, proc);
@@ -357,6 +384,17 @@ async function startAppService(appId, execPath, args) {
         notifyServiceChange();
 
         await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // For batch files, check if the actual service is running instead of the shell process
+        if (isBatchFile) {
+            const status = getAppServiceStatus(appId, execPath);
+            if (!status.running) {
+                logApp(`Service ${appId} failed to start`, 'ERROR');
+                runningProcesses.delete(appId);
+                return { error: 'Service failed to start. Check logs for details.' };
+            }
+            return { success: true };
+        }
 
         if (proc.exitCode !== null) {
             logApp(`Service ${appId} failed to start (exited with ${proc.exitCode})`, 'ERROR');
@@ -473,6 +511,32 @@ function setMainWindow(win) {
  */
 async function stopAppService(appId, execPath, stopArgs) {
     try {
+        // Special handling for Elasticsearch (runs as java.exe)
+        if (appId === 'elasticsearch') {
+            try {
+                // Find and kill java processes running elasticsearch
+                const result = execSync('wmic process where "name=\'java.exe\'" get processid,commandline', { encoding: 'utf-8' });
+                const lines = result.split('\n');
+                for (const line of lines) {
+                    if (line.toLowerCase().includes('elasticsearch')) {
+                        const pidMatch = line.match(/(\d+)\s*$/);
+                        if (pidMatch) {
+                            const pid = pidMatch[1];
+                            execSync(`taskkill /PID ${pid} /T /F`, { stdio: 'ignore' });
+                            logApp(`Killed Elasticsearch java process (PID: ${pid})`, 'SERVICE');
+                        }
+                    }
+                }
+                runningProcesses.delete(appId);
+                logApp(`Stopped service: ${appId}`, 'SERVICE');
+                notifyServiceChange();
+                return { success: true };
+            } catch (e) {
+                logApp(`Failed to stop Elasticsearch: ${e.message}`, 'ERROR');
+                return { error: e.message };
+            }
+        }
+
         // First try graceful stop with stopArgs if provided
         if (stopArgs) {
             const execDir = path.dirname(execPath);
@@ -548,6 +612,17 @@ async function stopAppService(appId, execPath, stopArgs) {
 function getAppServiceStatus(appId, execPath) {
     try {
         const exeName = path.basename(execPath);
+
+        // Special handling for Elasticsearch (runs as java.exe)
+        if (appId === 'elasticsearch') {
+            try {
+                const result = execSync('wmic process where "name=\'java.exe\'" get commandline', { encoding: 'utf-8' });
+                const isRunning = result.toLowerCase().includes('elasticsearch');
+                return { running: isRunning };
+            } catch (e) {
+                return { running: false };
+            }
+        }
 
         try {
             const result = execSync(`tasklist /FI "IMAGENAME eq ${exeName}" /NH`, { encoding: 'utf-8' });
