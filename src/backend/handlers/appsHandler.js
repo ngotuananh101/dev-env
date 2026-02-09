@@ -131,6 +131,55 @@ function logApp(message, type = 'INFO') {
     }
 }
 
+// Track last logged state to avoid spamming the log file
+const lastLogState = new Map();
+
+/**
+ * Send install progress to renderer and log to file
+ * @param {Electron.IpcMainInvokeEvent} event - IPC event
+ * @param {string} appId - App ID being installed
+ * @param {number} progress - Progress percentage (0-100)
+ * @param {string} status - Status message
+ * @param {string|null} logDetail - Optional detailed log message
+ */
+function sendProgressWithLog(event, appId, progress, status, logDetail = null) {
+    // Send to renderer immediately
+    event.sender.send('app-install-progress', { appId, progress, status, logDetail });
+
+    // Check if we should log to file
+    const lastState = lastLogState.get(appId) || { progress: -1, status: '' };
+
+    // Only log if progress changed significantly (e.g. > 1%) or status changed
+    // OR if it is 100% (completion) or 0% (error/start)
+    if (status !== lastState.status ||
+        Math.abs(progress - lastState.progress) >= 1 ||
+        progress === 100 || progress === 0) {
+
+        const now = new Date();
+        if (logsDir) {
+            const logFile = path.join(logsDir, `install_${appId}.log`);
+            const timeStr = now.toLocaleTimeString();
+            // Include detail in log file if present
+            const msg = logDetail ? `${status} - ${logDetail}` : status;
+            const logLine = `[${timeStr}] [${progress}%] ${msg}\n`;
+
+            try {
+                fs.appendFileSync(logFile, logLine);
+                // Update last state
+                lastLogState.set(appId, { progress, status });
+            } catch (err) {
+                console.error('Failed to write log:', err);
+            }
+        }
+    }
+
+    // Cleanup state on completion or failure
+    if (progress === 100 || (progress === 0 && status.toLowerCase().includes('fail'))) {
+        lastLogState.delete(appId);
+    }
+}
+
+
 /**
  * Execute NVM command and return output
  * @param {string} command - NVM command
@@ -634,6 +683,10 @@ function register(ipcMain, context) {
             return await getMongodbVersions();
         }
 
+        if (appId === 'meilisearch') {
+            return await getMeilisearchVersions();
+        }
+
         if (appId !== 'mariadb') return [];
 
         try {
@@ -768,6 +821,60 @@ function register(ipcMain, context) {
     };
 
     /**
+    * Fetch Meilisearch versions from GitHub API
+    */
+    const getMeilisearchVersions = () => {
+        return new Promise((resolve) => {
+            const url = 'https://api.github.com/repos/meilisearch/meilisearch/releases';
+            const https = require('https');
+            const options = {
+                headers: { 'User-Agent': 'node.js' }
+            };
+
+            https.get(url, options, (res) => {
+                let data = '';
+                res.on('data', (chunk) => data += chunk);
+                res.on('end', () => {
+                    try {
+                        const releases = JSON.parse(data);
+                        const versions = [];
+
+                        if (Array.isArray(releases)) {
+                            for (const release of releases) {
+                                // Skip pre-releases if desired
+                                if (release.prerelease) continue;
+
+                                // Find the Windows amd64 asset
+                                const winAsset = release.assets?.find(a =>
+                                    a.name.includes('windows-amd64') && a.name.endsWith('.exe')
+                                );
+
+                                if (winAsset) {
+                                    versions.push({
+                                        version: release.tag_name,
+                                        filename: winAsset.name,
+                                        download_url: winAsset.browser_download_url,
+                                        size: winAsset.size || 0,
+                                        md5: "",
+                                        sha1: ""
+                                    });
+                                }
+                            }
+                        }
+                        resolve(versions);
+                    } catch (e) {
+                        console.error('Failed to parse Meilisearch API:', e);
+                        resolve([]);
+                    }
+                });
+            }).on('error', (err) => {
+                console.error('Failed to fetch Meilisearch versions:', err);
+                resolve([]);
+            });
+        });
+    };
+
+    /**
     * Fetch PHP versions from PHP.net API
     * @param {string} branch - PHP branch (e.g., "8.2", "8.3")
     */
@@ -867,12 +974,8 @@ function register(ipcMain, context) {
 
         logApp('Installing NVM using official installer (PowerShell)...', 'INSTALL');
 
-        const sendProgress = (progress, status, logDetail = null) => {
-            event.sender.send('app-install-progress', { appId, progress, status, logDetail });
-        };
-
         try {
-            sendProgress(10, 'Preparing PowerShell script...');
+            sendProgressWithLog(event, appId, 10, 'Preparing PowerShell script...');
 
             // Create temporary PowerShell script file
             const tempScriptPath = path.join(os.tmpdir(), `nvm-install-${Date.now()}.ps1`);
@@ -984,7 +1087,7 @@ try {
             // Write PowerShell script to temp file
             await fsPromises.writeFile(tempScriptPath, psScriptContent, 'utf-8');
 
-            sendProgress(30, 'Downloading and Installing NVM...');
+            sendProgressWithLog(event, appId, 30, 'Downloading and Installing NVM...');
 
             return new Promise((resolve, reject) => {
                 // Execute PowerShell script file
@@ -1007,14 +1110,14 @@ try {
                         if (stderr) {
                             logApp(`Error details: ${stderr}`, 'ERROR');
                         }
-                        sendProgress(0, 'Installation failed');
+                        sendProgressWithLog(event, appId, 0, 'Installation failed');
                         resolve({
                             error: `Failed to install NVM: ${error.message}\n\nStdout: ${stdout}\n\nStderr: ${stderr}`
                         });
                         return;
                     }
 
-                    sendProgress(80, 'Verifying installation...');
+                    sendProgressWithLog(event, appId, 80, 'Verifying installation...');
 
                     // Wait a bit for environment variables to settle
                     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -1109,7 +1212,7 @@ try {
                         return;
                     }
 
-                    sendProgress(100, 'Installed!');
+                    sendProgressWithLog(event, appId, 100, 'Installed!');
                     logApp('NVM installation completed successfully', 'INSTALL');
 
                     resolve({
@@ -1123,16 +1226,15 @@ try {
 
         } catch (err) {
             logApp(`NVM installation error: ${err.message}`, 'ERROR');
-            sendProgress(0, 'Installation failed');
+            sendProgressWithLog(event, appId, 0, 'Installation failed');
             return { error: err.message };
         }
     }
 
-    const installMeilisearch = async (event, appId, version, downloadUrl, dbManager) => {
-        const sendProgress = (progress, status, logDetail = null) => {
-            event.sender.send('app-install-progress', { appId, progress, status, logDetail });
-        };
+    const installMeilisearch = async (event, appId, version, downloadUrl, dbManager, autostart) => {
+
         try {
+            sendProgressWithLog(event, appId, 0, 'Starting installation...');
             const installContext = {
                 appId,
                 cancelled: false,
@@ -1142,7 +1244,7 @@ try {
                 execPath: '',
                 cliPath: '',
                 customArgs: '',
-                autoStart: true,
+                autoStart: autostart,
                 showOnDashboard: true
             };
 
@@ -1151,6 +1253,7 @@ try {
 
             // Download file with progress
             const meilisearchExe = path.join(installContext.installPath, 'meilisearch.exe');
+            sendProgressWithLog(event, appId, 10, 'Downloading...');
             await new Promise((resolve, reject) => {
                 const protocol = downloadUrl.startsWith('https') ? https : http;
                 const options = {
@@ -1194,10 +1297,10 @@ try {
                                 const percent = Math.round((downloadedSize / totalSize) * 50);
                                 const downloadedMB = (downloadedSize / (1024 * 1024)).toFixed(2);
                                 const totalMB = (totalSize / (1024 * 1024)).toFixed(2);
-                                sendProgress(percent, 'Downloading...', `Downloaded ${downloadedMB} MB / ${totalMB} MB`);
+                                sendProgressWithLog(event, appId, percent, 'Downloading...', `Downloaded ${downloadedMB} MB / ${totalMB} MB`);
                             } else {
                                 const downloadedMB = (downloadedSize / (1024 * 1024)).toFixed(2);
-                                sendProgress(25, 'Downloading...', `Downloaded ${downloadedMB} MB`);
+                                sendProgressWithLog(event, appId, 25, 'Downloading...', `Downloaded ${downloadedMB} MB`);
                             }
                         });
 
@@ -1244,8 +1347,14 @@ try {
                 throw new Error(result.error);
             }
 
-            sendProgress(100, 'Installed!');
+            sendProgressWithLog(event, appId, 100, 'Installed!');
             logApp('Meilisearch installation completed successfully', 'INSTALL');
+
+            // Auto start if need
+            if (autostart) {
+                sendProgressWithLog(event, appId, 100, 'Starting app...');
+                await serviceHandler.startAppService(appId, meilisearchExe, '');
+            }
 
             return {
                 success: true,
@@ -1256,7 +1365,7 @@ try {
 
         } catch (err) {
             logApp(`Meilisearch installation error: ${err.message}`, 'ERROR');
-            sendProgress(0, 'Installation failed');
+            sendProgressWithLog(event, appId, 0, 'Installation failed');
             return { error: err.message };
         }
     }
@@ -1613,12 +1722,10 @@ try {
 
         logApp('Installing pyenv using official PowerShell script...', 'INSTALL');
 
-        const sendProgress = (progress, status, logDetail = null) => {
-            event.sender.send('app-install-progress', { appId, progress, status, logDetail });
-        };
+
 
         try {
-            sendProgress(10, 'Preparing PowerShell script...');
+            sendProgressWithLog(event, appId, 10, 'Preparing PowerShell script...');
 
             // Create temporary PowerShell script file to avoid escaping nightmares
             const tempScriptPath = path.join(os.tmpdir(), `pyenv-install-${Date.now()}.ps1`);
@@ -1734,7 +1841,7 @@ try {
             // Write PowerShell script to temp file
             await fsPromises.writeFile(tempScriptPath, psScriptContent, 'utf-8');
 
-            sendProgress(50, 'Installing pyenv-win...');
+            sendProgressWithLog(event, appId, 50, 'Installing pyenv-win...');
 
             return new Promise((resolve, reject) => {
                 // Execute PowerShell script file
@@ -1757,14 +1864,14 @@ try {
                         if (stderr) {
                             logApp(`Error details: ${stderr}`, 'ERROR');
                         }
-                        sendProgress(0, 'Installation failed');
+                        sendProgressWithLog(event, appId, 0, 'Installation failed');
                         resolve({
                             error: `Failed to install pyenv: ${error.message}\n\nStdout: ${stdout}\n\nStderr: ${stderr}`
                         });
                         return;
                     }
 
-                    sendProgress(80, 'Verifying installation...');
+                    sendProgressWithLog(event, appId, 80, 'Verifying installation...');
 
                     // Find pyenv installation path
                     const userProfile = process.env.USERPROFILE;
@@ -1788,7 +1895,7 @@ try {
                         }
 
                         if (!foundPath) {
-                            sendProgress(0, 'Installation verification failed');
+                            sendProgressWithLog(event, appId, 0, 'Installation verification failed');
                             resolve({
                                 error: `pyenv installation failed - pyenv.bat not found.`
                             });
@@ -1811,7 +1918,7 @@ try {
                             return;
                         }
 
-                        sendProgress(100, 'Installed!');
+                        sendProgressWithLog(event, appId, 100, 'Installed!');
                         logApp('pyenv installation completed successfully', 'INSTALL');
                         resolve({
                             success: true,
@@ -1836,7 +1943,7 @@ try {
                         return;
                     }
 
-                    sendProgress(100, 'Installed!');
+                    sendProgressWithLog(event, appId, 100, 'Installed!');
                     logApp('pyenv installation completed successfully', 'INSTALL');
 
                     resolve({
@@ -1850,7 +1957,7 @@ try {
 
         } catch (err) {
             logApp(`pyenv installation error: ${err.message}`, 'ERROR');
-            sendProgress(0, 'Installation failed');
+            sendProgressWithLog(event, appId, 0, 'Installation failed');
             return { error: err.message };
         }
     }
@@ -1907,7 +2014,7 @@ try {
 
             // Special handling for Meilisearch
             if (appId === 'meilisearch') {
-                return await installMeilisearch(event, appId, version, downloadUrl, dbManager);
+                return await installMeilisearch(event, appId, version, downloadUrl, dbManager, autostart);
             }
 
             const installContext = {
@@ -1938,18 +2045,9 @@ try {
 
                 let lastProgressTime = 0;
                 let lastStatus = '';
-                const sendProgress = (progress, status, logDetail = null) => {
-                    if (!installContext.cancelled) {
-                        const now = Date.now();
-                        if (status !== lastStatus || progress === 100 || now - lastProgressTime >= 1000) {
-                            event.sender.send('app-install-progress', { appId, progress, status, logDetail });
-                            lastProgressTime = now;
-                            lastStatus = status;
-                        }
-                    }
-                };
 
-                sendProgress(0, 'Downloading...');
+
+                sendProgressWithLog(event, appId, 0, 'Downloading...');
 
                 // Download file with progress
                 await new Promise((resolve, reject) => {
@@ -1996,10 +2094,10 @@ try {
                                     const percent = Math.round((downloadedSize / totalSize) * 50);
                                     const downloadedMB = (downloadedSize / (1024 * 1024)).toFixed(2);
                                     const totalMB = (totalSize / (1024 * 1024)).toFixed(2);
-                                    sendProgress(percent, 'Downloading...', `Downloaded ${downloadedMB} MB / ${totalMB} MB`);
+                                    sendProgressWithLog(event, appId, percent, 'Downloading...', `Downloaded ${downloadedMB} MB / ${totalMB} MB`);
                                 } else {
                                     const downloadedMB = (downloadedSize / (1024 * 1024)).toFixed(2);
-                                    sendProgress(25, 'Downloading...', `Downloaded ${downloadedMB} MB`);
+                                    sendProgressWithLog(event, appId, 25, 'Downloading...', `Downloaded ${downloadedMB} MB`);
                                 }
                             });
 
@@ -2033,7 +2131,7 @@ try {
                     throw new Error('Installation cancelled');
                 }
 
-                sendProgress(50, 'Extracting...');
+                sendProgressWithLog(event, appId, 50, 'Extracting...');
 
                 // Extract ZIP file using Worker thread to avoid blocking UI
                 try {
@@ -2090,13 +2188,13 @@ try {
                                         detail = `Extracted ${msg.extractedCount} / ${msg.totalEntries} files`;
                                     }
 
-                                    sendProgress(extractPercent, 'Extracting...', detail);
+                                    sendProgressWithLog(event, appId, extractPercent, 'Extracting...', detail);
                                     break;
                                 case 'warning':
                                     logApp(msg.message, 'WARNING');
                                     break;
                                 case 'complete':
-                                    sendProgress(90, 'Finishing...');
+                                    sendProgressWithLog(event, appId, 90, 'Finishing...');
                                     resolve();
                                     break;
                                 case 'error':
@@ -2138,7 +2236,7 @@ try {
                 // Find executable path
                 let execPath = '';
                 if (execFile) {
-                    sendProgress(95, `Locating ${execFile}...`);
+                    sendProgressWithLog(event, appId, 95, `Locating ${execFile}...`);
 
                     const findFile = async (dir, target) => {
                         const entries = await fsPromises.readdir(dir, { withFileTypes: true });
@@ -2406,16 +2504,16 @@ try {
                     return { error: result.error };
                 }
 
-                sendProgress(100, 'Installed!');
+                sendProgressWithLog(event, appId, 100, 'Installed!');
                 logApp(`Successfully installed ${appId}`, 'INSTALL');
 
                 if (needReConfigPHPMyAdmin) {
-                    sendProgress(100, 'Configuring phpMyAdmin...');
+                    sendProgressWithLog(event, appId, 100, 'Configuring phpMyAdmin...');
                     await configurePhpMyAdmin(dbManager, context);
                 }
 
                 if (autoStartValue === 1) {
-                    sendProgress(100, 'Starting app...');
+                    sendProgressWithLog(event, appId, 100, 'Starting app...');
                     await serviceHandler.startAppService(appId, execPath, args);
                 }
 
