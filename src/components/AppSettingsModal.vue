@@ -227,6 +227,16 @@ const checkServiceStatus = async () => {
         serviceRunning.value = false;
     }
 
+    // Load existing logs from backend (logs generated before opening this modal)
+    try {
+        const existingLogs = await window.sysapi.apps.getServiceLogs(props.app.id);
+        if (existingLogs?.logs && existingLogs.logs.length > 0) {
+            serviceLogs.value = [...existingLogs.logs];
+        }
+    } catch (e) {
+        console.warn('Failed to load existing service logs:', e);
+    }
+
     // Subscribe to logs/status updates
     if (serviceLogUnsubscribe) serviceLogUnsubscribe();
     serviceLogUnsubscribe = window.sysapi.apps.onServiceLog(props.app.id, (data) => {

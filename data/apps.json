@@ -397,16 +397,7 @@
       "exec_file": "meilisearch.exe",
       "cli_file": "meilisearch.exe",
       "default_args": "",
-      "versions": [
-        {
-          "version": "latest",
-          "filename": "meilisearch.exe",
-          "download_url": "https://github.com/meilisearch/meilisearch/releases/latest/download/meilisearch-windows-amd64.exe",
-          "size": 16462643,
-          "md5": "",
-          "sha1": ""
-        }
-      ]
+      "versions": []
     }
   ]
 }
