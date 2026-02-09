@@ -1294,7 +1294,12 @@ try {
                             }
                             downloadedSize += chunk.length;
                             if (totalSize > 0) {
-                                const percent = Math.round((downloadedSize / totalSize) * 50);
+                                // Meilisearch progress:
+                                // 0-10%: Preparation (done before download starts)
+                                // 10-90%: Downloading (80% range)
+                                // 90-100%: Post-processing
+                                const downloadPercent = downloadedSize / totalSize;
+                                const percent = 10 + Math.round(downloadPercent * 80);
                                 const downloadedMB = (downloadedSize / (1024 * 1024)).toFixed(2);
                                 const totalMB = (totalSize / (1024 * 1024)).toFixed(2);
                                 sendProgressWithLog(event, appId, percent, 'Downloading...', `Downloaded ${downloadedMB} MB / ${totalMB} MB`);
@@ -1347,14 +1352,17 @@ try {
                 throw new Error(result.error);
             }
 
-            sendProgressWithLog(event, appId, 100, 'Installed!');
+            // Post-processing: 90-100%
+            sendProgressWithLog(event, appId, 90, 'Finalizing installation...');
             logApp('Meilisearch installation completed successfully', 'INSTALL');
 
             // Auto start if need
             if (autostart) {
-                sendProgressWithLog(event, appId, 100, 'Starting app...');
+                sendProgressWithLog(event, appId, 95, 'Starting app...');
                 await serviceHandler.startAppService(appId, meilisearchExe, '');
             }
+
+            sendProgressWithLog(event, appId, 100, 'Installed!');
 
             return {
                 success: true,
