@@ -6,13 +6,12 @@
 const fs = require('fs');
 const fsPromises = require('fs').promises;
 const path = require('path');
-const https = require('https');
-const http = require('http');
 const { Worker } = require('worker_threads');
 const crypto = require('crypto');
 const serviceHandler = require('./serviceHandler');
 const { removeHosts } = require('./hostsHandler');
 const { runningNodeProcesses, restartWebServices } = require('./sitesHandler');
+const { https, http } = require('follow-redirects');
 
 /**
  * @typedef {Object} AppVersion
@@ -1129,6 +1128,139 @@ try {
         }
     }
 
+    const installMeilisearch = async (event, appId, version, downloadUrl, dbManager) => {
+        const sendProgress = (progress, status, logDetail = null) => {
+            event.sender.send('app-install-progress', { appId, progress, status, logDetail });
+        };
+        try {
+            const installContext = {
+                appId,
+                cancelled: false,
+                downloadUrl,
+                version,
+                installPath: path.join(context.userDataPath, 'apps', appId),
+                execPath: '',
+                cliPath: '',
+                customArgs: '',
+                autoStart: true,
+                showOnDashboard: true
+            };
+
+            // Create installation directory
+            await fsPromises.mkdir(installContext.installPath, { recursive: true });
+
+            // Download file with progress
+            const meilisearchExe = path.join(installContext.installPath, 'meilisearch.exe');
+            await new Promise((resolve, reject) => {
+                const protocol = downloadUrl.startsWith('https') ? https : http;
+                const options = {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    }
+                };
+
+                const request = protocol.get(downloadUrl, options, (response) => {
+                    if (response.statusCode !== 200) {
+                        reject(new Error(`HTTP Error: ${response.statusCode}`));
+                        return;
+                    }
+                    handleResponse(response);
+
+                    function handleResponse(res) {
+                        if (installContext.cancelled) {
+                            res.destroy();
+                            reject(new Error('Installation cancelled'));
+                            return;
+                        }
+
+                        if (res.statusCode !== 200) {
+                            reject(new Error(`HTTP Error: ${res.statusCode}`));
+                            return;
+                        }
+
+                        const totalSize = parseInt(res.headers['content-length'], 10) || 0;
+                        let downloadedSize = 0;
+
+                        const fileStream = fs.createWriteStream(meilisearchExe);
+
+                        res.on('data', (chunk) => {
+                            if (installContext.cancelled) {
+                                res.destroy();
+                                fileStream.close();
+                                return;
+                            }
+                            downloadedSize += chunk.length;
+                            if (totalSize > 0) {
+                                const percent = Math.round((downloadedSize / totalSize) * 50);
+                                const downloadedMB = (downloadedSize / (1024 * 1024)).toFixed(2);
+                                const totalMB = (totalSize / (1024 * 1024)).toFixed(2);
+                                sendProgress(percent, 'Downloading...', `Downloaded ${downloadedMB} MB / ${totalMB} MB`);
+                            } else {
+                                const downloadedMB = (downloadedSize / (1024 * 1024)).toFixed(2);
+                                sendProgress(25, 'Downloading...', `Downloaded ${downloadedMB} MB`);
+                            }
+                        });
+
+                        res.pipe(fileStream);
+
+                        fileStream.on('finish', () => {
+                            fileStream.close();
+                            if (installContext.cancelled) {
+                                reject(new Error('Installation cancelled'));
+                            } else {
+                                resolve();
+                            }
+                        });
+
+                        fileStream.on('error', (err) => {
+                            if (fs.existsSync(meilisearchExe)) try { fs.unlinkSync(meilisearchExe); } catch (e) { }
+                            reject(err);
+                        });
+                    }
+                });
+
+                installContext.request = request;
+                request.on('error', reject);
+                request.setTimeout(1800000, () => {
+                    request.destroy();
+                    reject(new Error('Download timeout'));
+                });
+            });
+
+            // Find executable
+            if (!fs.existsSync(meilisearchExe)) {
+                throw new Error('meilisearch.exe not found in extracted files');
+            }
+
+            // Save to database
+            const now = new Date().toISOString();
+            const result = dbManager.query(
+                `INSERT OR REPLACE INTO installed_apps (app_id, installed_version, install_path, exec_path, cli_path, custom_args, auto_start, show_on_dashboard, installed_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+                [appId, version, installContext.installPath, meilisearchExe, meilisearchExe, '', 1, now, now]
+            );
+
+            if (result.error) {
+                throw new Error(result.error);
+            }
+
+            sendProgress(100, 'Installed!');
+            logApp('Meilisearch installation completed successfully', 'INSTALL');
+
+            return {
+                success: true,
+                installPath: installContext.installPath,
+                execPath: meilisearchExe,
+                cliPath: meilisearchExe
+            };
+
+        } catch (err) {
+            logApp(`Meilisearch installation error: ${err.message}`, 'ERROR');
+            sendProgress(0, 'Installation failed');
+            return { error: err.message };
+        }
+    }
+
     /**
      * Fetch Nginx versions from nginx.org
      */
@@ -1773,6 +1905,11 @@ try {
                 return await installNvmUsingInstaller(event, appId, version, downloadUrl, dbManager);
             }
 
+            // Special handling for Meilisearch
+            if (appId === 'meilisearch') {
+                return await installMeilisearch(event, appId, version, downloadUrl, dbManager);
+            }
+
             const installContext = {
                 appId,
                 cancelled: false,
@@ -1825,12 +1962,8 @@ try {
                     };
 
                     const request = protocol.get(downloadUrl, options, (response) => {
-                        if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
-                            const redirectUrl = response.headers.location;
-                            const redirectProtocol = redirectUrl.startsWith('https') ? https : http;
-                            const redirectRequest = redirectProtocol.get(redirectUrl, options, handleResponse);
-                            redirectRequest.on('error', reject);
-                            installContext.request = redirectRequest;
+                        if (response.statusCode !== 200) {
+                            reject(new Error(`HTTP Error: ${response.statusCode}`));
                             return;
                         }
                         handleResponse(response);
@@ -3234,10 +3367,9 @@ try {
                 const protocol = APP_FILES_JSON_URL.startsWith('https') ? https : http;
 
                 const request = protocol.get(APP_FILES_JSON_URL, (response) => {
-                    if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
-                        const redirectUrl = response.headers.location;
-                        const redirectProtocol = redirectUrl.startsWith('https') ? https : http;
-                        return redirectProtocol.get(redirectUrl, handleResponse).on('error', reject);
+                    if (response.statusCode !== 200) {
+                        reject(new Error(`HTTP Error: ${response.statusCode}`));
+                        return;
                     }
                     handleResponse(response);
 
