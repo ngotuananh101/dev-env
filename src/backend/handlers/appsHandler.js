@@ -1986,9 +1986,20 @@ try {
                     if (fs.existsSync(zipPath)) try { fs.unlinkSync(zipPath); } catch (e) { }
                     throw new Error(`Failed to extract: ${extractError.message}`);
                 }
-
                 if (fs.existsSync(zipPath)) {
                     try { fs.unlinkSync(zipPath); } catch (e) { }
+                }
+
+                // Check if app unzip is inside another folder
+                const subfolders = await fsPromises.readdir(appInstallDir, { withFileTypes: true });
+                if (subfolders.length === 1 && subfolders[0].isDirectory()) {
+                    // Copy all content to appInstallDir and delete subfolders[0]
+                    await fsPromises.cp(path.join(appInstallDir, subfolders[0].name), appInstallDir, { recursive: true });
+                    await fsPromises.rm(path.join(appInstallDir, subfolders[0].name), { recursive: true });
+                } else if (appId == 'apache' && subfolders.map(subfolder => subfolder.name).includes('Apache24')) {
+                    // Copy all content of Apache24 to appInstallDir and delete Apache24
+                    await fsPromises.cp(path.join(appInstallDir, 'Apache24'), appInstallDir, { recursive: true });
+                    await fsPromises.rm(path.join(appInstallDir, 'Apache24'), { recursive: true });
                 }
 
                 // Find executable path
@@ -2034,7 +2045,10 @@ try {
                         execPath = foundPath;
 
                         // Post-install configuration
-                        if (appId.startsWith('php')) {
+                        if (appId === 'phpmyadmin') {
+                            needReConfigPHPMyAdmin = true;
+                        }
+                        else if (appId.startsWith('php')) {
                             const configPath = path.join(appInstallDir, 'php.ini');
                             const devConfigPath = path.join(appInstallDir, 'php.ini-development');
                             if (fs.existsSync(devConfigPath)) {
@@ -2163,9 +2177,6 @@ try {
                                 logApp(`Failed to configure Nginx: ${configErr.message}`, 'ERROR');
                                 console.error('Nginx config error:', configErr);
                             }
-                        }
-                        else if (appId === 'phpmyadmin') {
-                            needReConfigPHPMyAdmin = true;
                         }
                     }
                 }
