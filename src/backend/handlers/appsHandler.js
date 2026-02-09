@@ -971,7 +971,7 @@ function register(ipcMain, context) {
      * @returns {Promise<Object>} Installation result
      */
     async function installNvmUsingInstaller(event, appId, version, downloadUrl, dbManager) {
-        const { exec } = require('child_process');
+        const { exec, execSync } = require('child_process');
         const os = require('os');
         const fs = require('fs');
         const fsPromises = require('fs').promises;
@@ -979,6 +979,104 @@ function register(ipcMain, context) {
         logApp('Installing NVM using official installer (PowerShell)...', 'INSTALL');
 
         try {
+            sendProgressWithLog(event, appId, 5, 'Checking for existing NVM installation...');
+
+            // Check if NVM is already installed on the system
+            let existingNvmRoot = null;
+            let existingNvmExe = null;
+
+            // 1. Check Registry for NVM_HOME
+            try {
+                // Check user environment
+                try {
+                    const userEnv = execSync('reg query "HKCU\\Environment" /v NVM_HOME', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).toString();
+                    const match = userEnv.match(/NVM_HOME\s+REG_(?:EXPAND_)?SZ\s+(.+)/i);
+                    if (match) existingNvmRoot = match[1].trim();
+                } catch (e) { }
+
+                // Check system environment if not found in user
+                if (!existingNvmRoot) {
+                    try {
+                        const sysEnv = execSync('reg query "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment" /v NVM_HOME', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).toString();
+                        const match = sysEnv.match(/NVM_HOME\s+REG_(?:EXPAND_)?SZ\s+(.+)/i);
+                        if (match) existingNvmRoot = match[1].trim();
+                    } catch (e) { }
+                }
+            } catch (e) {
+                logApp(`Registry check error: ${e.message}`, 'WARNING');
+            }
+
+            // Verify the path from registry
+            if (existingNvmRoot) {
+                const exe = path.join(existingNvmRoot, 'nvm.exe');
+                if (fs.existsSync(exe)) {
+                    existingNvmExe = exe;
+                    logApp(`Found existing NVM via Registry at: ${existingNvmRoot}`, 'INFO');
+                } else {
+                    existingNvmRoot = null; // Path in registry invalid
+                }
+            }
+
+            // 2. Check common fallback locations if not found in registry
+            if (!existingNvmExe) {
+                const commonPaths = [
+                    path.join(process.env.APPDATA, 'nvm'),
+                    path.join(process.env.ProgramFiles, 'nvm'),
+                    process.env['ProgramFiles(x86)'] ? path.join(process.env['ProgramFiles(x86)'], 'nvm') : null,
+                    'C:\\nvm'
+                ].filter(Boolean);
+
+                for (const p of commonPaths) {
+                    const exe = path.join(p, 'nvm.exe');
+                    if (fs.existsSync(exe)) {
+                        existingNvmRoot = p;
+                        existingNvmExe = exe;
+                        logApp(`Found existing NVM at common path: ${p}`, 'INFO');
+                        break;
+                    }
+                }
+            }
+
+            // If NVM is already installed, register it and return success
+            if (existingNvmExe && existingNvmRoot) {
+                logApp(`NVM is already installed at: ${existingNvmRoot}. Skipping installation.`, 'INFO');
+                sendProgressWithLog(event, appId, 80, 'NVM already installed, registering...');
+
+                // Get version from existing NVM
+                let installedVersion = version;
+                try {
+                    const versionOutput = execSync(`"${existingNvmExe}" version`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).toString().trim();
+                    if (versionOutput) {
+                        installedVersion = versionOutput;
+                    }
+                } catch (e) {
+                    logApp(`Could not get NVM version: ${e.message}`, 'WARNING');
+                }
+
+                // Save to database
+                const now = new Date().toISOString();
+                const result = dbManager.query(
+                    `INSERT OR REPLACE INTO installed_apps (app_id, installed_version, install_path, exec_path, cli_path, custom_args, auto_start, show_on_dashboard, installed_at, updated_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+                    [appId, installedVersion, existingNvmRoot, existingNvmExe, existingNvmExe, '', 0, now, now]
+                );
+
+                if (result.error) {
+                    return { error: result.error };
+                }
+
+                sendProgressWithLog(event, appId, 100, 'Installed!');
+                logApp('Existing NVM registered successfully', 'INSTALL');
+
+                return {
+                    success: true,
+                    installPath: existingNvmRoot,
+                    execPath: existingNvmExe,
+                    cliPath: existingNvmExe,
+                    alreadyInstalled: true
+                };
+            }
+
             sendProgressWithLog(event, appId, 10, 'Preparing PowerShell script...');
 
             // Create temporary PowerShell script file
@@ -2300,17 +2398,18 @@ try {
                 }
 
                 // Check if app unzip is inside another folder
-                const subfolders = await fsPromises.readdir(appInstallDir, { withFileTypes: true });
-                if (subfolders.length === 1 && subfolders[0].isDirectory()) {
-                    // Copy all content to appInstallDir and delete subfolders[0]
-                    await fsPromises.cp(path.join(appInstallDir, subfolders[0].name), appInstallDir, { recursive: true });
-                    await fsPromises.rm(path.join(appInstallDir, subfolders[0].name), { recursive: true });
-                } else if (appId == 'apache' && subfolders.map(subfolder => subfolder.name).includes('Apache24')) {
-                    // Copy all content of Apache24 to appInstallDir and delete Apache24
-                    await fsPromises.cp(path.join(appInstallDir, 'Apache24'), appInstallDir, { recursive: true });
-                    await fsPromises.rm(path.join(appInstallDir, 'Apache24'), { recursive: true });
+                if (appId != 'postgresql') {
+                    const subfolders = await fsPromises.readdir(appInstallDir, { withFileTypes: true });
+                    if (subfolders.length === 1 && subfolders[0].isDirectory()) {
+                        // Copy all content to appInstallDir and delete subfolders[0]
+                        await fsPromises.cp(path.join(appInstallDir, subfolders[0].name), appInstallDir, { recursive: true });
+                        await fsPromises.rm(path.join(appInstallDir, subfolders[0].name), { recursive: true });
+                    } else if (appId == 'apache' && subfolders.map(subfolder => subfolder.name).includes('Apache24')) {
+                        // Copy all content of Apache24 to appInstallDir and delete Apache24
+                        await fsPromises.cp(path.join(appInstallDir, 'Apache24'), appInstallDir, { recursive: true });
+                        await fsPromises.rm(path.join(appInstallDir, 'Apache24'), { recursive: true });
+                    }
                 }
-
                 // Find executable path
                 let execPath = '';
                 if (execFile) {
