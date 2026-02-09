@@ -687,6 +687,10 @@ function register(ipcMain, context) {
             return await getMeilisearchVersions();
         }
 
+        if (appId === 'elasticsearch') {
+            return await getElasticsearchVersions();
+        }
+
         if (appId !== 'mariadb') return [];
 
         try {
@@ -1717,6 +1721,64 @@ try {
     };
 
     /**
+     * Fetch Elasticsearch versions from GitHub tags
+     */
+    const getElasticsearchVersions = () => {
+        return new Promise((resolve) => {
+            const https = require('https');
+            const options = {
+                hostname: 'api.github.com',
+                path: '/repos/elastic/elasticsearch/tags?per_page=100',
+                method: 'GET',
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                }
+            };
+
+            const req = https.request(options, (res) => {
+                let data = '';
+                res.on('data', (chunk) => data += chunk);
+                res.on('end', () => {
+                    try {
+                        const tags = JSON.parse(data);
+                        const versions = [];
+
+                        if (Array.isArray(tags)) {
+                            for (const tag of tags) {
+                                const version = tag.name.replace(/^v/, '');
+                                // Only include 7.0.0+
+                                if (compareVersions(version, '7.0.0') >= 0) {
+                                    versions.push({
+                                        version: version,
+                                        filename: `elasticsearch-${version}-windows-x86_64.zip`,
+                                        download_url: `https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-${version}-windows-x86_64.zip`,
+                                        size: 0,
+                                        md5: "",
+                                        sha1: ""
+                                    });
+                                }
+                            }
+                        }
+
+                        versions.sort((a, b) => compareVersions(b.version, a.version));
+                        resolve(versions);
+                    } catch (e) {
+                        console.error('Failed to parse Elasticsearch versions:', e);
+                        resolve([]);
+                    }
+                });
+            });
+
+            req.on('error', (err) => {
+                console.error('Failed to fetch Elasticsearch versions:', err);
+                resolve([]);
+            });
+
+            req.end();
+        });
+    };
+
+    /**
      * Install pyenv using official PowerShell script
      * @param {Object} event - IPC event
      * @param {string} appId - App ID (pyenv)
@@ -2187,7 +2249,7 @@ try {
 
                             switch (msg.type) {
                                 case 'start':
-                                    sendProgress(50, 'Extracting...', `Starting extraction of ${msg.totalEntries} files`);
+                                    sendProgressWithLog(event, appId, 50, 'Extracting...', `Starting extraction of ${msg.totalEntries} files`);
                                     break;
                                 case 'progress':
                                     let extractPercent;

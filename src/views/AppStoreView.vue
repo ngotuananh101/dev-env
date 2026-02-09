@@ -404,8 +404,8 @@ const openInstallModal = (app) => {
   isCancelling.value = false;
   selectedVersion.value = null;
 
-  // Check if we need to fetch versions (MariaDB, Redis, PHP, Nginx, PostgreSQL, Apache, MySQL, MongoDB, or Meilisearch)
-  if (app.id === 'mariadb' || app.id === 'redis' || (app.id.startsWith('php') && app.id !== 'phpmyadmin') || app.id === 'nginx' || app.id === 'postgresql' || app.id === 'apache' || app.id === 'mysql' || app.id === 'mongodb' || app.id === 'meilisearch') {
+  // Check if we need to fetch versions (MariaDB, Redis, PHP, Nginx, PostgreSQL, Apache, MySQL, MongoDB, Meilisearch, or Elasticsearch)
+  if (app.id === 'mariadb' || app.id === 'redis' || (app.id.startsWith('php') && app.id !== 'phpmyadmin') || app.id === 'nginx' || app.id === 'postgresql' || app.id === 'apache' || app.id === 'mysql' || app.id === 'mongodb' || app.id === 'meilisearch' || app.id === 'elasticsearch') {
     isLoadingVersions.value = true;
     // Clear existing versions to avoid confusion
     installingApp.value = { ...app, versions: [] };
