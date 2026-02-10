@@ -90,6 +90,19 @@
     <!-- Meilisearch Manager (separate view) -->
     <MeilisearchManager v-else-if="isMeilisearchTab" />
 
+    <!-- Service Not Running (for SQL-type tabs) -->
+    <div v-else-if="!serviceRunning" class="flex-1 flex items-center justify-center">
+      <div class="text-center">
+        <Database class="w-12 h-12 mx-auto text-gray-600 mb-3" />
+        <p class="text-gray-400 text-sm">{{ currentDbApp?.name || 'Database' }} service is not running</p>
+        <p class="text-gray-500 text-xs mt-1">Start the service from the home page to manage data</p>
+        <button @click="refreshAll"
+          class="mt-3 px-4 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors">
+          Retry
+        </button>
+      </div>
+    </div>
+
     <!-- Databases Table (not for Redis/Meilisearch) -->
     <div v-else-if="!isRedisTab && !isMeilisearchTab && subTab === 'databases'" class="flex-1 overflow-auto">
       <table class="w-full text-xs">
@@ -340,10 +353,10 @@ const loadDbApps = async () => {
           name: nameMap[app.app_id] || app.app_id,
           version: app.installed_version,
           installPath: app.install_path,
+          execPath: app.exec_path,
           iconColor: colorMap[app.app_id] || 'text-gray-400'
         };
       });
-
       // Auto-select first tab
       if (dbApps.value.length > 0 && !activeTab.value) {
         activeTab.value = dbApps.value[0].id;
@@ -359,9 +372,31 @@ const refreshAll = () => {
   loadUsers();
 };
 
+// Check if service for current tab is running
+const serviceRunning = ref(true);
+
+const checkServiceRunning = async (appId) => {
+  const app = dbApps.value.find(a => a.id === appId);
+  if (!app || !app.execPath) return false;
+  try {
+    const status = await window.sysapi.apps.getServiceStatus(appId, app.execPath);
+    return status?.running === true;
+  } catch {
+    return false;
+  }
+};
+
 const loadDatabases = async () => {
   console.log('Loading databases for tab:', activeTab.value);
   if (!activeTab.value) return;
+
+  // Check service status first
+  const running = await checkServiceRunning(activeTab.value);
+  serviceRunning.value = running;
+  if (!running) {
+    databases.value = [];
+    return;
+  }
 
   loading.value = true;
   try {
@@ -490,6 +525,14 @@ const dropDatabase = async (dbName) => {
 const loadUsers = async () => {
   if (!activeTab.value) return;
 
+  // Check service status first
+  const running = await checkServiceRunning(activeTab.value);
+  serviceRunning.value = running;
+  if (!running) {
+    users.value = [];
+    return;
+  }
+
   loading.value = true;
   try {
     const result = await dbStore.getUsers(activeTab.value);
@@ -533,12 +576,13 @@ const changePassword = async (username, host) => {
   }
 };
 
-// Watch tab change to reload data
+// Watch tab change to reload data (lazy load)
 watch(activeTab, (newTab) => {
-  if (newTab && newTab !== 'redis') {
+  if (newTab && newTab !== 'redis' && newTab !== 'meilisearch') {
     databases.value = [];
     users.value = [];
     userPasswords.value = {};
+    serviceRunning.value = true;
     refreshAll();
   }
 });

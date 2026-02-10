@@ -751,6 +751,20 @@ const copyToClipboard = async (text) => {
 
 // Initialize
 onMounted(async () => {
+    // Check if Meilisearch service is running
+    try {
+        const apps = await window.sysapi.db.query("SELECT exec_path FROM installed_apps WHERE app_id = 'meilisearch'");
+        if (apps && apps.length > 0) {
+            const status = await window.sysapi.apps.getServiceStatus('meilisearch', apps[0].exec_path);
+            if (!status?.running) {
+                connected.value = false;
+                return;
+            }
+        }
+    } catch (e) {
+        console.error('Service check failed:', e);
+    }
+
     await checkHealth();
     if (connected.value) {
         await loadIndexes();

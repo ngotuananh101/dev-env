@@ -735,6 +735,20 @@ watch(activeDb, () => {
 
 // Initialize
 onMounted(async () => {
+  // Check if Redis service is running
+  try {
+    const apps = await window.sysapi.db.query("SELECT exec_path FROM installed_apps WHERE app_id = 'redis'");
+    if (apps && apps.length > 0) {
+      const status = await window.sysapi.apps.getServiceStatus('redis', apps[0].exec_path);
+      if (!status?.running) {
+        toast.warning('Redis service is not running');
+        return;
+      }
+    }
+  } catch (e) {
+    console.error('Service check failed:', e);
+  }
+
   await loadRedisInfo();
   await refreshKeys();
 });
