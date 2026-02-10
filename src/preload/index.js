@@ -55,7 +55,8 @@ api.database = {
     dropDatabase: db.dropDatabase,
     listUsers: db.listUsers,
     changePassword: db.changePassword,
-    redis: db.redis
+    redis: db.redis,
+    meilisearch: db.meilisearch
 };
 
 if (process.contextIsolated) {

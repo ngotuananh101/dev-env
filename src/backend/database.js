@@ -103,6 +103,7 @@ class DatabaseManager {
             try { this.db.prepare("ALTER TABLE installed_apps ADD COLUMN custom_args TEXT").run(); } catch (e) { }
             try { this.db.prepare("ALTER TABLE installed_apps ADD COLUMN auto_start INTEGER DEFAULT 0").run(); } catch (e) { }
             try { this.db.prepare("ALTER TABLE installed_apps ADD COLUMN cli_path TEXT").run(); } catch (e) { }
+            try { this.db.prepare("ALTER TABLE installed_apps ADD COLUMN extra_info TEXT").run(); } catch (e) { }
 
         } catch (err) {
             console.error("DB Init Tables Error:", err);

@@ -1396,10 +1396,6 @@ try {
                             }
                             downloadedSize += chunk.length;
                             if (totalSize > 0) {
-                                // Meilisearch progress:
-                                // 0-10%: Preparation (done before download starts)
-                                // 10-90%: Downloading (80% range)
-                                // 90-100%: Post-processing
                                 const downloadPercent = downloadedSize / totalSize;
                                 const percent = 10 + Math.round(downloadPercent * 80);
                                 const downloadedMB = (downloadedSize / (1024 * 1024)).toFixed(2);
@@ -1442,12 +1438,18 @@ try {
                 throw new Error('meilisearch.exe not found in extracted files');
             }
 
+            // Generate master key
+            const masterKey = crypto.randomUUID();
+            const extraInfo = JSON.stringify({ master_key: masterKey });
+            const dbPath = path.join(installContext.installPath, 'data.ms');
+            const customArgs = `--master-key "${masterKey}" --db-path "${dbPath}"`;
+
             // Save to database
             const now = new Date().toISOString();
             const result = dbManager.query(
-                `INSERT OR REPLACE INTO installed_apps (app_id, installed_version, install_path, exec_path, cli_path, custom_args, auto_start, show_on_dashboard, installed_at, updated_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
-                [appId, version, installContext.installPath, meilisearchExe, meilisearchExe, '', 1, now, now]
+                `INSERT OR REPLACE INTO installed_apps (app_id, installed_version, install_path, exec_path, cli_path, custom_args, auto_start, show_on_dashboard, extra_info, installed_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
+                [appId, version, installContext.installPath, meilisearchExe, meilisearchExe, customArgs, 1, extraInfo, now, now]
             );
 
             if (result.error) {
@@ -1461,7 +1463,7 @@ try {
             // Auto start if need
             if (autostart) {
                 sendProgressWithLog(event, appId, 95, 'Starting app...');
-                await serviceHandler.startAppService(appId, meilisearchExe, '');
+                await serviceHandler.startAppService(appId, meilisearchExe, customArgs);
             }
 
             sendProgressWithLog(event, appId, 100, 'Installed!');

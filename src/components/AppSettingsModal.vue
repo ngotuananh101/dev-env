@@ -59,6 +59,9 @@
 
                             <!-- pyenv Versions Panel -->
                             <AppSettingsPyenv v-else-if="activePanel === 'pyenv-versions'" :app="app" />
+
+                            <!-- Meilisearch API Keys Panel -->
+                            <AppSettingsMeilisearch v-else-if="activePanel === 'meilisearch-keys'" :app="app" />
                         </div>
                     </Transition>
                 </div>
@@ -80,6 +83,7 @@ import AppSettingsExtensions from './settings/AppSettingsExtensions.vue';
 import AppSettingsPhpInfo from './settings/AppSettingsPhpInfo.vue';
 import AppSettingsNvm from './settings/AppSettingsNvm.vue';
 import AppSettingsPyenv from './settings/AppSettingsPyenv.vue';
+import AppSettingsMeilisearch from './settings/AppSettingsMeilisearch.vue';
 
 const toast = useToast();
 
@@ -185,6 +189,16 @@ const menuItems = computed(() => {
             label: 'PHP Info',
             tip: 'View PHP Configuration',
             type: 'phpinfo'
+        });
+    }
+
+    // Add API Keys for Meilisearch
+    if (props.app?.id === 'meilisearch') {
+        items.push({
+            id: 'meilisearch-keys',
+            label: 'API Keys',
+            tip: 'Manage Meilisearch API keys',
+            type: 'meilisearch-keys'
         });
     }
 

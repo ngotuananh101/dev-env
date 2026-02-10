@@ -876,6 +876,288 @@ function register(ipcMain, context) {
             return { error: error.message };
         }
     });
+
+    // =====================
+    // Meilisearch Handlers
+    // =====================
+
+    /**
+     * Helper: Make HTTP request to Meilisearch REST API
+     * Reads master key from installed_apps.extra_info
+     */
+    function meilisearchRequest(method, apiPath, body = null, masterKey = null) {
+        return new Promise((resolve) => {
+            const http = require('http');
+            const url = `http://localhost:7700${apiPath}`;
+            const urlObj = new URL(url);
+
+            const headers = {
+                'Content-Type': 'application/json',
+            };
+            if (masterKey) {
+                headers['Authorization'] = `Bearer ${masterKey}`;
+            }
+
+            const requestBody = body ? JSON.stringify(body) : null;
+            if (requestBody) {
+                headers['Content-Length'] = Buffer.byteLength(requestBody);
+            }
+
+            const options = {
+                hostname: urlObj.hostname,
+                port: urlObj.port,
+                path: urlObj.pathname + urlObj.search,
+                method: method,
+                headers: headers,
+                timeout: 30000,
+            };
+
+            const req = http.request(options, (res) => {
+                let data = '';
+                res.on('data', (chunk) => { data += chunk; });
+                res.on('end', () => {
+                    try {
+                        const parsed = data ? JSON.parse(data) : {};
+                        if (res.statusCode >= 200 && res.statusCode < 300) {
+                            resolve(parsed);
+                        } else {
+                            resolve({ error: parsed.message || `HTTP ${res.statusCode}`, statusCode: res.statusCode, details: parsed });
+                        }
+                    } catch (e) {
+                        resolve({ error: `Failed to parse response: ${e.message}` });
+                    }
+                });
+            });
+
+            req.on('error', (err) => {
+                resolve({ error: `Connection failed: ${err.message}. Make sure Meilisearch is running.` });
+            });
+
+            req.on('timeout', () => {
+                req.destroy();
+                resolve({ error: 'Request timeout' });
+            });
+
+            if (requestBody) {
+                req.write(requestBody);
+            }
+            req.end();
+        });
+    }
+
+    /**
+     * Get Meilisearch master key from installed_apps.extra_info
+     */
+    function getMeilisearchMasterKey(dbManager) {
+        const apps = dbManager.query('SELECT * FROM installed_apps WHERE app_id = ?', ['meilisearch']);
+        if (!apps || apps.length === 0) return null;
+        const app = apps[0];
+        if (!app.extra_info) return null;
+        try {
+            const info = JSON.parse(app.extra_info);
+            return info.master_key || null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    // Health check
+    ipcMain.handle('meilisearch-health', async () => {
+        try {
+            const dbManager = getDbManager();
+            if (!dbManager) return { error: 'Database not initialized' };
+            const masterKey = getMeilisearchMasterKey(dbManager);
+            return await meilisearchRequest('GET', '/health', null, masterKey);
+        } catch (error) {
+            return { error: error.message };
+        }
+    });
+
+    // Get stats
+    ipcMain.handle('meilisearch-get-stats', async () => {
+        try {
+            const dbManager = getDbManager();
+            if (!dbManager) return { error: 'Database not initialized' };
+            const masterKey = getMeilisearchMasterKey(dbManager);
+            return await meilisearchRequest('GET', '/stats', null, masterKey);
+        } catch (error) {
+            return { error: error.message };
+        }
+    });
+
+    // List indexes
+    ipcMain.handle('meilisearch-list-indexes', async () => {
+        try {
+            const dbManager = getDbManager();
+            if (!dbManager) return { error: 'Database not initialized' };
+            const masterKey = getMeilisearchMasterKey(dbManager);
+            return await meilisearchRequest('GET', '/indexes?limit=100', null, masterKey);
+        } catch (error) {
+            return { error: error.message };
+        }
+    });
+
+    // Create index
+    ipcMain.handle('meilisearch-create-index', async (event, uid, primaryKey) => {
+        try {
+            const dbManager = getDbManager();
+            if (!dbManager) return { error: 'Database not initialized' };
+            const masterKey = getMeilisearchMasterKey(dbManager);
+            const body = { uid };
+            if (primaryKey) body.primaryKey = primaryKey;
+            return await meilisearchRequest('POST', '/indexes', body, masterKey);
+        } catch (error) {
+            return { error: error.message };
+        }
+    });
+
+    // Delete index
+    ipcMain.handle('meilisearch-delete-index', async (event, uid) => {
+        try {
+            const dbManager = getDbManager();
+            if (!dbManager) return { error: 'Database not initialized' };
+            const masterKey = getMeilisearchMasterKey(dbManager);
+            return await meilisearchRequest('DELETE', `/indexes/${encodeURIComponent(uid)}`, null, masterKey);
+        } catch (error) {
+            return { error: error.message };
+        }
+    });
+
+    // Get documents
+    ipcMain.handle('meilisearch-get-documents', async (event, uid, options = {}) => {
+        try {
+            const dbManager = getDbManager();
+            if (!dbManager) return { error: 'Database not initialized' };
+            const masterKey = getMeilisearchMasterKey(dbManager);
+            const limit = options.limit || 20;
+            const offset = options.offset || 0;
+            return await meilisearchRequest('GET', `/indexes/${encodeURIComponent(uid)}/documents?limit=${limit}&offset=${offset}`, null, masterKey);
+        } catch (error) {
+            return { error: error.message };
+        }
+    });
+
+    // Add/Update documents
+    ipcMain.handle('meilisearch-add-documents', async (event, uid, documents) => {
+        try {
+            const dbManager = getDbManager();
+            if (!dbManager) return { error: 'Database not initialized' };
+            const masterKey = getMeilisearchMasterKey(dbManager);
+            return await meilisearchRequest('POST', `/indexes/${encodeURIComponent(uid)}/documents`, documents, masterKey);
+        } catch (error) {
+            return { error: error.message };
+        }
+    });
+
+    // Delete a document
+    ipcMain.handle('meilisearch-delete-document', async (event, uid, docId) => {
+        try {
+            const dbManager = getDbManager();
+            if (!dbManager) return { error: 'Database not initialized' };
+            const masterKey = getMeilisearchMasterKey(dbManager);
+            return await meilisearchRequest('DELETE', `/indexes/${encodeURIComponent(uid)}/documents/${encodeURIComponent(docId)}`, null, masterKey);
+        } catch (error) {
+            return { error: error.message };
+        }
+    });
+
+    // Delete all documents
+    ipcMain.handle('meilisearch-delete-all-documents', async (event, uid) => {
+        try {
+            const dbManager = getDbManager();
+            if (!dbManager) return { error: 'Database not initialized' };
+            const masterKey = getMeilisearchMasterKey(dbManager);
+            return await meilisearchRequest('DELETE', `/indexes/${encodeURIComponent(uid)}/documents`, null, masterKey);
+        } catch (error) {
+            return { error: error.message };
+        }
+    });
+
+    // Search documents
+    ipcMain.handle('meilisearch-search', async (event, uid, query, options = {}) => {
+        try {
+            const dbManager = getDbManager();
+            if (!dbManager) return { error: 'Database not initialized' };
+            const masterKey = getMeilisearchMasterKey(dbManager);
+            const body = { q: query, ...options };
+            return await meilisearchRequest('POST', `/indexes/${encodeURIComponent(uid)}/search`, body, masterKey);
+        } catch (error) {
+            return { error: error.message };
+        }
+    });
+
+    // Get index settings
+    ipcMain.handle('meilisearch-get-settings', async (event, uid) => {
+        try {
+            const dbManager = getDbManager();
+            if (!dbManager) return { error: 'Database not initialized' };
+            const masterKey = getMeilisearchMasterKey(dbManager);
+            return await meilisearchRequest('GET', `/indexes/${encodeURIComponent(uid)}/settings`, null, masterKey);
+        } catch (error) {
+            return { error: error.message };
+        }
+    });
+
+    // Update index settings
+    ipcMain.handle('meilisearch-update-settings', async (event, uid, settings) => {
+        try {
+            const dbManager = getDbManager();
+            if (!dbManager) return { error: 'Database not initialized' };
+            const masterKey = getMeilisearchMasterKey(dbManager);
+            return await meilisearchRequest('PATCH', `/indexes/${encodeURIComponent(uid)}/settings`, settings, masterKey);
+        } catch (error) {
+            return { error: error.message };
+        }
+    });
+
+    // Get API keys
+    ipcMain.handle('meilisearch-get-keys', async () => {
+        try {
+            const dbManager = getDbManager();
+            if (!dbManager) return { error: 'Database not initialized' };
+            const masterKey = getMeilisearchMasterKey(dbManager);
+            return await meilisearchRequest('GET', '/keys', null, masterKey);
+        } catch (error) {
+            return { error: error.message };
+        }
+    });
+
+    // Create API key
+    ipcMain.handle('meilisearch-create-key', async (event, keyData) => {
+        try {
+            const dbManager = getDbManager();
+            if (!dbManager) return { error: 'Database not initialized' };
+            const masterKey = getMeilisearchMasterKey(dbManager);
+            return await meilisearchRequest('POST', '/keys', keyData, masterKey);
+        } catch (error) {
+            return { error: error.message };
+        }
+    });
+
+    // Delete API key
+    ipcMain.handle('meilisearch-delete-key', async (event, key) => {
+        try {
+            const dbManager = getDbManager();
+            if (!dbManager) return { error: 'Database not initialized' };
+            const masterKey = getMeilisearchMasterKey(dbManager);
+            return await meilisearchRequest('DELETE', `/keys/${encodeURIComponent(key)}`, null, masterKey);
+        } catch (error) {
+            return { error: error.message };
+        }
+    });
+
+    // Get tasks
+    ipcMain.handle('meilisearch-get-tasks', async (event, options = {}) => {
+        try {
+            const dbManager = getDbManager();
+            if (!dbManager) return { error: 'Database not initialized' };
+            const masterKey = getMeilisearchMasterKey(dbManager);
+            const limit = options.limit || 20;
+            return await meilisearchRequest('GET', `/tasks?limit=${limit}`, null, masterKey);
+        } catch (error) {
+            return { error: error.message };
+        }
+    });
 }
 
 module.exports = { register };

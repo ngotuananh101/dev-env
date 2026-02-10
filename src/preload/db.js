@@ -20,4 +20,24 @@ module.exports = {
         deleteKeys: (dbIndex, keys) => ipcRenderer.invoke('redis-delete-keys', dbIndex, keys),
         flushDb: (dbIndex) => ipcRenderer.invoke('redis-flush-db', dbIndex),
     },
+
+    // Meilisearch Management
+    meilisearch: {
+        health: () => ipcRenderer.invoke('meilisearch-health'),
+        getStats: () => ipcRenderer.invoke('meilisearch-get-stats'),
+        listIndexes: () => ipcRenderer.invoke('meilisearch-list-indexes'),
+        createIndex: (uid, primaryKey) => ipcRenderer.invoke('meilisearch-create-index', uid, primaryKey),
+        deleteIndex: (uid) => ipcRenderer.invoke('meilisearch-delete-index', uid),
+        getDocuments: (uid, options) => ipcRenderer.invoke('meilisearch-get-documents', uid, options),
+        addDocuments: (uid, documents) => ipcRenderer.invoke('meilisearch-add-documents', uid, documents),
+        deleteDocument: (uid, docId) => ipcRenderer.invoke('meilisearch-delete-document', uid, docId),
+        deleteAllDocuments: (uid) => ipcRenderer.invoke('meilisearch-delete-all-documents', uid),
+        search: (uid, query, options) => ipcRenderer.invoke('meilisearch-search', uid, query, options),
+        getSettings: (uid) => ipcRenderer.invoke('meilisearch-get-settings', uid),
+        updateSettings: (uid, settings) => ipcRenderer.invoke('meilisearch-update-settings', uid, settings),
+        getKeys: () => ipcRenderer.invoke('meilisearch-get-keys'),
+        createKey: (keyData) => ipcRenderer.invoke('meilisearch-create-key', keyData),
+        deleteKey: (key) => ipcRenderer.invoke('meilisearch-delete-key', key),
+        getTasks: (options) => ipcRenderer.invoke('meilisearch-get-tasks', options),
+    },
 };

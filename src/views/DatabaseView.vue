@@ -15,8 +15,9 @@
         </div>
       </div>
 
-      <!-- Toolbar (hide for Redis - it has its own) -->
-      <div v-if="!isRedisTab" class="flex items-center justify-between p-3 bg-background border-t border-gray-700">
+      <!-- Toolbar (hide for Redis/Meilisearch - they have their own) -->
+      <div v-if="!isRedisTab && !isMeilisearchTab"
+        class="flex items-center justify-between p-3 bg-background border-t border-gray-700">
         <div class="flex items-center space-x-2">
           <BaseButton :disabled="loading || !activeTab" @click="openCreateModal" variant="success" size="sm">
             <template #icon>
@@ -86,8 +87,11 @@
     <!-- Redis Manager (separate view) -->
     <RedisManager v-else-if="isRedisTab" />
 
-    <!-- Databases Table (not for Redis) -->
-    <div v-else-if="!isRedisTab && subTab === 'databases'" class="flex-1 overflow-auto">
+    <!-- Meilisearch Manager (separate view) -->
+    <MeilisearchManager v-else-if="isMeilisearchTab" />
+
+    <!-- Databases Table (not for Redis/Meilisearch) -->
+    <div v-else-if="!isRedisTab && !isMeilisearchTab && subTab === 'databases'" class="flex-1 overflow-auto">
       <table class="w-full text-xs">
         <thead class="bg-[#252526] sticky top-0">
           <tr class="text-gray-400">
@@ -150,8 +154,8 @@
       </table>
     </div>
 
-    <!-- Users Table (not for Redis) -->
-    <div v-else-if="!isRedisTab && subTab === 'users'" class="flex-1 overflow-auto">
+    <!-- Users Table (not for Redis/Meilisearch) -->
+    <div v-else-if="!isRedisTab && !isMeilisearchTab && subTab === 'users'" class="flex-1 overflow-auto">
       <table class="w-full text-xs">
         <thead class="bg-[#252526] sticky top-0">
           <tr class="text-gray-400">
@@ -202,8 +206,8 @@
       </table>
     </div>
 
-    <!-- Footer (not for Redis - it has its own) -->
-    <div v-if="!isRedisTab && availableTabs.length > 0"
+    <!-- Footer (not for Redis/Meilisearch - they have their own) -->
+    <div v-if="!isRedisTab && !isMeilisearchTab && availableTabs.length > 0"
       class="p-2 border-t border-gray-700 bg-[#252526] flex items-center justify-between text-xs text-gray-400">
       <div>
         Total {{ subTab === 'databases' ? databases.length + ' databases' : users.length + ' users' }}
@@ -264,6 +268,7 @@ import BaseButton from '../components/BaseButton.vue';
 import BaseModal from '../components/BaseModal.vue';
 import BaseInput from '../components/BaseInput.vue';
 import RedisManager from '../components/RedisManager.vue';
+import MeilisearchManager from '../components/MeilisearchManager.vue';
 import { generatePassword, copyToClipboard } from '../utils/helpers';
 import { useDatabaseStore } from '../stores/database';
 
@@ -281,8 +286,9 @@ const newDbName = ref('');
 const userPasswords = ref({});
 const isPhpMyAdminInstalled = ref(false);
 
-// Check if current tab is Redis
+// Check if current tab is Redis or Meilisearch
 const isRedisTab = computed(() => activeTab.value === 'redis');
+const isMeilisearchTab = computed(() => activeTab.value === 'meilisearch');
 
 // Available tabs based on installed DB apps
 const availableTabs = computed(() => {
@@ -302,7 +308,7 @@ const loadDbApps = async () => {
   try {
     // Query installed_apps table directly (including Redis)
     const result = await window.sysapi.db.query(
-      "SELECT * FROM installed_apps WHERE app_id IN ('mysql', 'mariadb', 'postgresql', 'redis', 'mongodb')"
+      "SELECT * FROM installed_apps WHERE app_id IN ('mysql', 'mariadb', 'postgresql', 'redis', 'mongodb', 'meilisearch')"
     );
 
     // Check for phpMyAdmin
@@ -318,14 +324,16 @@ const loadDbApps = async () => {
           'mariadb': 'MariaDB',
           'postgresql': 'PostgreSQL',
           'redis': 'Redis',
-          'mongodb': 'MongoDB'
+          'mongodb': 'MongoDB',
+          'meilisearch': 'Meilisearch'
         };
         const colorMap = {
           'mysql': 'text-orange-500',
           'mariadb': 'text-cyan-500',
           'postgresql': 'text-blue-600',
           'redis': 'text-red-500',
-          'mongodb': 'text-green-500'
+          'mongodb': 'text-green-500',
+          'meilisearch': 'text-purple-500'
         };
         return {
           id: app.app_id,
