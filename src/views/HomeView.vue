@@ -163,8 +163,8 @@ const loadDatabasesCount = async () => {
         for (const dbApp of result) {
             try {
                 const dbs = await window.sysapi.database.listDatabases(dbApp.app_id);
-                if (dbs && !dbs.error && Array.isArray(dbs)) {
-                    totalCount += dbs.length;
+                if (dbs && !dbs.error && Array.isArray(dbs.databases)) {
+                    totalCount += dbs.databases.length;
                 }
             } catch (e) {
                 console.error(`Failed to list databases for ${dbApp.app_id}:`, e);
