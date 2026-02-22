@@ -40,4 +40,17 @@ module.exports = {
         deleteKey: (key) => ipcRenderer.invoke('meilisearch-delete-key', key),
         getTasks: (options) => ipcRenderer.invoke('meilisearch-get-tasks', options),
     },
+
+    // Elasticsearch Management
+    elasticsearch: {
+        health: () => ipcRenderer.invoke('elasticsearch-health'),
+        getInfo: () => ipcRenderer.invoke('elasticsearch-get-info'),
+        listIndexes: () => ipcRenderer.invoke('elasticsearch-list-indexes'),
+        createIndex: (indexName) => ipcRenderer.invoke('elasticsearch-create-index', indexName),
+        deleteIndex: (indexName) => ipcRenderer.invoke('elasticsearch-delete-index', indexName),
+        search: (indexName, query, options) => ipcRenderer.invoke('elasticsearch-search', indexName, query, options),
+        getDocument: (indexName, docId) => ipcRenderer.invoke('elasticsearch-get-document', indexName, docId),
+        addDocument: (indexName, doc, docId) => ipcRenderer.invoke('elasticsearch-add-document', indexName, doc, docId),
+        deleteDocument: (indexName, docId) => ipcRenderer.invoke('elasticsearch-delete-document', indexName, docId),
+    },
 };

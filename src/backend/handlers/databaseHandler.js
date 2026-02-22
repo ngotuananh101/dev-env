@@ -1158,6 +1158,175 @@ function register(ipcMain, context) {
             return { error: error.message };
         }
     });
+
+    // =====================
+    // Elasticsearch Handlers
+    // =====================
+
+    /**
+     * Helper: Make HTTP request to Elasticsearch REST API
+     */
+    function elasticsearchRequest(method, apiPath, body = null) {
+        return new Promise((resolve) => {
+            const http = require('http');
+            const url = `http://localhost:9200${apiPath}`;
+            const urlObj = new URL(url);
+
+            const headers = {
+                'Content-Type': 'application/json',
+            };
+
+            const requestBody = body ? JSON.stringify(body) : null;
+            if (requestBody) {
+                headers['Content-Length'] = Buffer.byteLength(requestBody);
+            }
+
+            const options = {
+                hostname: urlObj.hostname,
+                port: urlObj.port,
+                path: urlObj.pathname + urlObj.search,
+                method: method,
+                headers: headers,
+                timeout: 30000,
+            };
+
+            const req = http.request(options, (res) => {
+                let data = '';
+                res.on('data', (chunk) => { data += chunk; });
+                res.on('end', () => {
+                    try {
+                        // ES sometimes returns plain text for root / or _cat APIs
+                        // But we mostly stick to JSON APIs here
+                        const contentType = res.headers['content-type'];
+                        if (contentType && contentType.includes('application/json')) {
+                            const parsed = data ? JSON.parse(data) : {};
+                            if (res.statusCode >= 200 && res.statusCode < 300) {
+                                resolve(parsed);
+                            } else {
+                                resolve({ error: parsed.error?.reason || parsed.error || `HTTP ${res.statusCode}`, statusCode: res.statusCode, details: parsed });
+                            }
+                        } else {
+                            // Valid non-JSON response (like from _cat)
+                            if (res.statusCode >= 200 && res.statusCode < 300) {
+                                resolve({ text: data });
+                            } else {
+                                resolve({ error: `HTTP ${res.statusCode}`, text: data });
+                            }
+                        }
+                    } catch (e) {
+                        resolve({ error: `Failed to parse response: ${e.message}`, raw: data });
+                    }
+                });
+            });
+
+            req.on('error', (err) => {
+                resolve({ error: `Connection failed: ${err.message}. Make sure Elasticsearch is running.` });
+            });
+
+            req.on('timeout', () => {
+                req.destroy();
+                resolve({ error: 'Request timeout' });
+            });
+
+            if (requestBody) {
+                req.write(requestBody);
+            }
+            req.end();
+        });
+    }
+
+    // Health check
+    ipcMain.handle('elasticsearch-health', async () => {
+        try {
+            return await elasticsearchRequest('GET', '/_cluster/health');
+        } catch (error) {
+            return { error: error.message };
+        }
+    });
+
+    // Get info/stats
+    ipcMain.handle('elasticsearch-get-info', async () => {
+        try {
+            return await elasticsearchRequest('GET', '/');
+        } catch (error) {
+            return { error: error.message };
+        }
+    });
+
+    // List indexes
+    ipcMain.handle('elasticsearch-list-indexes', async () => {
+        try {
+            const result = await elasticsearchRequest('GET', '/_cat/indices?format=json');
+            if (result.error) return result;
+            // Result is an array of index objects directly
+            return result;
+        } catch (error) {
+            return { error: error.message };
+        }
+    });
+
+    // Create index
+    ipcMain.handle('elasticsearch-create-index', async (event, indexName) => {
+        try {
+            return await elasticsearchRequest('PUT', `/${encodeURIComponent(indexName)}`);
+        } catch (error) {
+            return { error: error.message };
+        }
+    });
+
+    // Delete index
+    ipcMain.handle('elasticsearch-delete-index', async (event, indexName) => {
+        try {
+            return await elasticsearchRequest('DELETE', `/${encodeURIComponent(indexName)}`);
+        } catch (error) {
+            return { error: error.message };
+        }
+    });
+
+    // Search documents
+    ipcMain.handle('elasticsearch-search', async (event, indexName, query, options = {}) => {
+        try {
+            const body = {
+                query: query || { match_all: {} },
+                size: options.limit || 20,
+                from: options.offset || 0
+            };
+            return await elasticsearchRequest('POST', `/${encodeURIComponent(indexName)}/_search`, body);
+        } catch (error) {
+            return { error: error.message };
+        }
+    });
+
+    // Get document by ID
+    ipcMain.handle('elasticsearch-get-document', async (event, indexName, docId) => {
+        try {
+            return await elasticsearchRequest('GET', `/${encodeURIComponent(indexName)}/_doc/${encodeURIComponent(docId)}`);
+        } catch (error) {
+            return { error: error.message };
+        }
+    });
+
+    // Add/Update document
+    ipcMain.handle('elasticsearch-add-document', async (event, indexName, doc, docId = null) => {
+        try {
+            if (docId) {
+                return await elasticsearchRequest('PUT', `/${encodeURIComponent(indexName)}/_doc/${encodeURIComponent(docId)}`, doc);
+            } else {
+                return await elasticsearchRequest('POST', `/${encodeURIComponent(indexName)}/_doc`, doc);
+            }
+        } catch (error) {
+            return { error: error.message };
+        }
+    });
+
+    // Delete document
+    ipcMain.handle('elasticsearch-delete-document', async (event, indexName, docId) => {
+        try {
+            return await elasticsearchRequest('DELETE', `/${encodeURIComponent(indexName)}/_doc/${encodeURIComponent(docId)}`);
+        } catch (error) {
+            return { error: error.message };
+        }
+    });
 }
 
 module.exports = { register };

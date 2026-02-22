@@ -90,6 +90,9 @@
     <!-- Meilisearch Manager (separate view) -->
     <MeilisearchManager v-else-if="isMeilisearchTab" />
 
+    <!-- Elasticsearch Manager (separate view) -->
+    <ElasticsearchManager v-else-if="isElasticsearchTab" />
+
     <!-- Service Not Running (for SQL-type tabs) -->
     <div v-else-if="!serviceRunning" class="flex-1 flex items-center justify-center">
       <div class="text-center">
@@ -103,8 +106,9 @@
       </div>
     </div>
 
-    <!-- Databases Table (not for Redis/Meilisearch) -->
-    <div v-else-if="!isRedisTab && !isMeilisearchTab && subTab === 'databases'" class="flex-1 overflow-auto">
+    <!-- Databases Table (not for Redis/Meilisearch/Elasticsearch) -->
+    <div v-else-if="!isRedisTab && !isMeilisearchTab && !isElasticsearchTab && subTab === 'databases'"
+      class="flex-1 overflow-auto">
       <table class="w-full text-xs">
         <thead class="bg-[#252526] sticky top-0">
           <tr class="text-gray-400">
@@ -133,7 +137,7 @@
               </div>
             </td>
           </tr>
-          <tr v-for="db in databases" :key="db" class="border-b border-gray-800 hover:bg-gray-800/50">
+          <tr v-for="db in databases" :key="db.name" class="border-b border-gray-800 hover:bg-gray-800/50">
             <td class="px-3 py-2">
               <div class="flex items-center space-x-2">
                 <Database class="w-4 h-4 text-blue-400" />
@@ -146,7 +150,6 @@
             <td class="px-3 py-2 text-gray-400 text-xs font-mono">
               <div class="flex items-center space-x-2">
                 <span>{{ db.password ? '******' : '-' }}</span>
-                <span>{{ db.password ? '******' : '-' }}</span>
                 <button v-if="db.password" @click="copyToClipboard(db.password, 'Password copied to clipboard')"
                   class="text-gray-500 hover:text-white transition-colors p-1 rounded hover:bg-gray-700"
                   title="Copy Password">
@@ -158,7 +161,7 @@
               {{ db.host || 'localhost' }}
             </td>
             <td class="px-3 py-2 text-center">
-              <button @click="dropDatabase(db.name)" class="text-red-400 hover:text-red-300 hover:underline text-xs">
+              <button @click="confirmDropDb(db.name)" class="text-red-400 hover:text-red-300 hover:underline text-xs">
                 Delete
               </button>
             </td>
@@ -167,8 +170,9 @@
       </table>
     </div>
 
-    <!-- Users Table (not for Redis/Meilisearch) -->
-    <div v-else-if="!isRedisTab && !isMeilisearchTab && subTab === 'users'" class="flex-1 overflow-auto">
+    <!-- Users Table (not for Redis/Meilisearch/Elasticsearch) -->
+    <div v-else-if="!isRedisTab && !isMeilisearchTab && !isElasticsearchTab && subTab === 'users'"
+      class="flex-1 overflow-auto">
       <table class="w-full text-xs">
         <thead class="bg-[#252526] sticky top-0">
           <tr class="text-gray-400">
@@ -220,7 +224,7 @@
     </div>
 
     <!-- Footer (not for Redis/Meilisearch - they have their own) -->
-    <div v-if="!isRedisTab && !isMeilisearchTab && availableTabs.length > 0"
+    <div v-if="!isRedisTab && !isMeilisearchTab && !isElasticsearchTab && availableTabs.length > 0"
       class="p-2 border-t border-gray-700 bg-[#252526] flex items-center justify-between text-xs text-gray-400">
       <div>
         Total {{ subTab === 'databases' ? databases.length + ' databases' : users.length + ' users' }}
@@ -240,12 +244,16 @@
           <BaseInput v-model="newDbName" placeholder="New database name" />
         </div>
 
-        <div class="grid grid-cols-[100px_1fr] gap-4 items-center">
+        <div
+          v-if="currentDbApp?.id !== 'redis' && currentDbApp?.id !== 'meilisearch' && currentDbApp?.id !== 'elasticsearch'"
+          class="grid grid-cols-[100px_1fr] gap-4 items-center">
           <label class="text-gray-400 text-right text-xs">Username</label>
           <BaseInput v-model="newUsername" placeholder="Database user" />
         </div>
 
-        <div class="grid grid-cols-[100px_1fr] gap-4 items-center">
+        <div
+          v-if="currentDbApp?.id !== 'redis' && currentDbApp?.id !== 'meilisearch' && currentDbApp?.id !== 'elasticsearch'"
+          class="grid grid-cols-[100px_1fr] gap-4 items-center">
           <label class="text-gray-400 text-right text-xs">Password</label>
           <BaseInput v-model="newPassword" type="text" placeholder="Password">
             <template #append>
@@ -274,19 +282,22 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
-import { Plus, RefreshCw, Database, User, X, Loader2, Copy, ExternalLink } from 'lucide-vue-next';
+import { ref, onMounted, computed, watch } from 'vue';
+import { Plus, RefreshCw, Database, User, X, Loader2, Copy, ExternalLink, Trash2, Users, Save } from 'lucide-vue-next';
 import { useToast } from 'vue-toastification';
+import { useRouter } from 'vue-router';
 import BaseButton from '../components/BaseButton.vue';
 import BaseModal from '../components/BaseModal.vue';
 import BaseInput from '../components/BaseInput.vue';
 import RedisManager from '../components/RedisManager.vue';
 import MeilisearchManager from '../components/MeilisearchManager.vue';
+import ElasticsearchManager from '../components/ElasticsearchManager.vue';
 import { generatePassword, copyToClipboard } from '../utils/helpers';
 import { useDatabaseStore } from '../stores/database';
 
-const toast = useToast();
 const dbStore = useDatabaseStore();
+const toast = useToast();
+const router = useRouter();
 
 // State
 const dbApps = ref([]);
@@ -302,6 +313,7 @@ const isPhpMyAdminInstalled = ref(false);
 // Check if current tab is Redis or Meilisearch
 const isRedisTab = computed(() => activeTab.value === 'redis');
 const isMeilisearchTab = computed(() => activeTab.value === 'meilisearch');
+const isElasticsearchTab = computed(() => activeTab.value === 'elasticsearch');
 
 // Available tabs based on installed DB apps
 const availableTabs = computed(() => {
@@ -321,7 +333,7 @@ const loadDbApps = async () => {
   try {
     // Query installed_apps table directly (including Redis)
     const result = await window.sysapi.db.query(
-      "SELECT * FROM installed_apps WHERE app_id IN ('mysql', 'mariadb', 'postgresql', 'redis', 'mongodb', 'meilisearch')"
+      "SELECT * FROM installed_apps WHERE app_id IN ('mysql', 'mariadb', 'postgresql', 'redis', 'mongodb', 'meilisearch', 'elasticsearch')"
     );
 
     // Check for phpMyAdmin
@@ -338,7 +350,8 @@ const loadDbApps = async () => {
           'postgresql': 'PostgreSQL',
           'redis': 'Redis',
           'mongodb': 'MongoDB',
-          'meilisearch': 'Meilisearch'
+          'meilisearch': 'Meilisearch',
+          'elasticsearch': 'Elasticsearch'
         };
         const colorMap = {
           'mysql': 'text-orange-500',
@@ -346,7 +359,8 @@ const loadDbApps = async () => {
           'postgresql': 'text-blue-600',
           'redis': 'text-red-500',
           'mongodb': 'text-green-500',
-          'meilisearch': 'text-purple-500'
+          'meilisearch': 'text-purple-500',
+          'elasticsearch': 'text-yellow-500'
         };
         return {
           id: app.app_id,
@@ -463,55 +477,16 @@ const createDatabase = async () => {
   }
 };
 
-const openPgAdmin = async () => {
-  if (!currentDbApp.value || !currentDbApp.value.installPath) {
-    toast.error('PostgreSQL installation path not found');
-    return;
-  }
-
-  try {
-    // Search for pgAdmin4.exe in the installation directory
-    const findResult = await window.sysapi.files.findFile(currentDbApp.value.installPath, 'pgAdmin4.exe');
-
-    if (findResult.error) {
-      toast.error(`Search error: ${findResult.error}`);
-      return;
-    }
-
-    if (!findResult.path) {
-      toast.error('pgAdmin4.exe not found in PostgreSQL directory');
-      return;
-    }
-
-    const pgAdminPath = findResult.path;
-
-    const result = await window.sysapi.files.openFile(pgAdminPath);
-    if (result.error) {
-      toast.error(`Failed to open pgAdmin: ${result.error}`);
-    } else {
-      toast.success('Opening pgAdmin...');
-    }
-  } catch (err) {
-    console.error('Open pgAdmin error:', err);
-    toast.error(err.message);
-  }
-};
-
-const openPhpMyAdmin = () => {
-  window.sysapi.sites.openBrowser('http://localhost/phpmyadmin/');
-};
-
-const dropDatabase = async (dbName) => {
-  if (!activeTab.value || !dbName) return;
-  if (!confirm(`Delete database "${dbName}"? This action cannot be undone!`)) return;
+const confirmDropDb = async (dbName) => {
+  if (!confirm(`Are you sure you want to drop database "${dbName}"? This cannot be undone.`)) return;
 
   loading.value = true;
   try {
-    const result = await dbStore.deleteDatabase(dbName);
+    const result = await dbStore.deleteDatabase(activeTab.value, dbName);
     if (result.error) {
-      toast.error(`Failed to delete database: ${result.error}`);
+      toast.error(`Failed to drop database: ${result.error}`);
     } else {
-      toast.success(`Database "${dbName}" deleted`);
+      toast.success(`Database "${dbName}" dropped`);
       await loadDatabases();
     }
   } catch (err) {
@@ -522,10 +497,37 @@ const dropDatabase = async (dbName) => {
   }
 };
 
+const openPgAdmin = async () => {
+  if (!currentDbApp.value || !currentDbApp.value.installPath) {
+    toast.error('PostgreSQL installation path not found');
+    return;
+  }
+
+  try {
+    const findResult = await window.sysapi.files.findFile(currentDbApp.value.installPath, 'pgAdmin4.exe');
+    if (findResult.error || !findResult.path) {
+      // Using default URL if app not found
+      window.sysapi.openExternal('http://127.0.0.1:5432');
+    } else {
+      await window.sysapi.files.openFile(findResult.path);
+    }
+  } catch (err) {
+    window.sysapi.openExternal('http://127.0.0.1:5432');
+  }
+};
+
+const openPhpMyAdmin = async () => {
+  const pmaResult = await window.sysapi.db.query("SELECT * FROM installed_apps WHERE app_id = 'phpmyadmin'");
+  if (pmaResult && pmaResult.length > 0) {
+    window.sysapi.openExternal('http://localhost/phpmyadmin');
+  } else {
+    toast.warning('phpMyAdmin is not installed');
+  }
+};
+
 const loadUsers = async () => {
   if (!activeTab.value) return;
 
-  // Check service status first
   const running = await checkServiceRunning(activeTab.value);
   serviceRunning.value = running;
   if (!running) {
@@ -578,7 +580,7 @@ const changePassword = async (username, host) => {
 
 // Watch tab change to reload data (lazy load)
 watch(activeTab, (newTab) => {
-  if (newTab && newTab !== 'redis' && newTab !== 'meilisearch') {
+  if (newTab && newTab !== 'redis' && newTab !== 'meilisearch' && newTab !== 'elasticsearch') {
     databases.value = [];
     users.value = [];
     userPasswords.value = {};

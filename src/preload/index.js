@@ -56,7 +56,8 @@ api.database = {
     listUsers: db.listUsers,
     changePassword: db.changePassword,
     redis: db.redis,
-    meilisearch: db.meilisearch
+    meilisearch: db.meilisearch,
+    elasticsearch: db.elasticsearch
 };
 
 if (process.contextIsolated) {
