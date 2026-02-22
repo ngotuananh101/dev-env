@@ -105,61 +105,61 @@
         </div>
 
         <!-- Create Key Modal -->
-        <BaseModal :show="showCreateModal" @close="showCreateModal = false" max-width="500px" body-class="p-6">
-            <template #title>Create API Key</template>
-            <div class="space-y-4">
-                <div class="grid grid-cols-[100px_1fr] gap-4 items-center">
-                    <label class="text-gray-400 text-right text-xs">Description</label>
-                    <BaseInput v-model="newKeyDescription" placeholder="My API Key" />
-                </div>
-                <div class="grid grid-cols-[100px_1fr] gap-4 items-start">
-                    <label class="text-gray-400 text-right text-xs pt-2">Actions</label>
-                    <div class="space-y-2">
-                        <div class="flex flex-wrap gap-2">
-                            <label v-for="action in availableActions" :key="action"
-                                class="flex items-center space-x-1 text-xs text-gray-300">
-                                <input type="checkbox" :value="action" v-model="newKeyActions"
-                                    class="rounded border-gray-600 bg-gray-800 text-blue-500 focus:ring-blue-500 focus:ring-offset-0 w-3 h-3" />
-                                <span>{{ action }}</span>
-                            </label>
+        <Dialog :open="showCreateModal" @update:open="(v) => showCreateModal = v">
+            <DialogContent class="max-w-[500px] bg-[#252526] border-gray-700 text-gray-200">
+                <DialogHeader>
+                    <DialogTitle>Create API Key</DialogTitle>
+                </DialogHeader>
+                <div class="space-y-4">
+                    <div class="grid grid-cols-[100px_1fr] gap-4 items-center">
+                        <label class="text-gray-400 text-right text-xs">Description</label>
+                        <Input v-model="newKeyDescription" placeholder="My API Key" />
+                    </div>
+                    <div class="grid grid-cols-[100px_1fr] gap-4 items-start">
+                        <label class="text-gray-400 text-right text-xs pt-2">Actions</label>
+                        <div class="space-y-2">
+                            <div class="flex flex-wrap gap-2">
+                                <label v-for="action in availableActions" :key="action"
+                                    class="flex items-center space-x-1 text-xs text-gray-300">
+                                    <input type="checkbox" :value="action" v-model="newKeyActions"
+                                        class="rounded border-gray-600 bg-gray-800 text-blue-500 focus:ring-blue-500 focus:ring-offset-0 w-3 h-3" />
+                                    <span>{{ action }}</span>
+                                </label>
+                            </div>
+                            <button @click="newKeyActions = [...availableActions]"
+                                class="text-xs text-blue-400 hover:text-blue-300">
+                                Select All
+                            </button>
                         </div>
-                        <button @click="newKeyActions = [...availableActions]"
-                            class="text-xs text-blue-400 hover:text-blue-300">
-                            Select All
-                        </button>
+                    </div>
+                    <div class="grid grid-cols-[100px_1fr] gap-4 items-center">
+                        <label class="text-gray-400 text-right text-xs">Indexes</label>
+                        <Input v-model="newKeyIndexes" placeholder='["*"] or ["movies","books"]' />
+                    </div>
+                    <div class="grid grid-cols-[100px_1fr] gap-4 items-center">
+                        <label class="text-gray-400 text-right text-xs">Expires At</label>
+                        <Input v-model="newKeyExpiresAt" type="datetime-local" />
                     </div>
                 </div>
-                <div class="grid grid-cols-[100px_1fr] gap-4 items-center">
-                    <label class="text-gray-400 text-right text-xs">Indexes</label>
-                    <BaseInput v-model="newKeyIndexes" placeholder='["*"] or ["movies","books"]' />
-                </div>
-                <div class="grid grid-cols-[100px_1fr] gap-4 items-center">
-                    <label class="text-gray-400 text-right text-xs">Expires At</label>
-                    <BaseInput v-model="newKeyExpiresAt" type="datetime-local" />
-                </div>
-            </div>
-            <template #footer>
-                <div class="flex justify-end space-x-2">
-                    <BaseButton variant="secondary" size="sm" @click="showCreateModal = false">Cancel</BaseButton>
-                    <BaseButton variant="success" size="sm" @click="createKey"
+                <DialogFooter>
+                    <Button variant="secondary" size="sm" @click="showCreateModal = false">Cancel</Button>
+                    <Button variant="success" size="sm" @click="createKey"
                         :disabled="loading || newKeyActions.length === 0">
                         Create
-                    </BaseButton>
-                </div>
-            </template>
-        </BaseModal>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue';
 import { Plus, RefreshCw, Trash2, Eye, EyeOff, Copy } from 'lucide-vue-next';
-import { useToast } from 'vue-toastification';
-import BaseModal from '../BaseModal.vue';
-import BaseButton from '../BaseButton.vue';
-import BaseInput from '../BaseInput.vue';
-
-const toast = useToast();
+import { toast } from 'vue-sonner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 const api = window.sysapi.database.meilisearch;
 
 const props = defineProps({

@@ -9,13 +9,25 @@
 
         <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
             <!-- Site Configuration -->
-            <BaseCard title="Site Configuration">
-                <div class="space-y-6">
+            <Card class="bg-gray-800/50 border-gray-700/50 backdrop-blur-sm">
+                <CardHeader>
+                    <CardTitle class="text-lg text-white">Site Configuration</CardTitle>
+                </CardHeader>
+                <CardContent class="space-y-6">
                     <!-- Default PHP Version -->
                     <div class="space-y-2">
-                        <BaseSelect v-model="settings.default_php_version" label="Default PHP Version"
-                            placeholder="Select PHP Version"
-                            :options="phpVersions.map(p => ({ label: `PHP ${p.installedVersion}`, value: p.installedVersion }))" />
+                        <Label>Default PHP Version</Label>
+                        <Select v-model="settings.default_php_version">
+                            <SelectTrigger class="bg-background border-gray-600 text-white">
+                                <SelectValue placeholder="Select PHP Version" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem v-for="p in phpVersions" :key="p.installedVersion"
+                                    :value="p.installedVersion">
+                                    PHP {{ p.installedVersion }}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
                         <p v-if="phpVersions.length === 0" class="text-xs text-yellow-500 mt-1">
                             No PHP versions installed. Please install PHP from the dashboard.
                         </p>
@@ -23,9 +35,10 @@
 
                     <!-- Site Template -->
                     <div class="space-y-2">
-                        <BaseInput v-model="settings.site_template" label="Default Site Template"
-                            placeholder="[site].local"
-                            hint="Pattern for default local domain. Use [site] as placeholder for the site name." />
+                        <Label>Default Site Template</Label>
+                        <Input v-model="settings.site_template" placeholder="[site].local" />
+                        <p class="text-xs text-muted-foreground">Pattern for default local domain. Use [site] as
+                            placeholder for the site name.</p>
                     </div>
 
                     <!-- Auto Create -->
@@ -36,22 +49,24 @@
                             <span class="block text-xs text-gray-500">Automatically create site base on root folder.
                                 Only create as PHP site.</span>
                         </div>
-                        <BaseSwitch v-model="settings.site_auto_create" />
+                        <Switch :checked="settings.site_auto_create"
+                            @update:checked="settings.site_auto_create = $event" />
                     </div>
-                </div>
-                <template #footer>
-                    <BaseButton variant="success" :disabled="isSaving" @click="saveAllSettings">
-                        <template #icon>
-                            <Save class="w-4 h-4" />
-                        </template>
+                </CardContent>
+                <CardFooter class="border-t border-gray-700/50 pt-4">
+                    <Button variant="success" :disabled="isSaving" @click="saveAllSettings">
+                        <Save class="w-4 h-4" />
                         {{ isSaving ? 'Saving...' : 'Save Settings' }}
-                    </BaseButton>
-                </template>
-            </BaseCard>
+                    </Button>
+                </CardFooter>
+            </Card>
 
             <!-- Application Behavior -->
-            <BaseCard title="Application Behavior">
-                <div class="space-y-4">
+            <Card class="bg-gray-800/50 border-gray-700/50 backdrop-blur-sm">
+                <CardHeader>
+                    <CardTitle class="text-lg text-white">Application Behavior</CardTitle>
+                </CardHeader>
+                <CardContent class="space-y-4">
                     <!-- Close to Tray -->
                     <div
                         class="flex items-center justify-between p-4 bg-gray-900/50 rounded-lg border border-gray-700/50 hover:border-gray-600 transition-colors">
@@ -61,7 +76,8 @@
                                 tray instead of
                                 quitting the app.</span>
                         </div>
-                        <BaseSwitch v-model="settings.close_to_tray" @update:modelValue="saveCloseToTray" />
+                        <Switch :checked="settings.close_to_tray"
+                            @update:checked="(val) => { settings.close_to_tray = val; saveCloseToTray(val); }" />
                     </div>
 
                     <!-- Start with Windows -->
@@ -72,104 +88,108 @@
                             <span class="block text-xs text-gray-500">Automatically start the application when you log
                                 in to Windows.</span>
                         </div>
-                        <BaseSwitch v-model="settings.start_with_windows" @update:modelValue="saveStartWithWindows" />
+                        <Switch :checked="settings.start_with_windows"
+                            @update:checked="(val) => { settings.start_with_windows = val; saveStartWithWindows(val); }" />
                     </div>
                     <p class="text-xs text-gray-500">
                         Note: The minimize button (-) will always minimize to system tray. Use "Quit App" from sidebar
                         or tray menu
                         to fully exit.
                     </p>
-                </div>
-            </BaseCard>
+                </CardContent>
+            </Card>
 
             <!-- System Information -->
-            <BaseCard title="System Information">
-                <p class="text-sm text-gray-400 mb-4">View detailed information about your system and application.</p>
-                <BaseButton variant="primary" :disabled="loadingSystemInfo" @click="openSystemInfo">
-                    <template #icon>
+            <Card class="bg-gray-800/50 border-gray-700/50 backdrop-blur-sm">
+                <CardHeader>
+                    <CardTitle class="text-lg text-white">System Information</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p class="text-sm text-gray-400 mb-4">View detailed information about your system and application.
+                    </p>
+                    <Button variant="default" :disabled="loadingSystemInfo" @click="openSystemInfo">
                         <Monitor class="w-4 h-4" />
-                    </template>
-                    {{ loadingSystemInfo ? 'Loading...' : 'View System Info' }}
-                </BaseButton>
-            </BaseCard>
+                        {{ loadingSystemInfo ? 'Loading...' : 'View System Info' }}
+                    </Button>
+                </CardContent>
+            </Card>
 
             <!-- SSL Certificate -->
-            <BaseCard title="SSL Certificate">
-                <p class="text-sm text-gray-400 mb-4">Manage SSL certificates for local HTTPS development.</p>
+            <Card class="bg-gray-800/50 border-gray-700/50 backdrop-blur-sm">
+                <CardHeader>
+                    <CardTitle class="text-lg text-white">SSL Certificate</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p class="text-sm text-gray-400 mb-4">Manage SSL certificates for local HTTPS development.</p>
 
-                <!-- CA Status -->
-                <div class="mb-4 p-3 rounded-lg border"
-                    :class="sslStatus.caInstalledInSystem ? 'bg-green-900/30 border-green-700/50' : 'bg-yellow-900/30 border-yellow-700/50'">
-                    <div class="flex items-center space-x-2">
-                        <div class="w-2 h-2 rounded-full"
-                            :class="sslStatus.caInstalledInSystem ? 'bg-green-500' : 'bg-yellow-500'">
+                    <!-- CA Status -->
+                    <div class="mb-4 p-3 rounded-lg border"
+                        :class="sslStatus.caInstalledInSystem ? 'bg-green-900/30 border-green-700/50' : 'bg-yellow-900/30 border-yellow-700/50'">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-2 h-2 rounded-full"
+                                :class="sslStatus.caInstalledInSystem ? 'bg-green-500' : 'bg-yellow-500'">
+                            </div>
+                            <span class="text-sm"
+                                :class="sslStatus.caInstalledInSystem ? 'text-green-400' : 'text-yellow-400'">
+                                {{ sslStatus.caInstalledInSystem
+                                    ? 'CA is installed in system trust store'
+                                    : 'CA is not installed - browsers will show warnings'
+                                }}
+                            </span>
                         </div>
-                        <span class="text-sm"
-                            :class="sslStatus.caInstalledInSystem ? 'text-green-400' : 'text-yellow-400'">
-                            {{ sslStatus.caInstalledInSystem
-                                ? 'CA is installed in system trust store'
-                                : 'CA is not installed - browsers will show warnings'
-                            }}
-                        </span>
                     </div>
-                </div>
 
-                <div class="flex flex-wrap gap-3">
-                    <BaseButton v-if="!sslStatus.caInstalledInSystem" variant="success" :disabled="installingCA"
-                        @click="installCA">
-                        <template #icon>
+                    <div class="flex flex-wrap gap-3">
+                        <Button v-if="!sslStatus.caInstalledInSystem" variant="success" :disabled="installingCA"
+                            @click="installCA">
                             <ShieldCheck class="w-4 h-4" />
-                        </template>
-                        {{ installingCA ? 'Installing...' : 'Install CA to System' }}
-                    </BaseButton>
+                            {{ installingCA ? 'Installing...' : 'Install CA to System' }}
+                        </Button>
 
-                    <BaseButton v-else variant="danger" :disabled="uninstallingCA" @click="uninstallCA">
-                        <template #icon>
+                        <Button v-else variant="destructive" :disabled="uninstallingCA" @click="uninstallCA">
                             <ShieldOff class="w-4 h-4" />
-                        </template>
-                        {{ uninstallingCA ? 'Uninstalling...' : 'Uninstall CA from System' }}
-                    </BaseButton>
+                            {{ uninstallingCA ? 'Uninstalling...' : 'Uninstall CA from System' }}
+                        </Button>
 
-                    <BaseButton variant="secondary" @click="refreshSSLStatus">
-                        <template #icon>
+                        <Button variant="secondary" @click="refreshSSLStatus">
                             <RefreshCw class="w-4 h-4" :class="{ 'animate-spin': loadingSSL }" />
-                        </template>
-                        Refresh Status
-                    </BaseButton>
-                </div>
+                            Refresh Status
+                        </Button>
+                    </div>
 
-                <p v-if="sslStatus.caCertPath" class="text-xs text-gray-500 mt-3 break-all font-mono">
-                    CA Path: {{ sslStatus.caCertPath }}
-                </p>
-            </BaseCard>
+                    <p v-if="sslStatus.caCertPath" class="text-xs text-gray-500 mt-3 break-all font-mono">
+                        CA Path: {{ sslStatus.caCertPath }}
+                    </p>
+                </CardContent>
+            </Card>
         </div>
 
         <!-- System Info Modal -->
-        <BaseModal :show="showSystemInfoModal" maxWidth="800px" @close="showSystemInfoModal = false">
-            <template #title>
-                <div class="flex items-center space-x-2">
-                    <Monitor class="w-5 h-5 text-blue-400" />
-                    <span>System Information</span>
+        <Dialog v-model:open="showSystemInfoModal">
+            <DialogContent class="max-w-[800px] bg-[#252526] border-gray-700 text-gray-200">
+                <DialogHeader>
+                    <DialogTitle class="flex items-center space-x-2">
+                        <Monitor class="w-5 h-5 text-blue-400" />
+                        <span>System Information</span>
+                    </DialogTitle>
+                </DialogHeader>
+
+                <div class="h-[60vh] flex flex-col">
+                    <textarea v-model="systemInfoContent" readonly
+                        class="w-full h-full bg-gray-900 p-4 text-gray-300 font-mono text-sm resize-none focus:outline-none custom-scrollbar rounded"></textarea>
                 </div>
-            </template>
 
-            <div class="h-[60vh] flex flex-col">
-                <textarea v-model="systemInfoContent" readonly
-                    class="w-full h-full bg-gray-900 p-4 text-gray-300 font-mono text-sm resize-none focus:outline-none custom-scrollbar"></textarea>
-            </div>
-
-            <template #footer>
-                <BaseButton variant="secondary" @click="copySystemInfo">
-                    <template #icon>
+                <DialogFooter>
+                    <Button variant="secondary" @click="copySystemInfo">
                         <Copy class="w-4 h-4" />
-                    </template>
-                    Copy
-                </BaseButton>
-                <BaseButton variant="primary" @click="showSystemInfoModal = false">
-                    Close
-                </BaseButton>
-            </template>
-        </BaseModal>
+                        Copy
+                    </Button>
+                    <Button @click="showSystemInfoModal = false">
+                        Close
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </div>
 </template>
 
@@ -177,17 +197,17 @@
 import { onMounted, ref } from 'vue';
 import { useDatabaseStore } from '../stores/database';
 import { Copy, Monitor, RefreshCw, Save, Settings, ShieldCheck, ShieldOff } from 'lucide-vue-next';
-import { useToast } from 'vue-toastification';
-import BaseCard from '../components/BaseCard.vue';
-import BaseButton from '../components/BaseButton.vue';
-import BaseModal from '../components/BaseModal.vue';
-import BaseInput from '../components/BaseInput.vue';
-import BaseSelect from '../components/BaseSelect.vue';
-import BaseSwitch from '../components/BaseSwitch.vue';
+import { toast } from 'vue-sonner';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { copyToClipboard } from '../utils/helpers';
 
 const dbStore = useDatabaseStore();
-const toast = useToast();
 
 const settings = ref({
     site_template: '',

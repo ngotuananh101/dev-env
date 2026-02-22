@@ -2,16 +2,12 @@
     <div class="flex flex-col h-full bg-background text-gray-300 font-sans text-sm">
         <!-- 1. Breadcrumb Bar -->
         <div class="flex items-center space-x-2 p-2 border-b border-gray-700 bg-[#252526]">
-            <BaseButton variant="ghost" size="sm" @click="goHome" title="Go Home" class="p-1">
-                <template #icon>
-                    <Home class="w-4 h-4" />
-                </template>
-            </BaseButton>
-            <BaseButton variant="ghost" size="sm" @click="goUp" title="Go Up" class="p-1">
-                <template #icon>
-                    <ArrowUp class="w-4 h-4" />
-                </template>
-            </BaseButton>
+            <Button variant="ghost" size="icon-sm" @click="goHome" title="Go Home">
+                <Home class="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="icon-sm" @click="goUp" title="Go Up">
+                <ArrowUp class="w-4 h-4" />
+            </Button>
             <select v-model="selectedDrive" @change="onDriveChange"
                 class="bg-[#333] border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 focus:outline-none focus:border-blue-500">
                 <option v-for="drive in drives" :key="drive" :value="drive">{{ drive }}</option>
@@ -20,43 +16,33 @@
                 <span class="text-white font-medium select-text">{{ filesStore.currentPath }}</span>
             </div>
             <div class="flex-1"></div>
-            <BaseButton variant="ghost" size="sm" @click="refresh" class="p-1">
-                <template #icon>
-                    <RefreshCw class="w-4 h-4" />
-                </template>
-            </BaseButton>
+            <Button variant="ghost" size="icon-sm" @click="refresh">
+                <RefreshCw class="w-4 h-4" />
+            </Button>
         </div>
 
         <!-- 2. Toolbar -->
         <div class="flex items-center space-x-2 p-2 border-b border-gray-700 bg-[#252526]">
-            <BaseButton variant="secondary" size="sm" @click="openDownloadModal">
-                <template #icon>
-                    <Download class="w-3 h-3" />
-                </template>
+            <Button variant="secondary" size="sm" @click="openDownloadModal">
+                <Download class="w-3 h-3" />
                 Remote Download
-            </BaseButton>
+            </Button>
             <div class="h-6 w-px bg-gray-600 mx-2"></div>
-            <BaseButton variant="secondary" size="sm" @click="openNewFolderModal"
+            <Button variant="secondary" size="sm" @click="openNewFolderModal"
                 class="bg-[#eab308]/10! text-[#eab308]! border-[#eab308]/30! hover:bg-[#eab308]/20!">
-                <template #icon>
-                    <FolderPlus class="w-3 h-3" />
-                </template>
+                <FolderPlus class="w-3 h-3" />
                 New
-            </BaseButton>
-            <BaseButton variant="secondary" size="sm" @click="openTerminalModal">
-                <template #icon>
-                    <Terminal class="w-3 h-3" />
-                </template>
+            </Button>
+            <Button variant="secondary" size="sm" @click="openTerminalModal">
+                <Terminal class="w-3 h-3" />
                 Terminal
-            </BaseButton>
+            </Button>
             <!-- Delete Selected Button -->
-            <BaseButton v-if="selectedFiles.length > 0" variant="danger" size="sm" @click="deleteSelected"
-                class="bg-red-600/20! text-red-400! border-red-600/30! hover:bg-red-600/30!">
-                <template #icon>
-                    <Trash2 class="w-3 h-3" />
-                </template>
+            <Button v-if="selectedFiles.length > 0" variant="destructive" size="sm"
+                class="bg-red-600/20! text-red-400! border-red-600/30! hover:bg-red-600/30!" @click="deleteSelected">
+                <Trash2 class="w-3 h-3" />
                 Delete ({{ selectedFiles.length }})
-            </BaseButton>
+            </Button>
         </div>
 
         <!-- 3. File Table (Virtual Scroller) -->
@@ -157,79 +143,96 @@
         </div>
 
         <!-- 5. Download Modal -->
-        <BaseModal :show="showDownloadModal" @close="closeDownloadModal" max-width="500px" body-class="p-6"
-            :close-on-overlay="!downloading">
-            <template #title>Download File</template>
+        <Dialog v-model:open="showDownloadModal">
+            <DialogContent class="max-w-[500px] bg-[#252526] border-gray-700 text-gray-200">
+                <DialogHeader>
+                    <DialogTitle>Download File</DialogTitle>
+                </DialogHeader>
 
-            <div class="space-y-4">
-                <BaseInput v-model="downloadUrl" label="URL Address" placeholder="http://" />
-
-                <BaseInput :modelValue="filesStore.currentPath" label="Download To" disabled />
-
-                <BaseInput v-model="downloadFileName" label="File Name" placeholder="Please Input" />
-            </div>
-
-            <template #footer>
-                <div class="w-full">
-                    <div v-if="downloading" class="mb-3">
-                        <div class="flex justify-between text-xs text-gray-400 mb-1">
-                            <span>Downloading...</span>
-                            <span>{{ downloadProgress }}%</span>
-                        </div>
-                        <div class="w-full bg-gray-700 rounded-full h-1.5">
-                            <div class="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
-                                :style="{ width: downloadProgress + '%' }"></div>
-                        </div>
+                <div class="space-y-4">
+                    <div class="space-y-2">
+                        <Label>URL Address</Label>
+                        <Input v-model="downloadUrl" placeholder="http://" />
                     </div>
-                    <div class="flex justify-end space-x-2">
-                        <BaseButton variant="secondary" size="sm" @click="closeDownloadModal">Cancel</BaseButton>
-                        <BaseButton variant="success" size="sm" @click="startDownload" :disabled="downloading">
-                            {{ downloading ? 'Downloading...' : 'Confirm' }}
-                        </BaseButton>
+                    <div class="space-y-2">
+                        <Label>Download To</Label>
+                        <Input :model-value="filesStore.currentPath" disabled />
+                    </div>
+                    <div class="space-y-2">
+                        <Label>File Name</Label>
+                        <Input v-model="downloadFileName" placeholder="Please Input" />
                     </div>
                 </div>
-            </template>
-        </BaseModal>
+
+                <div v-if="downloading" class="mt-3">
+                    <div class="flex justify-between text-xs text-gray-400 mb-1">
+                        <span>Downloading...</span>
+                        <span>{{ downloadProgress }}%</span>
+                    </div>
+                    <div class="w-full bg-gray-700 rounded-full h-1.5">
+                        <div class="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+                            :style="{ width: downloadProgress + '%' }"></div>
+                    </div>
+                </div>
+
+                <DialogFooter>
+                    <Button variant="secondary" size="sm" @click="closeDownloadModal">Cancel</Button>
+                    <Button variant="success" size="sm" @click="startDownload" :disabled="downloading">
+                        {{ downloading ? 'Downloading...' : 'Confirm' }}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
 
         <!-- 6. New Folder Modal -->
-        <BaseModal :show="showNewFolderModal" @close="showNewFolderModal = false" body-class="p-6">
-            <template #title>New Folder</template>
+        <Dialog v-model:open="showNewFolderModal">
+            <DialogContent class="max-w-[400px] bg-[#252526] border-gray-700 text-gray-200">
+                <DialogHeader>
+                    <DialogTitle>New Folder</DialogTitle>
+                </DialogHeader>
 
-            <div class="space-y-2">
-                <BaseInput v-model="newFolderName" label="Folder Name" placeholder="Enter folder name"
-                    @keyup.enter="createFolder" autofocus />
-            </div>
-
-            <template #footer>
-                <div class="flex justify-end space-x-2">
-                    <BaseButton variant="secondary" size="sm" @click="showNewFolderModal = false">Cancel</BaseButton>
-                    <BaseButton variant="primary" size="sm" @click="createFolder">Create</BaseButton>
+                <div class="space-y-2">
+                    <Label>Folder Name</Label>
+                    <Input v-model="newFolderName" placeholder="Enter folder name" @keyup.enter="createFolder"
+                        autofocus />
                 </div>
-            </template>
-        </BaseModal>
+
+                <DialogFooter>
+                    <Button variant="secondary" size="sm" @click="showNewFolderModal = false">Cancel</Button>
+                    <Button size="sm" @click="createFolder">Create</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
 
         <!-- 7. Rename Modal -->
-        <BaseModal :show="showRenameModal" @close="showRenameModal = false" max-width="450px" body-class="p-6">
-            <template #title>Rename Item</template>
+        <Dialog v-model:open="showRenameModal">
+            <DialogContent class="max-w-[450px] bg-[#252526] border-gray-700 text-gray-200">
+                <DialogHeader>
+                    <DialogTitle>Rename Item</DialogTitle>
+                </DialogHeader>
 
-            <div class="w-full">
-                <BaseInput v-model="renameNewName" label="New Name" @keyup.enter="performRename" autofocus />
-            </div>
-
-            <template #footer>
-                <div class="flex justify-end space-x-2 w-full">
-                    <BaseButton variant="secondary" size="sm" @click="showRenameModal = false">Cancel</BaseButton>
-                    <BaseButton variant="primary" size="sm" @click="performRename">Rename</BaseButton>
+                <div class="space-y-2">
+                    <Label>New Name</Label>
+                    <Input v-model="renameNewName" @keyup.enter="performRename" autofocus />
                 </div>
-            </template>
-        </BaseModal>
+
+                <DialogFooter>
+                    <Button variant="secondary" size="sm" @click="showRenameModal = false">Cancel</Button>
+                    <Button size="sm" @click="performRename">Rename</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
 
         <!-- 8. Terminal Modal -->
-        <BaseModal :show="showTerminalModal" @close="closeTerminalModal" max-width="900px" :close-on-overlay="false"
-            body-class="p-2 pr-0 bg-black">
-            <template #title>Terminal - <span class="text-xs">{{ filesStore.currentPath }}</span></template>
-            <div ref="terminalModalContainer" class="bg-black overflow-hidden h-[400px]"></div>
-        </BaseModal>
+        <Dialog v-model:open="showTerminalModal">
+            <DialogContent class="max-w-[900px] bg-[#252526] border-gray-700 text-gray-200 p-0"
+                @interactOutside="(e) => e.preventDefault()">
+                <DialogHeader class="p-3 border-b border-gray-700">
+                    <DialogTitle>Terminal - <span class="text-xs">{{ filesStore.currentPath }}</span></DialogTitle>
+                </DialogHeader>
+                <div ref="terminalModalContainer" class="bg-black overflow-hidden h-[400px] p-2"></div>
+            </DialogContent>
+        </Dialog>
     </div>
 </template>
 
@@ -243,9 +246,10 @@ import {
 } from 'lucide-vue-next';
 import { RecycleScroller } from 'vue3-virtual-scroller';
 import 'vue3-virtual-scroller/dist/vue3-virtual-scroller.css';
-import BaseModal from '../components/BaseModal.vue';
-import BaseButton from '../components/BaseButton.vue';
-import BaseInput from '../components/BaseInput.vue';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { formatBytes, formatDate } from '../utils/helpers';
 import 'xterm/css/xterm.css';
 import { Terminal as XTerminal } from 'xterm';
@@ -348,9 +352,6 @@ const createFolder = async () => {
         alert("Error creating folder: " + result.error);
     } else {
         showNewFolderModal.value = false;
-        // refresh is handled in store action for createFolder? No, we called confirm/refresh there but check return
-        // Actually store called loadDirectory if success, so no need to manual refresh here if we trust store
-        // But for safety/ui sync, store did it.
     }
 };
 
@@ -386,7 +387,6 @@ const performRename = async () => {
         alert("Error renaming: " + result.error);
     } else {
         showRenameModal.value = false;
-        // Store reloads on success
     }
 };
 
@@ -415,6 +415,13 @@ const closeTerminalModal = () => {
     }
     showTerminalModal.value = false;
 };
+
+// Watch showTerminalModal to handle close from Dialog's internal close button
+watch(showTerminalModal, (newVal) => {
+    if (!newVal) {
+        closeTerminalModal();
+    }
+});
 
 const initModalTerminal = () => {
     if (!terminalModalContainer.value) return;
@@ -505,7 +512,6 @@ const startDownload = () => {
     downloadProgress.value = 0;
 
     // Trigger download
-    // Trigger download
     filesStore.startDownload(downloadUrl.value, downloadFileName.value);
 };
 
@@ -522,7 +528,6 @@ onMounted(() => {
         window.sysapi.files.onDownloadComplete((path) => {
             downloading.value = false;
             showDownloadModal.value = false;
-            // alert(`Download Complete: ${path}`);
             refresh();
         });
 

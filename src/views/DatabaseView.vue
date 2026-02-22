@@ -19,19 +19,15 @@
       <div v-if="!isRedisTab && !isMeilisearchTab"
         class="flex items-center justify-between p-3 bg-background border-t border-gray-700">
         <div class="flex items-center space-x-2">
-          <BaseButton :disabled="loading || !activeTab" @click="openCreateModal" variant="success" size="sm">
-            <template #icon>
-              <Plus class="w-3 h-3" />
-            </template>
+          <Button :disabled="loading || !activeTab" @click="openCreateModal" variant="success" size="sm">
+            <Plus class="w-3 h-3" />
             Add Database
-          </BaseButton>
+          </Button>
 
-          <BaseButton :disabled="loading || !activeTab" @click="refreshAll" variant="secondary" size="sm">
-            <template #icon>
-              <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': loading }" />
-            </template>
+          <Button :disabled="loading || !activeTab" @click="refreshAll" variant="secondary" size="sm">
+            <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': loading }" />
             Reload
-          </BaseButton>
+          </Button>
 
           <!-- Database indicator -->
           <div v-if="currentDbApp" class="flex items-center space-x-1 h-8 px-3 bg-gray-700 rounded text-xs select-none">
@@ -42,23 +38,19 @@
           </div>
 
           <!-- pgAdmin Button -->
-          <BaseButton v-if="currentDbApp?.id === 'postgresql'" @click="openPgAdmin" variant="primary" size="sm"
-            class="border border-blue-600" title="Open pgAdmin">
-            <template #icon>
-              <ExternalLink class="w-3 h-3" />
-            </template>
+          <Button v-if="currentDbApp?.id === 'postgresql'" @click="openPgAdmin" size="sm" class="border border-blue-600"
+            title="Open pgAdmin">
+            <ExternalLink class="w-3 h-3" />
             pgAdmin
-          </BaseButton>
+          </Button>
 
           <!-- phpMyAdmin Button -->
-          <BaseButton v-if="(currentDbApp?.id === 'mysql' || currentDbApp?.id === 'mariadb') && isPhpMyAdminInstalled"
+          <Button v-if="(currentDbApp?.id === 'mysql' || currentDbApp?.id === 'mariadb') && isPhpMyAdminInstalled"
             @click="openPhpMyAdmin" variant="secondary" size="sm"
             class="bg-yellow-600! hover:bg-yellow-500! border border-yellow-500" title="Open phpMyAdmin">
-            <template #icon>
-              <ExternalLink class="w-3 h-3" />
-            </template>
+            <ExternalLink class="w-3 h-3" />
             phpMyAdmin
-          </BaseButton>
+          </Button>
         </div>
 
         <div class="flex items-center space-x-2">
@@ -212,10 +204,11 @@
             <td class="px-3 py-2">
               <div class="flex items-center justify-center space-x-2">
                 <div class="w-32">
-                  <BaseInput v-model="userPasswords[user.user]" type="password" placeholder="New password" size="sm" />
+                  <Input v-model="userPasswords[user.user]" type="password" placeholder="New password"
+                    class="h-8 text-xs" />
                 </div>
-                <BaseButton @click="changePassword(user.user, user.host)" :disabled="!userPasswords[user.user]"
-                  size="sm" class="h-8 px-2">Change</BaseButton>
+                <Button @click="changePassword(user.user, user.host)" :disabled="!userPasswords[user.user]" size="sm"
+                  class="h-8 px-2">Change</Button>
               </div>
             </td>
           </tr>
@@ -235,60 +228,60 @@
     </div>
 
     <!-- Create Database Modal -->
-    <BaseModal :show="showCreateModal" @close="showCreateModal = false" max-width="450px" body-class="p-6">
-      <template #title>Add Database</template>
+    <Dialog v-model:open="showCreateModal">
+      <DialogContent class="max-w-[450px] bg-[#252526] border-gray-700 text-gray-200">
+        <DialogHeader>
+          <DialogTitle>Add Database</DialogTitle>
+        </DialogHeader>
 
-      <div class="space-y-4">
-        <div class="grid grid-cols-[100px_1fr] gap-4 items-center">
-          <label class="text-gray-400 text-right text-xs">Database name</label>
-          <BaseInput v-model="newDbName" placeholder="New database name" />
-        </div>
+        <div class="space-y-4">
+          <div class="grid grid-cols-[100px_1fr] gap-4 items-center">
+            <label class="text-gray-400 text-right text-xs">Database name</label>
+            <Input v-model="newDbName" placeholder="New database name" />
+          </div>
 
-        <div
-          v-if="currentDbApp?.id !== 'redis' && currentDbApp?.id !== 'meilisearch' && currentDbApp?.id !== 'elasticsearch'"
-          class="grid grid-cols-[100px_1fr] gap-4 items-center">
-          <label class="text-gray-400 text-right text-xs">Username</label>
-          <BaseInput v-model="newUsername" placeholder="Database user" />
-        </div>
+          <div
+            v-if="currentDbApp?.id !== 'redis' && currentDbApp?.id !== 'meilisearch' && currentDbApp?.id !== 'elasticsearch'"
+            class="grid grid-cols-[100px_1fr] gap-4 items-center">
+            <label class="text-gray-400 text-right text-xs">Username</label>
+            <Input v-model="newUsername" placeholder="Database user" />
+          </div>
 
-        <div
-          v-if="currentDbApp?.id !== 'redis' && currentDbApp?.id !== 'meilisearch' && currentDbApp?.id !== 'elasticsearch'"
-          class="grid grid-cols-[100px_1fr] gap-4 items-center">
-          <label class="text-gray-400 text-right text-xs">Password</label>
-          <BaseInput v-model="newPassword" type="text" placeholder="Password">
-            <template #append>
-              <button @click="regenPassword" class="text-gray-400 hover:text-white transition-colors"
+          <div
+            v-if="currentDbApp?.id !== 'redis' && currentDbApp?.id !== 'meilisearch' && currentDbApp?.id !== 'elasticsearch'"
+            class="grid grid-cols-[100px_1fr] gap-4 items-center">
+            <label class="text-gray-400 text-right text-xs">Password</label>
+            <div class="relative">
+              <Input v-model="newPassword" type="text" placeholder="Password" class="pr-9" />
+              <button @click="regenPassword"
+                class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-white transition-colors"
                 title="Generate Password">
                 <RefreshCw class="w-4 h-4" />
               </button>
-            </template>
-          </BaseInput>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <template #footer>
-        <div class="flex justify-end space-x-2">
-          <BaseButton variant="secondary" size="sm" @click="showCreateModal = false">Cancel</BaseButton>
-          <BaseButton variant="success" size="sm" @click="createDatabase" :disabled="loading || !newDbName">
-            <template #icon>
-              <Loader2 v-if="loading" class="w-3 h-3 animate-spin" />
-            </template>
+        <DialogFooter>
+          <Button variant="secondary" size="sm" @click="showCreateModal = false">Cancel</Button>
+          <Button variant="success" size="sm" @click="createDatabase" :disabled="loading || !newDbName">
+            <Loader2 v-if="loading" class="w-3 h-3 animate-spin" />
             Confirm
-          </BaseButton>
-        </div>
-      </template>
-    </BaseModal>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue';
 import { Plus, RefreshCw, Database, User, X, Loader2, Copy, ExternalLink, Trash2, Users, Save } from 'lucide-vue-next';
-import { useToast } from 'vue-toastification';
+import { toast } from 'vue-sonner';
 import { useRouter } from 'vue-router';
-import BaseButton from '../components/BaseButton.vue';
-import BaseModal from '../components/BaseModal.vue';
-import BaseInput from '../components/BaseInput.vue';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import RedisManager from '../components/RedisManager.vue';
 import MeilisearchManager from '../components/MeilisearchManager.vue';
 import ElasticsearchManager from '../components/ElasticsearchManager.vue';
@@ -296,7 +289,6 @@ import { generatePassword, copyToClipboard } from '../utils/helpers';
 import { useDatabaseStore } from '../stores/database';
 
 const dbStore = useDatabaseStore();
-const toast = useToast();
 const router = useRouter();
 
 // State
@@ -331,12 +323,10 @@ const currentDbApp = computed(() => {
 // Load installed database apps
 const loadDbApps = async () => {
   try {
-    // Query installed_apps table directly (including Redis)
     const result = await window.sysapi.db.query(
       "SELECT * FROM installed_apps WHERE app_id IN ('mysql', 'mariadb', 'postgresql', 'redis', 'mongodb', 'meilisearch', 'elasticsearch')"
     );
 
-    // Check for phpMyAdmin
     const pmaResult = await window.sysapi.db.query(
       "SELECT * FROM installed_apps WHERE app_id = 'phpmyadmin'"
     );
@@ -345,33 +335,21 @@ const loadDbApps = async () => {
     if (result && Array.isArray(result)) {
       dbApps.value = result.map(app => {
         const nameMap = {
-          'mysql': 'MySQL',
-          'mariadb': 'MariaDB',
-          'postgresql': 'PostgreSQL',
-          'redis': 'Redis',
-          'mongodb': 'MongoDB',
-          'meilisearch': 'Meilisearch',
+          'mysql': 'MySQL', 'mariadb': 'MariaDB', 'postgresql': 'PostgreSQL',
+          'redis': 'Redis', 'mongodb': 'MongoDB', 'meilisearch': 'Meilisearch',
           'elasticsearch': 'Elasticsearch'
         };
         const colorMap = {
-          'mysql': 'text-orange-500',
-          'mariadb': 'text-cyan-500',
-          'postgresql': 'text-blue-600',
-          'redis': 'text-red-500',
-          'mongodb': 'text-green-500',
-          'meilisearch': 'text-purple-500',
+          'mysql': 'text-orange-500', 'mariadb': 'text-cyan-500', 'postgresql': 'text-blue-600',
+          'redis': 'text-red-500', 'mongodb': 'text-green-500', 'meilisearch': 'text-purple-500',
           'elasticsearch': 'text-yellow-500'
         };
         return {
-          id: app.app_id,
-          name: nameMap[app.app_id] || app.app_id,
-          version: app.installed_version,
-          installPath: app.install_path,
-          execPath: app.exec_path,
-          iconColor: colorMap[app.app_id] || 'text-gray-400'
+          id: app.app_id, name: nameMap[app.app_id] || app.app_id,
+          version: app.installed_version, installPath: app.install_path,
+          execPath: app.exec_path, iconColor: colorMap[app.app_id] || 'text-gray-400'
         };
       });
-      // Auto-select first tab
       if (dbApps.value.length > 0 && !activeTab.value) {
         activeTab.value = dbApps.value[0].id;
       }
@@ -381,12 +359,8 @@ const loadDbApps = async () => {
   }
 };
 
-const refreshAll = () => {
-  loadDatabases();
-  loadUsers();
-};
+const refreshAll = () => { loadDatabases(); loadUsers(); };
 
-// Check if service for current tab is running
 const serviceRunning = ref(true);
 
 const checkServiceRunning = async (appId) => {
@@ -395,37 +369,22 @@ const checkServiceRunning = async (appId) => {
   try {
     const status = await window.sysapi.apps.getServiceStatus(appId, app.execPath);
     return status?.running === true;
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 };
 
 const loadDatabases = async () => {
-  console.log('Loading databases for tab:', activeTab.value);
   if (!activeTab.value) return;
-
-  // Check service status first
   const running = await checkServiceRunning(activeTab.value);
   serviceRunning.value = running;
-  if (!running) {
-    databases.value = [];
-    return;
-  }
+  if (!running) { databases.value = []; return; }
 
   loading.value = true;
   try {
     const result = await dbStore.getDatabases(activeTab.value);
-    if (result.error) {
-      toast.error(`Failed to load databases: ${result.error}`);
-    } else {
-      databases.value = result;
-    }
-  } catch (err) {
-    console.error('Load databases error:', err);
-    toast.error(err.message);
-  } finally {
-    loading.value = false;
-  }
+    if (result.error) { toast.error(`Failed to load databases: ${result.error}`); }
+    else { databases.value = result; }
+  } catch (err) { console.error('Load databases error:', err); toast.error(err.message); }
+  finally { loading.value = false; }
 };
 
 const showCreateModal = ref(false);
@@ -433,163 +392,92 @@ const newUsername = ref('');
 const newPassword = ref('');
 
 const openCreateModal = () => {
-  newDbName.value = '';
-  newUsername.value = '';
+  newDbName.value = ''; newUsername.value = '';
   newPassword.value = generatePassword();
   showCreateModal.value = true;
 };
 
-const regenPassword = () => {
-  newPassword.value = generatePassword();
-};
+const regenPassword = () => { newPassword.value = generatePassword(); };
 
 const createDatabase = async () => {
   if (!activeTab.value) { toast.warning('No active tab'); return; }
   if (!newDbName.value) { toast.warning('Please enter a database name'); return; }
-
-  // Auto-generate username from db name if empty
-  if (!newUsername.value) {
-    newUsername.value = newDbName.value.replace(/[^a-zA-Z0-9_]/g, '_');
-  }
+  if (!newUsername.value) { newUsername.value = newDbName.value.replace(/[^a-zA-Z0-9_]/g, '_'); }
 
   loading.value = true;
   try {
-    const result = await dbStore.createDatabase(
-      newDbName.value,
-      newUsername.value,
-      newPassword.value
-    );
-
-    if (result.error) {
-      toast.error(`Failed to create database: ${result.error}`);
-    } else {
+    const result = await dbStore.createDatabase(newDbName.value, newUsername.value, newPassword.value);
+    if (result.error) { toast.error(`Failed to create database: ${result.error}`); }
+    else {
       toast.success(`Database "${newDbName.value}" created`);
       showCreateModal.value = false;
       await loadDatabases();
-      // If user created, maybe refresh users too?
       if (newUsername.value) await loadUsers();
     }
-  } catch (err) {
-    console.error('Create database error:', err);
-    toast.error(err.message);
-  } finally {
-    loading.value = false;
-  }
+  } catch (err) { console.error('Create database error:', err); toast.error(err.message); }
+  finally { loading.value = false; }
 };
 
 const confirmDropDb = async (dbName) => {
   if (!confirm(`Are you sure you want to drop database "${dbName}"? This cannot be undone.`)) return;
-
   loading.value = true;
   try {
     const result = await dbStore.deleteDatabase(activeTab.value, dbName);
-    if (result.error) {
-      toast.error(`Failed to drop database: ${result.error}`);
-    } else {
-      toast.success(`Database "${dbName}" dropped`);
-      await loadDatabases();
-    }
-  } catch (err) {
-    console.error('Drop database error:', err);
-    toast.error(err.message);
-  } finally {
-    loading.value = false;
-  }
+    if (result.error) { toast.error(`Failed to drop database: ${result.error}`); }
+    else { toast.success(`Database "${dbName}" dropped`); await loadDatabases(); }
+  } catch (err) { console.error('Drop database error:', err); toast.error(err.message); }
+  finally { loading.value = false; }
 };
 
 const openPgAdmin = async () => {
   if (!currentDbApp.value || !currentDbApp.value.installPath) {
-    toast.error('PostgreSQL installation path not found');
-    return;
+    toast.error('PostgreSQL installation path not found'); return;
   }
-
   try {
     const findResult = await window.sysapi.files.findFile(currentDbApp.value.installPath, 'pgAdmin4.exe');
-    if (findResult.error || !findResult.path) {
-      // Using default URL if app not found
-      window.sysapi.openExternal('http://127.0.0.1:5432');
-    } else {
-      await window.sysapi.files.openFile(findResult.path);
-    }
-  } catch (err) {
-    window.sysapi.openExternal('http://127.0.0.1:5432');
-  }
+    if (findResult.error || !findResult.path) { window.sysapi.openExternal('http://127.0.0.1:5432'); }
+    else { await window.sysapi.files.openFile(findResult.path); }
+  } catch (err) { window.sysapi.openExternal('http://127.0.0.1:5432'); }
 };
 
 const openPhpMyAdmin = async () => {
   const pmaResult = await window.sysapi.db.query("SELECT * FROM installed_apps WHERE app_id = 'phpmyadmin'");
-  if (pmaResult && pmaResult.length > 0) {
-    window.sysapi.openExternal('http://localhost/phpmyadmin');
-  } else {
-    toast.warning('phpMyAdmin is not installed');
-  }
+  if (pmaResult && pmaResult.length > 0) { window.sysapi.openExternal('http://localhost/phpmyadmin'); }
+  else { toast.warning('phpMyAdmin is not installed'); }
 };
 
 const loadUsers = async () => {
   if (!activeTab.value) return;
-
   const running = await checkServiceRunning(activeTab.value);
   serviceRunning.value = running;
-  if (!running) {
-    users.value = [];
-    return;
-  }
+  if (!running) { users.value = []; return; }
 
   loading.value = true;
   try {
     const result = await dbStore.getUsers(activeTab.value);
-    if (result.error) {
-      toast.error(`Failed to load users: ${result.error}`);
-    } else {
-      users.value = result || [];
-      userPasswords.value = {};
-    }
-  } catch (err) {
-    console.error('Load users error:', err);
-    toast.error(err.message);
-  } finally {
-    loading.value = false;
-  }
+    if (result.error) { toast.error(`Failed to load users: ${result.error}`); }
+    else { users.value = result || []; userPasswords.value = {}; }
+  } catch (err) { console.error('Load users error:', err); toast.error(err.message); }
+  finally { loading.value = false; }
 };
 
 const changePassword = async (username, host) => {
   if (!activeTab.value || !username || !userPasswords.value[username]) return;
-
   loading.value = true;
   try {
-    const result = await dbStore.changePassword(
-      activeTab.value,
-      username,
-      host,
-      userPasswords.value[username]
-    );
-
-    if (result.error) {
-      toast.error(`Failed to change password: ${result.error}`);
-    } else {
-      toast.success(`Password changed for "${username}"`);
-      userPasswords.value[username] = '';
-    }
-  } catch (err) {
-    console.error('Change password error:', err);
-    toast.error(err.message);
-  } finally {
-    loading.value = false;
-  }
+    const result = await dbStore.changePassword(activeTab.value, username, host, userPasswords.value[username]);
+    if (result.error) { toast.error(`Failed to change password: ${result.error}`); }
+    else { toast.success(`Password changed for "${username}"`); userPasswords.value[username] = ''; }
+  } catch (err) { console.error('Change password error:', err); toast.error(err.message); }
+  finally { loading.value = false; }
 };
 
-// Watch tab change to reload data (lazy load)
 watch(activeTab, (newTab) => {
   if (newTab && newTab !== 'redis' && newTab !== 'meilisearch' && newTab !== 'elasticsearch') {
-    databases.value = [];
-    users.value = [];
-    userPasswords.value = {};
-    serviceRunning.value = true;
-    refreshAll();
+    databases.value = []; users.value = []; userPasswords.value = {};
+    serviceRunning.value = true; refreshAll();
   }
 });
 
-onMounted(async () => {
-  await loadDbApps();
-});
+onMounted(async () => { await loadDbApps(); });
 </script>

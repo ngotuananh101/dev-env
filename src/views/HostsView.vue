@@ -9,24 +9,18 @@
       </div>
       <div class="flex items-center space-x-2">
         <div class="flex items-center space-x-2">
-          <BaseButton @click="refreshHosts" size="sm">
-            <template #icon>
-              <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': isLoading }" />
-            </template>
+          <Button size="sm" @click="refreshHosts">
+            <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': isLoading }" />
             Refresh
-          </BaseButton>
-          <BaseButton @click="saveHosts" :disabled="!hasChanges || isSaving" variant="success" size="sm">
-            <template #icon>
-              <Save class="w-3 h-3" />
-            </template>
+          </Button>
+          <Button @click="saveHosts" :disabled="!hasChanges || isSaving" variant="success" size="sm">
+            <Save class="w-3 h-3" />
             {{ isSaving ? 'Saving...' : 'Save' }}
-          </BaseButton>
-          <BaseButton @click="openInExplorer" variant="secondary" size="sm">
-            <template #icon>
-              <FolderOpen class="w-3 h-3" />
-            </template>
+          </Button>
+          <Button @click="openInExplorer" variant="secondary" size="sm">
+            <FolderOpen class="w-3 h-3" />
             Open Folder
-          </BaseButton>
+          </Button>
         </div>
       </div>
     </div>
@@ -63,13 +57,11 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { Globe, RefreshCw, Save, FolderOpen, AlertTriangle } from 'lucide-vue-next';
-import BaseButton from '../components/BaseButton.vue';
-import { useToast } from 'vue-toastification';
+import { Button } from '@/components/ui/button';
+import { toast } from 'vue-sonner';
 import ace from 'ace-builds';
 import 'ace-builds/src-noconflict/theme-monokai';
 import 'ace-builds/src-noconflict/mode-text';
-
-const toast = useToast();
 
 const hostsContent = ref('');
 const originalContent = ref('');

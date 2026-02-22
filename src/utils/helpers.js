@@ -1,4 +1,4 @@
-import { useToast } from 'vue-toastification';
+import { toast } from 'vue-sonner';
 
 /**
  * Generates a random password
@@ -19,7 +19,7 @@ export const generatePassword = (length = 16) => {
  * @param {string} errorMessage 
  */
 export const copyToClipboard = async (text, successMessage = 'Copied to clipboard', errorMessage = 'Failed to copy') => {
-    const toast = useToast();
+
     try {
         await navigator.clipboard.writeText(text);
         toast.success(successMessage);

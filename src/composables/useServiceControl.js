@@ -4,10 +4,10 @@
  */
 
 import { ref } from 'vue';
-import { useToast } from 'vue-toastification';
+import { toast } from 'vue-sonner';
 
 export function useServiceControl() {
-    const toast = useToast();
+
 
     /**
      * Start a service

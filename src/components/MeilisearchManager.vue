@@ -3,19 +3,15 @@
         <!-- Toolbar -->
         <div class="flex items-center justify-between p-3 bg-[#252526] border-b border-gray-700">
             <div class="flex items-center space-x-2">
-                <BaseButton @click="showCreateIndexModal = true" variant="success" size="sm">
-                    <template #icon>
-                        <Plus class="w-3 h-3" />
-                    </template>
+                <Button @click="showCreateIndexModal = true" variant="success" size="sm">
+                    <Plus class="w-3 h-3" />
                     New Index
-                </BaseButton>
+                </Button>
 
-                <BaseButton @click="refreshAll" variant="secondary" size="sm" :disabled="loading">
-                    <template #icon>
-                        <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': loading }" />
-                    </template>
+                <Button @click="refreshAll" variant="secondary" size="sm" :disabled="loading">
+                    <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': loading }" />
                     Reload
-                </BaseButton>
+                </Button>
 
                 <!-- Connection Status -->
                 <div class="flex items-center space-x-1 h-8 px-3 bg-gray-700 rounded text-xs select-none">
@@ -96,25 +92,19 @@
                             </span>
                         </div>
                         <div class="flex items-center space-x-2">
-                            <BaseButton @click="openAddDocModal" variant="success" size="sm">
-                                <template #icon>
-                                    <Plus class="w-3 h-3" />
-                                </template>
+                            <Button @click="openAddDocModal" variant="success" size="sm">
+                                <Plus class="w-3 h-3" />
                                 Add Document
-                            </BaseButton>
-                            <BaseButton @click="openSettingsModal" variant="secondary" size="sm">
-                                <template #icon>
-                                    <Settings class="w-3 h-3" />
-                                </template>
+                            </Button>
+                            <Button @click="openSettingsModal" variant="secondary" size="sm">
+                                <Settings class="w-3 h-3" />
                                 Settings
-                            </BaseButton>
-                            <BaseButton v-if="documents.length > 0" @click="confirmDeleteAllDocs" variant="danger"
+                            </Button>
+                            <Button v-if="documents.length > 0" @click="confirmDeleteAllDocs" variant="destructive"
                                 size="sm">
-                                <template #icon>
-                                    <Trash2 class="w-3 h-3" />
-                                </template>
+                                <Trash2 class="w-3 h-3" />
                                 Delete All
-                            </BaseButton>
+                            </Button>
                         </div>
                     </div>
 
@@ -220,118 +210,113 @@
         </div>
 
         <!-- Create Index Modal -->
-        <BaseModal :show="showCreateIndexModal" @close="showCreateIndexModal = false" max-width="450px"
-            body-class="p-6">
-            <template #title>Create Index</template>
-            <div class="space-y-4">
-                <div class="grid grid-cols-[100px_1fr] gap-4 items-center">
-                    <label class="text-gray-400 text-right text-xs">Index UID</label>
-                    <BaseInput v-model="newIndexUid" placeholder="e.g. movies, products..." />
+        <Dialog :open="showCreateIndexModal" @update:open="(v) => showCreateIndexModal = v">
+            <DialogContent class="max-w-[450px] bg-[#252526] border-gray-700 text-gray-200">
+                <DialogHeader>
+                    <DialogTitle>Create Index</DialogTitle>
+                </DialogHeader>
+                <div class="space-y-4">
+                    <div class="grid grid-cols-[100px_1fr] gap-4 items-center">
+                        <label class="text-gray-400 text-right text-xs">Index UID</label>
+                        <Input v-model="newIndexUid" placeholder="e.g. movies, products..." />
+                    </div>
+                    <div class="grid grid-cols-[100px_1fr] gap-4 items-center">
+                        <label class="text-gray-400 text-right text-xs">Primary Key</label>
+                        <Input v-model="newIndexPrimaryKey" placeholder="Optional (auto-detected)" />
+                    </div>
                 </div>
-                <div class="grid grid-cols-[100px_1fr] gap-4 items-center">
-                    <label class="text-gray-400 text-right text-xs">Primary Key</label>
-                    <BaseInput v-model="newIndexPrimaryKey" placeholder="Optional (auto-detected)" />
-                </div>
-            </div>
-            <template #footer>
-                <div class="flex justify-end space-x-2">
-                    <BaseButton variant="secondary" size="sm" @click="showCreateIndexModal = false">Cancel</BaseButton>
-                    <BaseButton variant="success" size="sm" @click="createIndex" :disabled="!newIndexUid">
-                        <template #icon>
-                            <Loader2 v-if="loading" class="w-3 h-3 animate-spin" />
-                        </template>
+                <DialogFooter>
+                    <Button variant="secondary" size="sm" @click="showCreateIndexModal = false">Cancel</Button>
+                    <Button variant="success" size="sm" @click="createIndex" :disabled="!newIndexUid">
+                        <Loader2 v-if="loading" class="w-3 h-3 animate-spin" />
                         Create
-                    </BaseButton>
-                </div>
-            </template>
-        </BaseModal>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
 
         <!-- Add Document Modal -->
-        <BaseModal :show="showAddDocModal" @close="showAddDocModal = false" max-width="650px" body-class="p-6">
-            <template #title>Add Document(s)</template>
-            <div class="space-y-4">
-                <div class="text-xs text-gray-500">Enter a JSON object or an array of JSON objects:</div>
-                <textarea v-model="newDocJson" rows="12" placeholder='[{"id": 1, "title": "Example"}]'
-                    class="w-full px-3 py-2 text-xs bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 font-mono"></textarea>
-                <div v-if="docJsonError" class="text-xs text-red-400">{{ docJsonError }}</div>
-            </div>
-            <template #footer>
-                <div class="flex justify-end space-x-2">
-                    <BaseButton variant="secondary" size="sm" @click="showAddDocModal = false">Cancel</BaseButton>
-                    <BaseButton variant="success" size="sm" @click="addDocuments" :disabled="!newDocJson">
-                        <template #icon>
-                            <Loader2 v-if="loading" class="w-3 h-3 animate-spin" />
-                        </template>
-                        Add
-                    </BaseButton>
+        <Dialog :open="showAddDocModal" @update:open="(v) => showAddDocModal = v">
+            <DialogContent class="max-w-[650px] bg-[#252526] border-gray-700 text-gray-200">
+                <DialogHeader>
+                    <DialogTitle>Add Document(s)</DialogTitle>
+                </DialogHeader>
+                <div class="space-y-4">
+                    <div class="text-xs text-gray-500">Enter a JSON object or an array of JSON objects:</div>
+                    <textarea v-model="newDocJson" rows="12" placeholder='[{"id": 1, "title": "Example"}]'
+                        class="w-full px-3 py-2 text-xs bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 font-mono"></textarea>
+                    <div v-if="docJsonError" class="text-xs text-red-400">{{ docJsonError }}</div>
                 </div>
-            </template>
-        </BaseModal>
+                <DialogFooter>
+                    <Button variant="secondary" size="sm" @click="showAddDocModal = false">Cancel</Button>
+                    <Button variant="success" size="sm" @click="addDocuments" :disabled="!newDocJson">
+                        <Loader2 v-if="loading" class="w-3 h-3 animate-spin" />
+                        Add
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
 
         <!-- View Document Modal -->
-        <BaseModal :show="showViewDocModal" @close="showViewDocModal = false" max-width="700px" body-class="p-6">
-            <template #title>
-                <div class="flex items-center space-x-2">
-                    <span>Document Detail</span>
+        <Dialog :open="showViewDocModal" @update:open="(v) => showViewDocModal = v">
+            <DialogContent class="max-w-[700px] bg-[#252526] border-gray-700 text-gray-200">
+                <DialogHeader>
+                    <DialogTitle>Document Detail</DialogTitle>
+                </DialogHeader>
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <button @click="copyToClipboard(JSON.stringify(viewingDoc, null, 2))"
+                            class="text-xs text-blue-400 hover:text-blue-300 flex items-center space-x-1">
+                            <Copy class="w-3 h-3" />
+                            <span>Copy JSON</span>
+                        </button>
+                    </div>
+                    <pre
+                        class="w-full px-3 py-2 text-xs bg-gray-800 border border-gray-700 rounded text-gray-300 overflow-auto max-h-96 font-mono whitespace-pre-wrap">
+                {{ JSON.stringify(viewingDoc, null, 2) }}</pre>
                 </div>
-            </template>
-            <div class="space-y-3">
-                <div class="flex items-center justify-between">
-                    <button @click="copyToClipboard(JSON.stringify(viewingDoc, null, 2))"
-                        class="text-xs text-blue-400 hover:text-blue-300 flex items-center space-x-1">
-                        <Copy class="w-3 h-3" />
-                        <span>Copy JSON</span>
-                    </button>
-                </div>
-                <pre
-                    class="w-full px-3 py-2 text-xs bg-gray-800 border border-gray-700 rounded text-gray-300 overflow-auto max-h-96 font-mono whitespace-pre-wrap">
-            {{ JSON.stringify(viewingDoc, null, 2) }}</pre>
-            </div>
-            <template #footer>
-                <div class="flex justify-end space-x-2">
-                    <BaseButton variant="secondary" size="sm" @click="showViewDocModal = false">Close</BaseButton>
-                </div>
-            </template>
-        </BaseModal>
+                <DialogFooter>
+                    <Button variant="secondary" size="sm" @click="showViewDocModal = false">Close</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
 
         <!-- Index Settings Modal -->
-        <BaseModal :show="showSettingsModal" @close="showSettingsModal = false" max-width="650px" body-class="p-6">
-            <template #title>Index Settings — {{ selectedIndex?.uid }}</template>
-            <div v-if="loadingSettings" class="flex items-center justify-center py-8">
-                <RefreshCw class="w-6 h-6 text-gray-500 animate-spin" />
-            </div>
-            <div v-else class="space-y-4">
-                <div v-for="(value, key) in editableSettings" :key="key">
-                    <label class="text-xs text-gray-400 block mb-1">{{ formatSettingKey(key) }}</label>
-                    <textarea v-model="editableSettings[key]" rows="2"
-                        class="w-full px-3 py-2 text-xs bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 font-mono"
-                        :placeholder="'e.g. [&quot;field1&quot;, &quot;field2&quot;]'"></textarea>
+        <Dialog :open="showSettingsModal" @update:open="(v) => showSettingsModal = v">
+            <DialogContent class="max-w-[650px] bg-[#252526] border-gray-700 text-gray-200">
+                <DialogHeader>
+                    <DialogTitle>Index Settings — {{ selectedIndex?.uid }}</DialogTitle>
+                </DialogHeader>
+                <div v-if="loadingSettings" class="flex items-center justify-center py-8">
+                    <RefreshCw class="w-6 h-6 text-gray-500 animate-spin" />
                 </div>
-            </div>
-            <template #footer>
-                <div class="flex justify-end space-x-2">
-                    <BaseButton variant="secondary" size="sm" @click="showSettingsModal = false">Cancel</BaseButton>
-                    <BaseButton variant="success" size="sm" @click="saveSettings" :disabled="loadingSettings">
-                        <template #icon>
-                            <Loader2 v-if="loadingSettings" class="w-3 h-3 animate-spin" />
-                        </template>
+                <div v-else class="space-y-4">
+                    <div v-for="(value, key) in editableSettings" :key="key">
+                        <label class="text-xs text-gray-400 block mb-1">{{ formatSettingKey(key) }}</label>
+                        <textarea v-model="editableSettings[key]" rows="2"
+                            class="w-full px-3 py-2 text-xs bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 font-mono"
+                            :placeholder="'e.g. [&quot;field1&quot;, &quot;field2&quot;]'"></textarea>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="secondary" size="sm" @click="showSettingsModal = false">Cancel</Button>
+                    <Button variant="success" size="sm" @click="saveSettings" :disabled="loadingSettings">
+                        <Loader2 v-if="loadingSettings" class="w-3 h-3 animate-spin" />
                         Save
-                    </BaseButton>
-                </div>
-            </template>
-        </BaseModal>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { Plus, RefreshCw, Search, Trash2, Eye, Layers, FileText, Settings, Loader2, Copy } from 'lucide-vue-next';
-import { useToast } from 'vue-toastification';
-import BaseButton from './BaseButton.vue';
-import BaseModal from './BaseModal.vue';
-import BaseInput from './BaseInput.vue';
-
-const toast = useToast();
+import { toast } from 'vue-sonner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 const api = window.sysapi.database.meilisearch;
 
 // State

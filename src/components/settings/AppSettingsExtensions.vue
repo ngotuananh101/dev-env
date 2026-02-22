@@ -57,9 +57,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { useToast } from 'vue-toastification';
-
-const toast = useToast();
+import { toast } from 'vue-sonner';
 const props = defineProps({
   app: Object
 });

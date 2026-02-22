@@ -23,29 +23,22 @@
       <!-- Toolbar -->
       <div class="flex items-center justify-between p-3 bg-background border-t border-gray-700">
         <div class="flex items-center space-x-2">
-          <BaseButton variant="success" size="sm" @click="showAddModal = true">
-            <template #icon>
-              <Plus class="w-3 h-3" />
-            </template>
+          <Button variant="success" size="sm" @click="showAddModal = true">
+            <Plus class="w-3 h-3" />
             Add site
-          </BaseButton>
+          </Button>
 
-          <BaseButton v-if="sitesStore.activeTab === 'php' && sitesStore.webserver.apache"
+          <Button v-if="sitesStore.activeTab === 'php' && sitesStore.webserver.apache"
             @click="sitesStore.changeApacheRoot" variant="secondary" size="sm" class="border border-gray-600"
             title="Change Apache Root">
-            <template #icon>
-              <FolderCog class="w-3 h-3 text-yellow-500" />
-            </template>
-          </BaseButton>
+            <FolderCog class="w-3 h-3 text-yellow-500" />
+          </Button>
 
-          <BaseButton
-            v-if="sitesStore.activeTab === 'php' && sitesStore.webserver.nginx && !sitesStore.webserver.apache"
+          <Button v-if="sitesStore.activeTab === 'php' && sitesStore.webserver.nginx && !sitesStore.webserver.apache"
             @click="sitesStore.changeNginxRoot" variant="secondary" size="sm" class="border border-gray-600"
             title="Change Nginx Root">
-            <template #icon>
-              <FolderCog class="w-3 h-3 text-yellow-500" />
-            </template>
-          </BaseButton>
+            <FolderCog class="w-3 h-3 text-yellow-500" />
+          </Button>
           <!-- Webserver indicator -->
           <!-- Webserver indicator -->
           <div class="flex items-center space-x-1 h-8 px-3 bg-gray-700 rounded text-xs select-none">
@@ -66,21 +59,16 @@
             <span v-else class="text-gray-400">No webserver</span>
           </div>
 
-          <BaseButton variant="secondary" size="sm" @click="sitesStore.loadSites">
-            <template #icon>
-              <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': sitesStore.isLoading }" />
-            </template>
+          <Button variant="secondary" size="sm" @click="sitesStore.loadSites">
+            <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': sitesStore.isLoading }" />
             Reload
-          </BaseButton>
+          </Button>
         </div>
 
         <div class="flex items-center space-x-2">
-          <div class="w-48">
-            <BaseInput v-model="searchQuery" placeholder="Search domain..." size="sm">
-              <template #prepend>
-                <Search class="w-4 h-4" />
-              </template>
-            </BaseInput>
+          <div class="relative w-48">
+            <Search class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input v-model="searchQuery" placeholder="Search domain..." class="h-8 pl-8 text-xs" />
           </div>
         </div>
       </div>
@@ -109,14 +97,8 @@
       </div>
 
       <!-- Virtual Scroller for Sites -->
-      <RecycleScroller
-        v-else
-        class="flex-1"
-        :items="filteredSites"
-        :item-size="50"
-        key-field="id"
-        v-slot="{ item: site }"
-      >
+      <RecycleScroller v-else class="flex-1" :items="filteredSites" :item-size="50" key-field="id"
+        v-slot="{ item: site }">
         <div class="flex items-center border-b border-gray-800 hover:bg-gray-800/50 h-12.5 text-xs">
           <!-- Site name -->
           <div class="px-3 py-2 flex-1">
@@ -157,7 +139,7 @@
 
           <!-- Quick action -->
           <div class="px-2 py-2 w-28 text-center">
-            <ActionButtonGroup>
+            <div class="flex items-center justify-center space-x-2">
               <!-- Node: Start/Stop -->
               <template v-if="site.type === 'node'">
                 <button v-if="!site.processRunning" @click="sitesStore.startNodeSite(site)" :disabled="site.loading"
@@ -181,7 +163,7 @@
                 title="Open in browser">
                 <Globe class="w-3.5 h-3.5 text-blue-500" />
               </button>
-            </ActionButtonGroup>
+            </div>
           </div>
 
           <!-- Created -->
@@ -237,13 +219,11 @@ import {
   Folder, Play, Square, FileCode, Terminal, ArrowRightLeft, FolderCog,
   RotateCw
 } from 'lucide-vue-next';
-import { useToast } from 'vue-toastification';
+import { toast } from 'vue-sonner';
 import { useSitesStore } from '@/stores/sites';
 import { useDebouncedRef } from '@/composables/useDebouncedRef';
-import BaseButton from '../components/BaseButton.vue';
-import StatusBadge from '../components/StatusBadge.vue';
-import ActionButtonGroup from '../components/ActionButtonGroup.vue';
-import BaseInput from '../components/BaseInput.vue';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { RecycleScroller } from 'vue3-virtual-scroller';
 import 'vue3-virtual-scroller/dist/vue3-virtual-scroller.css';
 
@@ -258,7 +238,6 @@ const SiteLogsModal = defineAsyncComponent(() =>
   import('../components/SiteLogsModal.vue')
 );
 
-const toast = useToast();
 const sitesStore = useSitesStore();
 
 // Tabs

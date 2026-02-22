@@ -8,22 +8,26 @@
       </div>
       <div class="flex items-center space-x-2">
         <!-- Date Selector -->
-        <!-- Date Selector -->
         <div class="w-40">
-          <BaseSelect v-model="selectedDate" @update:modelValue="loadLog" size="sm" :options="availableDates" />
+          <Select v-model="selectedDate" @update:modelValue="loadLog">
+            <SelectTrigger class="h-8 text-xs bg-background border-gray-600">
+              <SelectValue placeholder="Select date" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="date in availableDates" :key="date" :value="date">
+                {{ date }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-        <BaseButton @click="refreshLogs" size="sm">
-          <template #icon>
-            <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': isLoading }" />
-          </template>
+        <Button size="sm" @click="refreshLogs">
+          <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': isLoading }" />
           Refresh
-        </BaseButton>
-        <BaseButton @click="clearLog" variant="danger" size="sm">
-          <template #icon>
-            <Trash2 class="w-3 h-3" />
-          </template>
+        </Button>
+        <Button @click="clearLog" variant="destructive" size="sm">
+          <Trash2 class="w-3 h-3" />
           Clear
-        </BaseButton>
+        </Button>
       </div>
     </div>
 
@@ -53,14 +57,12 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
 import { FileText, RefreshCw, Trash2 } from 'lucide-vue-next';
-import BaseButton from '../components/BaseButton.vue';
-import BaseSelect from '../components/BaseSelect.vue';
-import { useToast } from 'vue-toastification';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from 'vue-sonner';
 import ace from 'ace-builds';
 import 'ace-builds/src-noconflict/theme-monokai';
 import 'ace-builds/src-noconflict/mode-text';
-
-const toast = useToast();
 
 const logContent = ref('');
 const availableDates = ref([]);

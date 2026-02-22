@@ -1,5 +1,7 @@
 <template>
   <div class="flex h-screen bg-black text-white overflow-hidden">
+    <!-- Toast Notifications -->
+    <Toaster position="top-right" :duration="4000" theme="dark" rich-colors />
     <!-- Sidebar -->
     <AppSidebar />
 
@@ -37,6 +39,7 @@
 
 <script setup>
 import AppSidebar from './components/AppSidebar.vue';
+import { Toaster } from 'vue-sonner';
 </script>
 
 <style>

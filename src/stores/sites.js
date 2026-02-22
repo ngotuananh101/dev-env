@@ -1,10 +1,10 @@
 import { defineStore } from 'pinia';
 import { ref, computed, watch } from 'vue';
-import { useToast } from 'vue-toastification';
+import { toast } from 'vue-sonner';
 import { useAsyncAction } from '../composables/useAsyncAction';
 
 export const useSitesStore = defineStore('sites', () => {
-    const toast = useToast();
+
 
     // State
     const sites = ref([]);

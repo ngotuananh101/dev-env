@@ -72,7 +72,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
-import { useToast } from 'vue-toastification';
+import { toast } from 'vue-sonner';
 
 // Import sub-components
 import AppSettingsSidebar from './settings/AppSettingsSidebar.vue';
@@ -84,8 +84,6 @@ import AppSettingsPhpInfo from './settings/AppSettingsPhpInfo.vue';
 import AppSettingsNvm from './settings/AppSettingsNvm.vue';
 import AppSettingsPyenv from './settings/AppSettingsPyenv.vue';
 import AppSettingsMeilisearch from './settings/AppSettingsMeilisearch.vue';
-
-const toast = useToast();
 
 const props = defineProps({
     show: Boolean,

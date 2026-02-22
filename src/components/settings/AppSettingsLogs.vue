@@ -68,10 +68,8 @@
 
 <script setup>
 import { ref, onMounted, watch, nextTick } from 'vue';
-import { useToast } from 'vue-toastification';
+import { toast } from 'vue-sonner';
 import { formatBytes } from '../../utils/helpers';
-
-const toast = useToast();
 const props = defineProps({
   app: Object
 });

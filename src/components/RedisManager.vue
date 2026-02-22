@@ -15,26 +15,20 @@
     <!-- Toolbar -->
     <div class="flex items-center justify-between p-3 bg-[#252526] border-b border-gray-700">
       <div class="flex items-center space-x-2">
-        <BaseButton @click="openAddKeyModal" variant="success" size="sm">
-          <template #icon>
-            <Plus class="w-3 h-3" />
-          </template>
+        <Button @click="openAddKeyModal" variant="success" size="sm">
+          <Plus class="w-3 h-3" />
           Add Key
-        </BaseButton>
+        </Button>
 
-        <BaseButton @click="refreshKeys" variant="secondary" size="sm" :disabled="loading">
-          <template #icon>
-            <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': loading }" />
-          </template>
+        <Button @click="refreshKeys" variant="secondary" size="sm" :disabled="loading">
+          <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': loading }" />
           Reload
-        </BaseButton>
+        </Button>
 
-        <BaseButton v-if="selectedKeys.length > 0" @click="deleteSelectedKeys" variant="danger" size="sm">
-          <template #icon>
-            <Trash2 class="w-3 h-3" />
-          </template>
+        <Button v-if="selectedKeys.length > 0" @click="deleteSelectedKeys" variant="destructive" size="sm">
+          <Trash2 class="w-3 h-3" />
           Delete ({{ selectedKeys.length }})
-        </BaseButton>
+        </Button>
       </div>
 
       <div class="flex items-center space-x-2">
@@ -173,241 +167,241 @@
     </div>
 
     <!-- Add/Edit Key Modal -->
-    <BaseModal :show="showAddKeyModal" @close="showAddKeyModal = false" max-width="550px" body-class="p-6">
-      <template #title>{{ editingKey ? 'Edit Key' : 'Add Key' }}</template>
+    <Dialog :open="showAddKeyModal" @update:open="(v) => showAddKeyModal = v">
+      <DialogContent class="max-w-[550px] bg-[#252526] border-gray-700 text-gray-200">
+        <DialogHeader>
+          <DialogTitle>{{ editingKey ? 'Edit Key' : 'Add Key' }}</DialogTitle>
+        </DialogHeader>
 
-      <div class="space-y-4">
-        <!-- Key Name -->
-        <div class="grid grid-cols-[80px_1fr] gap-4 items-center">
-          <label class="text-gray-400 text-right text-xs">Key</label>
-          <BaseInput v-model="newKeyName" placeholder="Key name" :disabled="!!editingKey" />
-        </div>
+        <div class="space-y-4">
+          <!-- Key Name -->
+          <div class="grid grid-cols-[80px_1fr] gap-4 items-center">
+            <label class="text-gray-400 text-right text-xs">Key</label>
+            <Input v-model="newKeyName" placeholder="Key name" :disabled="!!editingKey" />
+          </div>
 
-        <!-- Data Type (only for new keys) -->
-        <div v-if="!editingKey" class="grid grid-cols-[80px_1fr] gap-4 items-center">
-          <label class="text-gray-400 text-right text-xs">Type</label>
-          <select v-model="newKeyType"
-            class="h-9 px-3 text-sm bg-gray-800 border border-gray-700 rounded text-white focus:outline-none focus:border-blue-500">
-            <option value="string">String</option>
-            <option value="list">List</option>
-            <option value="set">Set</option>
-            <option value="zset">Sorted Set</option>
-            <option value="hash">Hash</option>
-          </select>
-        </div>
+          <!-- Data Type (only for new keys) -->
+          <div v-if="!editingKey" class="grid grid-cols-[80px_1fr] gap-4 items-center">
+            <label class="text-gray-400 text-right text-xs">Type</label>
+            <select v-model="newKeyType"
+              class="h-9 px-3 text-sm bg-gray-800 border border-gray-700 rounded text-white focus:outline-none focus:border-blue-500">
+              <option value="string">String</option>
+              <option value="list">List</option>
+              <option value="set">Set</option>
+              <option value="zset">Sorted Set</option>
+              <option value="hash">Hash</option>
+            </select>
+          </div>
 
-        <!-- String Value -->
-        <div v-if="newKeyType === 'string'" class="grid grid-cols-[80px_1fr] gap-4 items-start">
-          <label class="text-gray-400 text-right text-xs pt-2">Value</label>
-          <textarea v-model="newKeyValue" placeholder="Value" rows="5"
-            class="w-full px-3 py-2 text-sm bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 font-mono"></textarea>
-        </div>
-
-        <!-- List Value -->
-        <div v-else-if="newKeyType === 'list'" class="grid grid-cols-[80px_1fr] gap-4 items-start">
-          <label class="text-gray-400 text-right text-xs pt-2">Items</label>
-          <div class="space-y-2">
-            <textarea v-model="newKeyValue" placeholder="One item per line" rows="5"
+          <!-- String Value -->
+          <div v-if="newKeyType === 'string'" class="grid grid-cols-[80px_1fr] gap-4 items-start">
+            <label class="text-gray-400 text-right text-xs pt-2">Value</label>
+            <textarea v-model="newKeyValue" placeholder="Value" rows="5"
               class="w-full px-3 py-2 text-sm bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 font-mono"></textarea>
-            <div class="text-xs text-gray-500">Enter one item per line</div>
+          </div>
+
+          <!-- List Value -->
+          <div v-else-if="newKeyType === 'list'" class="grid grid-cols-[80px_1fr] gap-4 items-start">
+            <label class="text-gray-400 text-right text-xs pt-2">Items</label>
+            <div class="space-y-2">
+              <textarea v-model="newKeyValue" placeholder="One item per line" rows="5"
+                class="w-full px-3 py-2 text-sm bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 font-mono"></textarea>
+              <div class="text-xs text-gray-500">Enter one item per line</div>
+            </div>
+          </div>
+
+          <!-- Set Value -->
+          <div v-else-if="newKeyType === 'set'" class="grid grid-cols-[80px_1fr] gap-4 items-start">
+            <label class="text-gray-400 text-right text-xs pt-2">Members</label>
+            <div class="space-y-2">
+              <textarea v-model="newKeyValue" placeholder="One member per line" rows="5"
+                class="w-full px-3 py-2 text-sm bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 font-mono"></textarea>
+              <div class="text-xs text-gray-500">Enter one member per line (duplicates will be ignored)</div>
+            </div>
+          </div>
+
+          <!-- Sorted Set Value -->
+          <div v-else-if="newKeyType === 'zset'" class="grid grid-cols-[80px_1fr] gap-4 items-start">
+            <label class="text-gray-400 text-right text-xs pt-2">Members</label>
+            <div class="space-y-2">
+              <textarea v-model="newKeyValue" placeholder="score member&#10;1 item1&#10;2 item2" rows="5"
+                class="w-full px-3 py-2 text-sm bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 font-mono"></textarea>
+              <div class="text-xs text-gray-500">Format: score member (one per line)</div>
+            </div>
+          </div>
+
+          <!-- Hash Value -->
+          <div v-else-if="newKeyType === 'hash'" class="grid grid-cols-[80px_1fr] gap-4 items-start">
+            <label class="text-gray-400 text-right text-xs pt-2">Fields</label>
+            <div class="space-y-2">
+              <textarea v-model="newKeyValue" placeholder="field value&#10;name John&#10;age 30" rows="5"
+                class="w-full px-3 py-2 text-sm bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 font-mono"></textarea>
+              <div class="text-xs text-gray-500">Format: field value (one per line)</div>
+            </div>
+          </div>
+
+          <!-- TTL -->
+          <div class="grid grid-cols-[80px_1fr] gap-4 items-center">
+            <label class="text-gray-400 text-right text-xs">TTL (s)</label>
+            <Input v-model.number="newKeyTtl" type="number" placeholder="-1 for no expiry" />
           </div>
         </div>
 
-        <!-- Set Value -->
-        <div v-else-if="newKeyType === 'set'" class="grid grid-cols-[80px_1fr] gap-4 items-start">
-          <label class="text-gray-400 text-right text-xs pt-2">Members</label>
-          <div class="space-y-2">
-            <textarea v-model="newKeyValue" placeholder="One member per line" rows="5"
-              class="w-full px-3 py-2 text-sm bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 font-mono"></textarea>
-            <div class="text-xs text-gray-500">Enter one member per line (duplicates will be ignored)</div>
-          </div>
-        </div>
-
-        <!-- Sorted Set Value -->
-        <div v-else-if="newKeyType === 'zset'" class="grid grid-cols-[80px_1fr] gap-4 items-start">
-          <label class="text-gray-400 text-right text-xs pt-2">Members</label>
-          <div class="space-y-2">
-            <textarea v-model="newKeyValue" placeholder="score member&#10;1 item1&#10;2 item2" rows="5"
-              class="w-full px-3 py-2 text-sm bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 font-mono"></textarea>
-            <div class="text-xs text-gray-500">Format: score member (one per line)</div>
-          </div>
-        </div>
-
-        <!-- Hash Value -->
-        <div v-else-if="newKeyType === 'hash'" class="grid grid-cols-[80px_1fr] gap-4 items-start">
-          <label class="text-gray-400 text-right text-xs pt-2">Fields</label>
-          <div class="space-y-2">
-            <textarea v-model="newKeyValue" placeholder="field value&#10;name John&#10;age 30" rows="5"
-              class="w-full px-3 py-2 text-sm bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 font-mono"></textarea>
-            <div class="text-xs text-gray-500">Format: field value (one per line)</div>
-          </div>
-        </div>
-
-        <!-- TTL -->
-        <div class="grid grid-cols-[80px_1fr] gap-4 items-center">
-          <label class="text-gray-400 text-right text-xs">TTL (s)</label>
-          <BaseInput v-model.number="newKeyTtl" type="number" placeholder="-1 for no expiry" />
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="flex justify-end space-x-2">
-          <BaseButton variant="secondary" size="sm" @click="showAddKeyModal = false">Cancel</BaseButton>
-          <BaseButton variant="success" size="sm" @click="saveKey" :disabled="loading || !newKeyName">
-            <template #icon>
-              <Loader2 v-if="loading" class="w-3 h-3 animate-spin" />
-            </template>
+        <DialogFooter>
+          <Button variant="secondary" size="sm" @click="showAddKeyModal = false">Cancel</Button>
+          <Button variant="success" size="sm" @click="saveKey" :disabled="loading || !newKeyName">
+            <Loader2 v-if="loading" class="w-3 h-3 animate-spin" />
             Save
-          </BaseButton>
-        </div>
-      </template>
-    </BaseModal>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
     <!-- View Key Detail Modal -->
-    <BaseModal :show="showDetailModal" @close="showDetailModal = false" max-width="700px" body-class="p-6">
-      <template #title>
-        <div class="flex items-center space-x-2">
-          <span>Key Detail</span>
-          <span class="px-2 py-0.5 rounded text-xs" :class="getTypeClass(viewingKey?.type)">
-            {{ viewingKey?.type }}
-          </span>
-        </div>
-      </template>
-
-      <div class="space-y-4">
-        <!-- Key Name -->
-        <div class="grid grid-cols-[80px_1fr] gap-4 items-center">
-          <label class="text-gray-400 text-right text-xs">Key</label>
-          <div class="flex items-center space-x-2">
-            <code class="text-white font-mono text-sm bg-gray-800 px-2 py-1 rounded">{{ viewingKey?.key }}</code>
-            <button @click="copyToClipboard(viewingKey?.key)" class="text-gray-400 hover:text-white" title="Copy key">
-              <Copy class="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
-        <!-- TTL & Length -->
-        <div class="grid grid-cols-[80px_1fr] gap-4 items-center">
-          <label class="text-gray-400 text-right text-xs">Info</label>
-          <div class="flex items-center space-x-4 text-sm">
-            <span class="text-gray-400">TTL: <span class="text-white">{{ formatTtl(viewingKey?.ttl) }}</span></span>
-            <span class="text-gray-400">Length: <span class="text-white">{{ viewingKey?.length }}</span></span>
-          </div>
-        </div>
-
-        <!-- Value Section - Different display based on type -->
-        <div class="grid grid-cols-[80px_1fr] gap-4 items-start">
-          <label class="text-gray-400 text-right text-xs pt-2">Value</label>
-
-          <!-- String Type -->
-          <div v-if="viewingKey?.type === 'string'" class="space-y-2">
+    <Dialog :open="showDetailModal" @update:open="(v) => showDetailModal = v">
+      <DialogContent class="max-w-[700px] bg-[#252526] border-gray-700 text-gray-200">
+        <DialogHeader>
+          <DialogTitle>
             <div class="flex items-center space-x-2">
-              <button @click="copyToClipboard(viewingKey?.value)" class="text-xs text-blue-400 hover:text-blue-300">
-                Copy Value
+              <span>Key Detail</span>
+              <span class="px-2 py-0.5 rounded text-xs" :class="getTypeClass(viewingKey?.type)">
+                {{ viewingKey?.type }}
+              </span>
+            </div>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div class="space-y-4">
+          <!-- Key Name -->
+          <div class="grid grid-cols-[80px_1fr] gap-4 items-center">
+            <label class="text-gray-400 text-right text-xs">Key</label>
+            <div class="flex items-center space-x-2">
+              <code class="text-white font-mono text-sm bg-gray-800 px-2 py-1 rounded">{{ viewingKey?.key }}</code>
+              <button @click="copyToClipboard(viewingKey?.key)" class="text-gray-400 hover:text-white" title="Copy key">
+                <Copy class="w-4 h-4" />
               </button>
             </div>
-            <pre
-              class="w-full px-3 py-2 text-xs bg-gray-800 border border-gray-700 rounded text-gray-300 overflow-auto max-h-80 font-mono whitespace-pre-wrap break-all">
-          {{ viewingKey?.value }}</pre>
           </div>
 
-          <!-- List Type -->
-          <div v-else-if="viewingKey?.type === 'list'" class="space-y-2">
-            <div class="text-xs text-gray-500">List items (showing first 100):</div>
-            <div class="w-full max-h-80 overflow-auto bg-gray-800 border border-gray-700 rounded">
-              <div v-for="(item, index) in parseListValue(viewingKey?.value)" :key="index"
-                class="flex items-center px-3 py-1.5 border-b border-gray-700 last:border-b-0 hover:bg-gray-700/50">
-                <span class="text-gray-500 w-10 text-xs">{{ index }}</span>
-                <span class="text-gray-300 font-mono text-xs break-all">{{ item }}</span>
+          <!-- TTL & Length -->
+          <div class="grid grid-cols-[80px_1fr] gap-4 items-center">
+            <label class="text-gray-400 text-right text-xs">Info</label>
+            <div class="flex items-center space-x-4 text-sm">
+              <span class="text-gray-400">TTL: <span class="text-white">{{ formatTtl(viewingKey?.ttl) }}</span></span>
+              <span class="text-gray-400">Length: <span class="text-white">{{ viewingKey?.length }}</span></span>
+            </div>
+          </div>
+
+          <!-- Value Section - Different display based on type -->
+          <div class="grid grid-cols-[80px_1fr] gap-4 items-start">
+            <label class="text-gray-400 text-right text-xs pt-2">Value</label>
+
+            <!-- String Type -->
+            <div v-if="viewingKey?.type === 'string'" class="space-y-2">
+              <div class="flex items-center space-x-2">
+                <button @click="copyToClipboard(viewingKey?.value)" class="text-xs text-blue-400 hover:text-blue-300">
+                  Copy Value
+                </button>
+              </div>
+              <pre
+                class="w-full px-3 py-2 text-xs bg-gray-800 border border-gray-700 rounded text-gray-300 overflow-auto max-h-80 font-mono whitespace-pre-wrap break-all">
+            {{ viewingKey?.value }}</pre>
+            </div>
+
+            <!-- List Type -->
+            <div v-else-if="viewingKey?.type === 'list'" class="space-y-2">
+              <div class="text-xs text-gray-500">List items (showing first 100):</div>
+              <div class="w-full max-h-80 overflow-auto bg-gray-800 border border-gray-700 rounded">
+                <div v-for="(item, index) in parseListValue(viewingKey?.value)" :key="index"
+                  class="flex items-center px-3 py-1.5 border-b border-gray-700 last:border-b-0 hover:bg-gray-700/50">
+                  <span class="text-gray-500 w-10 text-xs">{{ index }}</span>
+                  <span class="text-gray-300 font-mono text-xs break-all">{{ item }}</span>
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- Set Type -->
-          <div v-else-if="viewingKey?.type === 'set'" class="space-y-2">
-            <div class="text-xs text-gray-500">Set members:</div>
-            <div class="w-full max-h-80 overflow-auto bg-gray-800 border border-gray-700 rounded">
-              <div v-for="(member, index) in parseListValue(viewingKey?.value)" :key="index"
-                class="flex items-center px-3 py-1.5 border-b border-gray-700 last:border-b-0 hover:bg-gray-700/50">
-                <span class="text-gray-300 font-mono text-xs break-all">{{ member }}</span>
+            <!-- Set Type -->
+            <div v-else-if="viewingKey?.type === 'set'" class="space-y-2">
+              <div class="text-xs text-gray-500">Set members:</div>
+              <div class="w-full max-h-80 overflow-auto bg-gray-800 border border-gray-700 rounded">
+                <div v-for="(member, index) in parseListValue(viewingKey?.value)" :key="index"
+                  class="flex items-center px-3 py-1.5 border-b border-gray-700 last:border-b-0 hover:bg-gray-700/50">
+                  <span class="text-gray-300 font-mono text-xs break-all">{{ member }}</span>
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- Sorted Set (zset) Type -->
-          <div v-else-if="viewingKey?.type === 'zset'" class="space-y-2">
-            <div class="text-xs text-gray-500">Sorted set members with scores:</div>
-            <div class="w-full max-h-80 overflow-auto bg-gray-800 border border-gray-700 rounded">
-              <table class="w-full text-xs">
-                <thead class="bg-gray-700 sticky top-0">
-                  <tr>
-                    <th class="px-3 py-1.5 text-left text-gray-400">Member</th>
-                    <th class="px-3 py-1.5 text-right text-gray-400 w-24">Score</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(item, index) in parseZsetValue(viewingKey?.value)" :key="index"
-                    class="border-b border-gray-700 last:border-b-0 hover:bg-gray-700/50">
-                    <td class="px-3 py-1.5 text-gray-300 font-mono break-all">{{ item.member }}</td>
-                    <td class="px-3 py-1.5 text-right text-blue-400">{{ item.score }}</td>
-                  </tr>
-                </tbody>
-              </table>
+            <!-- Sorted Set (zset) Type -->
+            <div v-else-if="viewingKey?.type === 'zset'" class="space-y-2">
+              <div class="text-xs text-gray-500">Sorted set members with scores:</div>
+              <div class="w-full max-h-80 overflow-auto bg-gray-800 border border-gray-700 rounded">
+                <table class="w-full text-xs">
+                  <thead class="bg-gray-700 sticky top-0">
+                    <tr>
+                      <th class="px-3 py-1.5 text-left text-gray-400">Member</th>
+                      <th class="px-3 py-1.5 text-right text-gray-400 w-24">Score</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(item, index) in parseZsetValue(viewingKey?.value)" :key="index"
+                      class="border-b border-gray-700 last:border-b-0 hover:bg-gray-700/50">
+                      <td class="px-3 py-1.5 text-gray-300 font-mono break-all">{{ item.member }}</td>
+                      <td class="px-3 py-1.5 text-right text-blue-400">{{ item.score }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
 
-          <!-- Hash Type -->
-          <div v-else-if="viewingKey?.type === 'hash'" class="space-y-2">
-            <div class="text-xs text-gray-500">Hash fields:</div>
-            <div class="w-full max-h-80 overflow-auto bg-gray-800 border border-gray-700 rounded">
-              <table class="w-full text-xs">
-                <thead class="bg-gray-700 sticky top-0">
-                  <tr>
-                    <th class="px-3 py-1.5 text-left text-gray-400">Field</th>
-                    <th class="px-3 py-1.5 text-left text-gray-400">Value</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(item, index) in parseHashValue(viewingKey?.value)" :key="index"
-                    class="border-b border-gray-700 last:border-b-0 hover:bg-gray-700/50">
-                    <td class="px-3 py-1.5 text-yellow-400 font-mono">{{ item.field }}</td>
-                    <td class="px-3 py-1.5 text-gray-300 font-mono break-all">{{ item.value }}</td>
-                  </tr>
-                </tbody>
-              </table>
+            <!-- Hash Type -->
+            <div v-else-if="viewingKey?.type === 'hash'" class="space-y-2">
+              <div class="text-xs text-gray-500">Hash fields:</div>
+              <div class="w-full max-h-80 overflow-auto bg-gray-800 border border-gray-700 rounded">
+                <table class="w-full text-xs">
+                  <thead class="bg-gray-700 sticky top-0">
+                    <tr>
+                      <th class="px-3 py-1.5 text-left text-gray-400">Field</th>
+                      <th class="px-3 py-1.5 text-left text-gray-400">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(item, index) in parseHashValue(viewingKey?.value)" :key="index"
+                      class="border-b border-gray-700 last:border-b-0 hover:bg-gray-700/50">
+                      <td class="px-3 py-1.5 text-yellow-400 font-mono">{{ item.field }}</td>
+                      <td class="px-3 py-1.5 text-gray-300 font-mono break-all">{{ item.value }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
 
-          <!-- Stream or Unknown Type -->
-          <div v-else class="space-y-2">
-            <pre
-              class="w-full px-3 py-2 text-xs bg-gray-800 border border-gray-700 rounded text-gray-300 overflow-auto max-h-80 font-mono whitespace-pre-wrap">
-          {{ viewingKey?.value }}</pre>
+            <!-- Stream or Unknown Type -->
+            <div v-else class="space-y-2">
+              <pre
+                class="w-full px-3 py-2 text-xs bg-gray-800 border border-gray-700 rounded text-gray-300 overflow-auto max-h-80 font-mono whitespace-pre-wrap">
+            {{ viewingKey?.value }}</pre>
+            </div>
           </div>
         </div>
-      </div>
 
-      <template #footer>
-        <div class="flex justify-end space-x-2">
-          <BaseButton variant="secondary" size="sm" @click="showDetailModal = false">Close</BaseButton>
-          <BaseButton v-if="viewingKey?.type === 'string'" variant="primary" size="sm" @click="editFromDetail">
+        <DialogFooter>
+          <Button variant="secondary" size="sm" @click="showDetailModal = false">Close</Button>
+          <Button v-if="viewingKey?.type === 'string'" size="sm" @click="editFromDetail">
             Edit
-          </BaseButton>
-        </div>
-      </template>
-    </BaseModal>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, watch } from 'vue';
 import { Plus, RefreshCw, Search, Trash2, Eye, Key, Database, Loader2, Copy } from 'lucide-vue-next';
-import { useToast } from 'vue-toastification';
-import BaseButton from './BaseButton.vue';
-import BaseModal from './BaseModal.vue';
-import BaseInput from './BaseInput.vue';
-
-const toast = useToast();
+import { toast } from 'vue-sonner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 // State
 const loading = ref(false);

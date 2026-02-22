@@ -1,5 +1,5 @@
 import { ref } from 'vue';
-import { useToast } from 'vue-toastification';
+import { toast } from 'vue-sonner';
 
 /**
  * useAsyncAction - Composable để xử lý async operations
@@ -22,7 +22,7 @@ export function useAsyncAction(actionFn, options = {}) {
     const isLoading = ref(false);
     const error = ref(null);
     const result = ref(null);
-    const toast = useToast();
+
 
     const execute = async (...args) => {
         isLoading.value = true;

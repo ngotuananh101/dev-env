@@ -68,13 +68,11 @@
 
     <!-- Quit App -->
     <div class="p-4 border-t border-gray-800">
-      <BaseButton @click="quitApp" variant="danger"
-        class="w-full justify-start !bg-red-500/10 !text-gray-400 hover:!bg-red-500/20 hover:!text-white border-none">
-        <template #icon>
-          <Power class="w-5 h-5" />
-        </template>
+      <Button @click="quitApp" variant="destructive"
+        class="w-full justify-start bg-red-500/10! text-gray-400! hover:bg-red-500/20! hover:text-white! border-none">
+        <Power class="w-5 h-5" />
         Quit App
-      </BaseButton>
+      </Button>
     </div>
   </aside>
 </template>
@@ -84,7 +82,7 @@ import { useSystemStore } from '../stores/system';
 import {
   Home, TerminalSquare, Folder, Power, Package, FileText, Globe, Globe2, Settings, Database
 } from 'lucide-vue-next';
-import BaseButton from './BaseButton.vue';
+import { Button } from '@/components/ui/button';
 
 const systemStore = useSystemStore();
 
