@@ -6,10 +6,10 @@
         <DialogTitle class="flex items-center justify-between w-full">
           <div class="flex items-center space-x-2">
             <FileText class="w-5 h-5 text-blue-400" />
-            <span>Logs: {{ site.domain }}</span>
+            <span class="text-sm">Logs: {{ site.domain }}</span>
           </div>
 
-          <div class="flex items-center space-x-2 mr-4">
+          <div class="flex items-center space-x-2">
             <!-- Log Type Selector -->
             <div class="flex bg-gray-700 rounded p-0.5">
               <button v-for="type in ['error', 'access']" :key="type" @click="currentLogType = type"
@@ -29,6 +29,11 @@
             <button @click="clearLog" class="p-1 hover:bg-gray-700 rounded text-gray-400 hover:text-red-400"
               title="Clear Log">
               <Trash2 class="w-4 h-4" />
+            </button>
+
+            <button @click="$emit('close')" class="p-1 hover:bg-gray-700 rounded text-gray-400 hover:text-white"
+              title="Close">
+              <X class="w-4 h-4" />
             </button>
           </div>
         </DialogTitle>

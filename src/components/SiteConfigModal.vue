@@ -4,13 +4,13 @@
       @interactOutside="(e) => e.preventDefault()">
       <DialogHeader class="p-3 border-b border-gray-700">
         <DialogTitle class="flex items-center justify-between w-full">
-          <div>
+          <div class="text-sm">
             <span>{{ site.domain }} - Configuration</span>
             <p class="text-gray-500 text-xs font-normal mt-0.5">{{ configPath }}</p>
           </div>
 
           <!-- Rewrite Template Dropdown -->
-          <div v-if="site.webserver !== 'apache' && site.type === 'php'" class="flex items-center space-x-2 mr-4">
+          <div v-if="site.webserver !== 'apache' && site.type === 'php'" class="flex items-center space-x-2">
             <span class="text-xs text-gray-400">Rewrite:</span>
             <select :value="currentTemplate" @change="changeTemplate($event.target.value)"
               class="bg-gray-700 text-white text-xs rounded px-2 py-1 border border-gray-600 focus:outline-none focus:border-blue-500">
