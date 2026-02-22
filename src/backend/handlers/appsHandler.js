@@ -428,7 +428,7 @@ async function configurePhpMyAdmin(dbManager, context) {
                 // Read file
                 let configIncPhpContent = await fsPromises.readFile(path.join(phpMyAdminRoot, 'config.inc.php'), 'utf-8');
                 // replace $cfg['blowfish_secret'] = ''; /* YOU MUST FILL IN THIS FOR COOKIE AUTH! */
-                const blowfishSecret = crypto.randomBytes(32).toString('hex');
+                const blowfishSecret = crypto.randomBytes(16).toString('hex');
                 configIncPhpContent = configIncPhpContent.replace(`$cfg['blowfish_secret'] = '';`, `$cfg['blowfish_secret'] = '${blowfishSecret}';`);
                 // $cfg['Servers'][$i]['AllowNoPassword'] = false; to true
                 configIncPhpContent = configIncPhpContent.replace(`$cfg['Servers'][$i]['AllowNoPassword'] = false;`, `$cfg['Servers'][$i]['AllowNoPassword'] = true;`);
