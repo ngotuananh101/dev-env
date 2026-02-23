@@ -357,14 +357,12 @@ import {
   Terminal,
   ArrowRightLeft,
   FolderCog,
-  RotateCw,
 } from "lucide-vue-next";
 import { toast } from "vue-sonner";
 import { useSitesStore } from "@/stores/sites";
 import { useDebouncedRef } from "@/composables/useDebouncedRef";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { RecycleScroller } from "vue3-virtual-scroller";
 import "vue3-virtual-scroller/dist/vue3-virtual-scroller.css";
 
