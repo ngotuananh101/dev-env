@@ -206,7 +206,7 @@
               "
             >
               <Switch
-                :defaultValue="app.inPath"
+                :modelValue="app.inPath"
                 @update:modelValue="appsStore.togglePath(app)"
               />
             </template>

@@ -66,7 +66,7 @@
               >
             </div>
             <Switch
-              :defaultValue="settings.site_auto_create"
+              :modelValue="settings.site_auto_create"
               @update:modelValue="settings.site_auto_create = $event"
             />
           </div>
@@ -103,7 +103,7 @@
               >
             </div>
             <Switch
-              :defaultValue="settings.close_to_tray"
+              :modelValue="settings.close_to_tray"
               @update:modelValue="
                 (val) => {
                   settings.close_to_tray = val;
@@ -127,7 +127,7 @@
               >
             </div>
             <Switch
-              :defaultValue="settings.start_with_windows"
+              :modelValue="settings.start_with_windows"
               @update:modelValue="
                 (val) => {
                   settings.start_with_windows = val;
