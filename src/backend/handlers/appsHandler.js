@@ -3347,32 +3347,25 @@ try {
 
             // Check output for known failure keywords even when exit code was 0
             const lowerOut = (output || '').toLowerCase();
-            if (lowerOut.includes('could not') || lowerOut.includes('error') || lowerOut.includes('failed') || lowerOut.includes('no connection')) {
-                // Only treat as error if no success keyword present
-                const hasSuccess = lowerOut.includes('installation complete') || lowerOut.includes('now using') || lowerOut.includes('installed');
-                if (!hasSuccess) {
-                    return { error: `NVM reported a problem: ${output.trim()}` };
-                }
+            const hasSuccess = lowerOut.includes('installation complete') || lowerOut.includes('now using') || lowerOut.includes('installed');
+            
+            if (!hasSuccess && (lowerOut.includes('could not') || lowerOut.includes('error') || lowerOut.includes('failed') || lowerOut.includes('no connection'))) {
+                return { error: `NVM reported a problem: ${output.trim()}` };
             }
 
             // Verify: check that version actually appears in nvm list
             try {
                 const listOutput = await runNvmCommand('list', dbManager);
+                
+                // listOutput looks like "  24.13.1\n* 20.9.0 (Currently using 64-bit executable)"
+                // Just check if the exact version number exists as a whole word
                 const versionMatch = version.match(/(\d+\.\d+\.\d+)/);
-                const versionShort = version.match(/^(\d+)$/) ? version : null; // e.g. "20"
-
-                const installed = listOutput.split('\n')
-                    .map(l => { const m = l.match(/(\d+\.\d+\.\d+)/); return m ? m[1] : null; })
-                    .filter(Boolean);
-
-                const isInstalled = installed.some(v =>
-                    (versionMatch && v === versionMatch[1]) ||
-                    (versionShort && v.startsWith(versionShort + '.')) ||
-                    v === version
-                );
-
-                if (!isInstalled) {
-                    return { error: `Node.js v${version} install command ran but version was not found in nvm list. Output: ${output.trim()}` };
+                const searchVer = versionMatch ? versionMatch[1] : version;
+                
+                // Using regex word boundary to strictly match "24.13.1" and not "124.13.1"
+                const regex = new RegExp(`\\b${searchVer}\\b`);
+                if (!regex.test(listOutput)) {
+                    return { error: `Node.js v${version} install command ran but version was not found in nvm list. Output: ${output.trim()} | List: ${listOutput.trim()}` };
                 }
             } catch (verifyErr) {
                 logApp(`Could not verify nvm install via list: ${verifyErr.message}`, 'WARNING');
