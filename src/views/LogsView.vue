@@ -1,7 +1,11 @@
 <template>
-  <div class="flex flex-col h-full bg-background text-gray-300 font-sans text-sm">
+  <div
+    class="flex flex-col h-full bg-background text-gray-300 font-sans text-sm"
+  >
     <!-- Header -->
-    <div class="flex items-center justify-between p-3 border-b border-gray-700 bg-[#252526]">
+    <div
+      class="flex items-center justify-between p-3 border-b border-gray-700 bg-[#252526]"
+    >
       <div class="flex items-center space-x-3">
         <FileText class="w-5 h-5 text-blue-400" />
         <span class="text-white font-medium">Application Logs</span>
@@ -14,7 +18,11 @@
               <SelectValue placeholder="Select date" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem v-for="date in availableDates" :key="date" :value="date">
+              <SelectItem
+                v-for="date in availableDates"
+                :key="date"
+                :value="date"
+              >
                 {{ date }}
               </SelectItem>
             </SelectContent>
@@ -34,7 +42,10 @@
     <!-- Log Content with Ace Editor -->
     <div class="flex-1 overflow-hidden relative">
       <!-- Loading overlay -->
-      <div v-if="isLoading" class="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
+      <div
+        v-if="isLoading"
+        class="absolute inset-0 flex items-center justify-center bg-black/50 z-10"
+      >
         <RefreshCw class="w-6 h-6 animate-spin mr-2 text-white" />
         <span class="text-white">Loading logs...</span>
       </div>
@@ -43,30 +54,41 @@
     </div>
 
     <!-- Footer -->
-    <div class="p-2 border-t border-gray-700 bg-[#252526] flex items-center justify-between text-xs text-gray-400">
-      <div>
-        {{ lineCount }} lines
-      </div>
-      <div v-if="selectedDate">
-        Log file: logs/{{ selectedDate }}.log
-      </div>
+    <div
+      class="p-2 border-t border-gray-700 bg-[#252526] flex items-center justify-between text-xs text-gray-400"
+    >
+      <div>{{ lineCount }} lines</div>
+      <div v-if="selectedDate">Log file: logs/{{ selectedDate }}.log</div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
-import { FileText, RefreshCw, Trash2 } from 'lucide-vue-next';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { toast } from 'vue-sonner';
-import ace from 'ace-builds';
-import 'ace-builds/src-noconflict/theme-monokai';
-import 'ace-builds/src-noconflict/mode-text';
+import {
+  ref,
+  computed,
+  onMounted,
+  onBeforeUnmount,
+  watch,
+  nextTick,
+} from "vue";
+import { FileText, RefreshCw, Trash2 } from "lucide-vue-next";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "vue-sonner";
+import ace from "ace-builds";
+import "ace-builds/src-noconflict/theme-monokai";
+import "ace-builds/src-noconflict/mode-text";
 
-const logContent = ref('');
+const logContent = ref("");
 const availableDates = ref([]);
-const selectedDate = ref('');
+const selectedDate = ref("");
 const isLoading = ref(false);
 const editorContainer = ref(null);
 let editor = null;
@@ -74,12 +96,12 @@ let editor = null;
 // Line count
 const lineCount = computed(() => {
   if (!logContent.value) return 0;
-  return logContent.value.split('\n').filter(line => line.trim()).length;
+  return logContent.value.split("\n").filter((line) => line.trim()).length;
 });
 
 // Get today's date in YYYY-MM-DD format
 const getTodayDate = () => {
-  return new Date().toISOString().split('T')[0];
+  return new Date().toISOString().split("T")[0];
 };
 
 // Load available log files from logs folder
@@ -95,7 +117,7 @@ const initDates = async () => {
       selectedDate.value = getTodayDate();
     }
   } catch (error) {
-    console.error('Failed to list logs:', error);
+    console.error("Failed to list logs:", error);
     availableDates.value = [getTodayDate()];
     selectedDate.value = getTodayDate();
   }
@@ -106,17 +128,17 @@ const initEditor = () => {
   if (!editorContainer.value) return;
 
   editor = ace.edit(editorContainer.value);
-  editor.setTheme('ace/theme/monokai');
-  editor.session.setMode('ace/mode/text');
+  editor.setTheme("ace/theme/monokai");
+  editor.session.setMode("ace/mode/text");
   editor.setReadOnly(true);
   editor.setShowPrintMargin(false);
   editor.setOptions({
-    fontSize: '12px',
-    fontFamily: 'Consolas, Monaco, monospace',
+    fontSize: "12px",
+    fontFamily: "Consolas, Monaco, monospace",
     showGutter: true,
     highlightActiveLine: false,
     wrap: false,
-    scrollPastEnd: 0.5
+    scrollPastEnd: 0.5,
   });
 
   // Custom highlighting for log types
@@ -126,9 +148,9 @@ const initEditor = () => {
 // Update editor content
 const updateEditor = () => {
   if (editor) {
-    editor.setValue(logContent.value || '// No logs found for this date', -1);
+    editor.setValue(logContent.value || "// No logs found for this date", -1);
     // Scroll to bottom to see latest logs
-    editor.scrollToLine(editor.session.getLength(), true, true, () => { });
+    editor.scrollToLine(editor.session.getLength(), true, true, () => {});
   }
 };
 
@@ -140,15 +162,15 @@ const loadLog = async () => {
   try {
     const result = await window.sysapi.logs.read(selectedDate.value);
     if (result.error) {
-      logContent.value = '';
+      logContent.value = "";
     } else {
-      logContent.value = result.content || '';
+      logContent.value = result.content || "";
     }
     await nextTick();
     updateEditor();
   } catch (error) {
-    console.error('Failed to load log:', error);
-    logContent.value = '';
+    console.error("Failed to load log:", error);
+    logContent.value = "";
   } finally {
     isLoading.value = false;
   }
@@ -157,7 +179,7 @@ const loadLog = async () => {
 // Refresh logs
 const refreshLogs = async () => {
   await loadLog();
-  toast.success('Logs refreshed');
+  toast.success("Logs refreshed");
 };
 
 // Clear current log
@@ -169,9 +191,9 @@ const clearLog = async () => {
     if (result.error) {
       toast.error(`Failed to clear log: ${result.error}`);
     } else {
-      logContent.value = '';
+      logContent.value = "";
       updateEditor();
-      toast.success('Log cleared');
+      toast.success("Log cleared");
     }
   } catch (error) {
     toast.error(`Error: ${error.message}`);

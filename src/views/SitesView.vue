@@ -69,7 +69,12 @@
             <span v-else class="text-muted-foreground">No webserver</span>
           </Button>
 
-          <Button variant="success" size="sm" @click="showAddModal = true">
+          <Button
+            variant="success"
+            size="sm"
+            class="text-xs"
+            @click="showAddModal = true"
+          >
             <Plus class="w-3 h-3" />
             Add site
           </Button>
@@ -79,7 +84,7 @@
             @click="sitesStore.changeApacheRoot"
             variant="secondary"
             size="sm"
-            class="border border-gray-600"
+            class="text-xs border border-gray-600"
             title="Change Apache Root"
           >
             <FolderCog class="w-3 h-3 text-yellow-500" />
@@ -94,13 +99,18 @@
             @click="sitesStore.changeNginxRoot"
             variant="secondary"
             size="sm"
-            class="border border-gray-600"
+            class="text-xs border border-gray-600 hover:bg-gray-50"
             title="Change Nginx Root"
           >
             <FolderCog class="w-3 h-3 text-yellow-500" />
           </Button>
 
-          <Button variant="secondary" size="sm" @click="sitesStore.loadSites">
+          <Button
+            variant="secondary"
+            size="sm"
+            class="text-xs"
+            @click="sitesStore.loadSites"
+          >
             <RefreshCw
               class="w-3 h-3"
               :class="{ 'animate-spin': sitesStore.isLoading }"

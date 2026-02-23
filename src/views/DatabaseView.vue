@@ -36,6 +36,7 @@
             @click="openCreateModal"
             variant="success"
             size="sm"
+            class="text-xs"
           >
             <Plus class="w-3 h-3" /> Add Database
           </Button>
@@ -45,6 +46,7 @@
             @click="refreshAll"
             variant="outline"
             size="sm"
+            class="text-xs"
           >
             <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': loading }" />
             Reload
@@ -56,7 +58,7 @@
             variant="outline"
             size="sm"
             disabled
-            class="gap-1.5 opacity-100! cursor-default!"
+            class="text-xs gap-1.5 opacity-100! cursor-default!"
           >
             <Database
               class="w-3 h-3"
@@ -88,7 +90,7 @@
             @click="openPhpMyAdmin"
             variant="outline"
             size="sm"
-            class="border-yellow-600 text-yellow-400 hover:bg-yellow-500/10"
+            class="text-xs border-yellow-600 text-yellow-400 hover:bg-yellow-500/10"
           >
             <ExternalLink class="w-3 h-3" /> phpMyAdmin
           </Button>
@@ -642,10 +644,10 @@ const openPgAdmin = async () => {
       "pgAdmin4.exe",
     );
     if (findResult.error || !findResult.path)
-      window.sysapi.openExternal("http://127.0.0.1:5432");
+      toast.warning("pgAdmin is not installed");
     else await window.sysapi.files.openFile(findResult.path);
   } catch {
-    window.sysapi.openExternal("http://127.0.0.1:5432");
+    toast.error("Failed to open pgAdmin");
   }
 };
 
@@ -653,7 +655,8 @@ const openPhpMyAdmin = async () => {
   const r = await window.sysapi.db.query(
     "SELECT * FROM installed_apps WHERE app_id = 'phpmyadmin'",
   );
-  if (r?.length > 0) window.sysapi.openExternal("http://localhost/phpmyadmin");
+  if (r?.length > 0)
+    await window.sysapi.sites.openBrowser("http://localhost/phpmyadmin/");
   else toast.warning("phpMyAdmin is not installed");
 };
 

@@ -23,6 +23,7 @@
         :disabled="appsStore.isUpdating"
         @click="appsStore.updateAppList"
         size="sm"
+        class="text-xs"
       >
         <RefreshCw
           class="w-3 h-3"
