@@ -121,6 +121,18 @@
                     </div>
                 </div>
 
+                <!-- Download progress bar -->
+                <div v-if="downloadProgress !== null" class="mb-3">
+                    <div class="flex justify-between text-xs text-gray-400 mb-1">
+                        <span>{{ downloadStatus }}</span>
+                        <span>{{ downloadProgress }}%</span>
+                    </div>
+                    <div class="w-full bg-gray-700 rounded-full h-2">
+                        <div class="bg-blue-500 h-2 rounded-full transition-all duration-200"
+                            :style="{ width: downloadProgress + '%' }"></div>
+                    </div>
+                </div>
+
                 <div v-else-if="(filter === 'lts' ? availableLts : availableCurrent).length === 0"
                     class="text-center text-gray-500 py-10">
                     No versions found.
@@ -133,7 +145,7 @@
                             <span class="text-white font-mono text-sm font-bold">{{ ver.version }}</span>
                             <span v-if="ver.lts"
                                 class="px-2 py-0.5 bg-gray-700 text-gray-300 text-[10px] rounded-full border border-gray-600">LTS:
-                                {{ ver.lts }}</span>
+                                {{ typeof ver.lts === 'string' ? ver.lts : 'LTS' }}</span>
                         </div>
                         <div class="text-[10px] text-gray-500 mt-1">Released: {{ ver.date }}</div>
                     </div>
@@ -170,6 +182,8 @@ const availableCurrent = ref([]);
 const loading = ref(false);
 const status = ref('');
 const statusType = ref('info');
+const downloadProgress = ref(null); // null = hidden, 0-100 = visible
+const downloadStatus = ref('');
 
 const loadInstalled = async () => {
     loading.value = true;
@@ -223,6 +237,8 @@ const isInstalled = (ver) => {
 const installVersion = async (version) => {
     if (loading.value) return;
     loading.value = true;
+    downloadProgress.value = 0;
+    downloadStatus.value = 'Starting download...';
     status.value = `Installing v${version}... This may take a while.`;
     statusType.value = 'info';
 
@@ -244,6 +260,8 @@ const installVersion = async (version) => {
         statusType.value = 'error';
     } finally {
         loading.value = false;
+        downloadProgress.value = null;
+        downloadStatus.value = '';
     }
 };
 
@@ -307,6 +325,14 @@ watch(mode, (newMode) => {
 
 onMounted(() => {
     loadInstalled();
+    // Listen for download progress events
+    const cleanup = window.sysapi.apps.nvmOnInstallProgress((data) => {
+        downloadProgress.value = data.progress;
+        downloadStatus.value = data.status || '';
+    });
+    // Store cleanup so it runs when component is unmounted
+    if (typeof window.__nvmProgressCleanup === 'function') window.__nvmProgressCleanup();
+    window.__nvmProgressCleanup = cleanup;
 });
 </script>
 

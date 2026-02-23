@@ -51,6 +51,11 @@ module.exports = {
     nvmInstall: (version) => ipcRenderer.invoke('nvm-install', version),
     nvmUninstall: (version) => ipcRenderer.invoke('nvm-uninstall', version),
     nvmUse: (version) => ipcRenderer.invoke('nvm-use', version),
+    nvmOnInstallProgress: (callback) => {
+        const handler = (event, data) => callback(data);
+        ipcRenderer.on('nvm-install-progress', handler);
+        return () => ipcRenderer.removeListener('nvm-install-progress', handler);
+    },
 
     // pyenv Management
     pyenvList: () => ipcRenderer.invoke('pyenv-list'),

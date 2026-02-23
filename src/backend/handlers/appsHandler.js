@@ -181,99 +181,77 @@ function sendProgressWithLog(event, appId, progress, status, logDetail = null) {
 
 
 /**
- * Inject NVM environment variables into the current process immediately
- * after installation so NVM works without restarting the app.
- * @param {string} nvmRoot - Path to NVM installation directory (e.g. C:\nvm)
- * @param {string} [nvmSymlink='C:\\nodejs'] - Path to NVM symlink
+ * Get the root directory of the custom node manager.
+ * Falls back to C:\\node-manager if DB doesn't have a path.
+ * @param {Object} [dbManager=null]
+ * @returns {string}
  */
-function injectNvmEnvToProcess(nvmRoot, nvmSymlink = 'C:\\nodejs') {
-    if (!nvmRoot) return;
-
-    // Set NVM_HOME and NVM_SYMLINK for this process
-    process.env['NVM_HOME'] = nvmRoot;
-    process.env['NVM_SYMLINK'] = nvmSymlink;
-
-    // Add nvmRoot to PATH if not already there
-    const pathSep = ';';
-    const currentPath = process.env['PATH'] || '';
-    const parts = currentPath.split(pathSep).map(p => p.trim()).filter(Boolean);
-
-    let changed = false;
-    if (!parts.some(p => p.toLowerCase() === nvmRoot.toLowerCase())) {
-        parts.unshift(nvmRoot);
-        changed = true;
+function getNMRoot(dbManager = null) {
+    if (dbManager) {
+        try {
+            const apps = dbManager.query("SELECT install_path FROM installed_apps WHERE app_id = 'nvm'");
+            if (apps && apps.length > 0 && apps[0].install_path) {
+                return apps[0].install_path;
+            }
+        } catch (e) { /* ignore */ }
     }
-    if (!parts.some(p => p.toLowerCase() === nvmSymlink.toLowerCase())) {
-        parts.splice(1, 0, nvmSymlink); // insert after nvmRoot
-        changed = true;
-    }
-    if (changed) {
-        process.env['PATH'] = parts.join(pathSep);
-    }
+    return 'C:\\node-manager';
+}
 
-    logApp(`Injected NVM env into process: NVM_HOME=${nvmRoot}, NVM_SYMLINK=${nvmSymlink}`, 'INFO');
+/** @param {string} root */
+function getNMVersionsDir(root) { return path.join(root, 'versions'); }
+
+/** @param {string} root */
+function getNMCurrentDir(root) { return path.join(root, 'current'); }
+
+/**
+ * Create a Windows directory junction (no admin needed).
+ * @param {string} target - Real directory
+ * @param {string} link   - Junction path to create
+ */
+async function setJunction(target, link) {
+    const { exec } = require('child_process');
+    // Remove existing junction/dir first
+    if (fs.existsSync(link)) {
+        try { fs.rmdirSync(link); } catch (e) { /* might not be a junction */ }
+    }
+    await new Promise((resolve, reject) => {
+        exec(`cmd /c mklink /J "${link}" "${target}"`, (err, stdout, stderr) => {
+            if (err) reject(new Error(stderr || err.message));
+            else resolve(stdout);
+        });
+    });
 }
 
 /**
- * Execute NVM command and return output
- * @param {string} command - NVM command
- * @param {Object} [dbManager=null] - Database manager for fallback lookup
- * @returns {Promise<string>} Output
+ * Remove a Windows directory junction safely (does not delete contents).
+ * @param {string} link
  */
-async function runNvmCommand(command, dbManager = null, timeoutMs = 60000) {
-    const { exec } = require('child_process');
-
-    const execPromise = (cmd) => new Promise((resolve, reject) => {
-        exec(cmd, {
-            encoding: 'utf-8',
-            timeout: timeoutMs,
-            maxBuffer: 1024 * 1024 // 1MB buffer
-        }, (error, stdout, stderr) => {
-            if (error) {
-                // Sometimes stdout has useful info even on error
-                if (stdout && !error.message.includes('not recognized')) {
-                    resolve(stdout);
-                } else {
-                    reject(error);
-                }
-            } else {
-                resolve(stdout);
-            }
-        });
-    });
-
-    // 1. Try 'nvm' directly (System PATH)
-    try {
-        return await execPromise(`nvm ${command}`);
-    } catch (err) {
-        // If not recognized or failed, try DB path
-        const isNotRecognized = err.message.includes('not recognized') || err.message.includes('ENOENT');
-
-        if (isNotRecognized && dbManager) {
-            try {
-                const apps = dbManager.query("SELECT cli_path, exec_path, install_path FROM installed_apps WHERE app_id = 'nvm'");
-                if (apps && apps.length > 0) {
-                    let nvmPath = apps[0].cli_path || apps[0].exec_path;
-
-                    if (nvmPath) {
-                        return await execPromise(`"${nvmPath}" ${command}`);
-                    }
-
-                    // Fallback to searching in install_path
-                    if (apps[0].install_path) {
-                        const path = require('path');
-                        nvmPath = path.join(apps[0].install_path, 'nvm.exe');
-                        return await execPromise(`"${nvmPath}" ${command}`);
-                    }
-                }
-            } catch (dbErr) {
-                console.error('Failed to lookup NVM in DB:', dbErr);
-            }
-        }
-
-        // If we reached here, both failed or no DB fallback possible
-        throw err;
+function removeJunction(link) {
+    if (fs.existsSync(link)) {
+        try { fs.rmdirSync(link); } catch (e) { /* ignore */ }
     }
+}
+
+/**
+ * Inject the node-manager current/ dir into this process PATH so `node` is
+ * usable immediately without restarting the app.
+ * @param {string} root
+ */
+function injectNodeEnvToProcess(root) {
+    const currentDir = getNMCurrentDir(root);
+    const pathSep = ';';
+    const parts = (process.env['PATH'] || '').split(pathSep).map(p => p.trim()).filter(Boolean);
+    if (!parts.some(p => p.toLowerCase() === currentDir.toLowerCase())) {
+        parts.unshift(currentDir);
+        process.env['PATH'] = parts.join(pathSep);
+    }
+    logApp(`Injected node-manager into PATH: ${currentDir}`, 'INFO');
+}
+
+// Keep legacy alias so existing install code at lines ~1106 and ~1360 still compiles
+function injectNvmEnvToProcess(nvmRoot) {
+    injectNodeEnvToProcess(nvmRoot);
 }
 
 /**
@@ -996,381 +974,91 @@ function register(ipcMain, context) {
     };
 
     /**
-     * Install NVM using official exe installer
-     * @param {Object} event - IPC event
-     * @param {string} appId - App ID (nvm)
-     * @param {string} version - Version
-     * @param {string} downloadUrl - Download URL for installer
-     * @param {Object} dbManager - Database manager
-     * @returns {Promise<Object>} Installation result
+     * Set up the custom Node Manager directory structure.
+     * No installer download needed — just creates folders and registers in DB.
+     * @param {Object} event  - IPC event
+     * @param {string} appId  - App ID ('nvm')
+     * @param {string} version - Version string (informational only)
+     * @param {Object} dbManager
+     * @returns {Promise<Object>}
      */
-    async function installNvmUsingInstaller(event, appId, version, downloadUrl, dbManager) {
-        const { exec, execSync } = require('child_process');
-        const os = require('os');
-        const fs = require('fs');
-        const fsPromises = require('fs').promises;
-
-        logApp('Installing NVM using official installer (PowerShell)...', 'INSTALL');
-
+    async function installNodeManager(event, appId, version, dbManager) {
         try {
-            sendProgressWithLog(event, appId, 5, 'Checking for existing NVM installation...');
+            sendProgressWithLog(event, appId, 10, 'Setting up Node Manager...');
 
-            // Check if NVM is already installed on the system
-            let existingNvmRoot = null;
-            let existingNvmExe = null;
+            const nmRoot      = 'C:\\node-manager';
+            const versionsDir = path.join(nmRoot, 'versions');
+            const currentDir  = path.join(nmRoot, 'current');
 
-            // 1. Check Registry for NVM_HOME
-            try {
-                // Check user environment
-                try {
-                    const userEnv = execSync('reg query "HKCU\\Environment" /v NVM_HOME', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).toString();
-                    const match = userEnv.match(/NVM_HOME\s+REG_(?:EXPAND_)?SZ\s+(.+)/i);
-                    if (match) existingNvmRoot = match[1].trim();
-                } catch (e) { }
+            // Create directory structure
+            fs.mkdirSync(versionsDir, { recursive: true });
+            logApp(`Created node-manager directory: ${versionsDir}`, 'INSTALL');
 
-                // Check system environment if not found in user
-                if (!existingNvmRoot) {
-                    try {
-                        const sysEnv = execSync('reg query "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment" /v NVM_HOME', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).toString();
-                        const match = sysEnv.match(/NVM_HOME\s+REG_(?:EXPAND_)?SZ\s+(.+)/i);
-                        if (match) existingNvmRoot = match[1].trim();
-                    } catch (e) { }
-                }
-            } catch (e) {
-                logApp(`Registry check error: ${e.message}`, 'WARNING');
-            }
+            sendProgressWithLog(event, appId, 50, 'Registering in database...');
 
-            // Verify the path from registry
-            if (existingNvmRoot) {
-                const exe = path.join(existingNvmRoot, 'nvm.exe');
-                if (fs.existsSync(exe)) {
-                    existingNvmExe = exe;
-                    logApp(`Found existing NVM via Registry at: ${existingNvmRoot}`, 'INFO');
-                } else {
-                    existingNvmRoot = null; // Path in registry invalid
-                }
-            }
+            // Register in installed_apps (exec_path points to node.exe in current/)
+            const nodeExe = path.join(currentDir, 'node.exe');
+            const now = new Date().toISOString();
+            const existing = dbManager.query("SELECT app_id FROM installed_apps WHERE app_id = ?", [appId]);
 
-            // 2. Check common fallback locations if not found in registry
-            if (!existingNvmExe) {
-                const commonPaths = [
-                    path.join(process.env.APPDATA, 'nvm'),
-                    path.join(process.env.ProgramFiles, 'nvm'),
-                    process.env['ProgramFiles(x86)'] ? path.join(process.env['ProgramFiles(x86)'], 'nvm') : null,
-                    'C:\\nvm'
-                ].filter(Boolean);
-
-                for (const p of commonPaths) {
-                    const exe = path.join(p, 'nvm.exe');
-                    if (fs.existsSync(exe)) {
-                        existingNvmRoot = p;
-                        existingNvmExe = exe;
-                        logApp(`Found existing NVM at common path: ${p}`, 'INFO');
-                        break;
-                    }
-                }
-            }
-
-            // If NVM is already installed, register it and return success
-            if (existingNvmExe && existingNvmRoot) {
-                logApp(`NVM is already installed at: ${existingNvmRoot}. Skipping installation.`, 'INFO');
-                sendProgressWithLog(event, appId, 80, 'NVM already installed, registering...');
-
-                // Get version from existing NVM
-                let installedVersion = version;
-                try {
-                    const versionOutput = execSync(`"${existingNvmExe}" version`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).toString().trim();
-                    if (versionOutput) {
-                        installedVersion = versionOutput;
-                    }
-                } catch (e) {
-                    logApp(`Could not get NVM version: ${e.message}`, 'WARNING');
-                }
-
-                // Save to database
-                const now = new Date().toISOString();
-                const result = dbManager.query(
-                    `INSERT OR REPLACE INTO installed_apps (app_id, installed_version, install_path, exec_path, cli_path, custom_args, auto_start, show_on_dashboard, installed_at, updated_at)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
-                    [appId, installedVersion, existingNvmRoot, existingNvmExe, existingNvmExe, '', 0, now, now]
+            if (existing && existing.length > 0) {
+                dbManager.query(
+                    'UPDATE installed_apps SET installed_version = ?, install_path = ?, exec_path = ?, cli_path = ?, updated_at = ? WHERE app_id = ?',
+                    [version, nmRoot, nodeExe, nodeExe, now, appId]
                 );
-
-                if (result.error) {
-                    return { error: result.error };
-                }
-
-                sendProgressWithLog(event, appId, 100, 'Installed!');
-                logApp('Existing NVM registered successfully', 'INSTALL');
-
-                // Inject env vars into current process so NVM works immediately (no restart needed)
-                injectNvmEnvToProcess(existingNvmRoot);
-
-                return {
-                    success: true,
-                    installPath: existingNvmRoot,
-                    execPath: existingNvmExe,
-                    cliPath: existingNvmExe,
-                    alreadyInstalled: true
-                };
+            } else {
+                const result = dbManager.query(
+                    'INSERT OR REPLACE INTO installed_apps (app_id, installed_version, install_path, exec_path, cli_path, custom_args, auto_start, show_on_dashboard, installed_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)',
+                    [appId, version, nmRoot, nodeExe, nodeExe, '', 0, now, now]
+                );
+                if (result.error) return { error: result.error };
             }
 
-            sendProgressWithLog(event, appId, 10, 'Preparing PowerShell script...');
 
-            // Create temporary PowerShell script file
-            const tempScriptPath = path.join(os.tmpdir(), `nvm-install-${Date.now()}.ps1`);
+            sendProgressWithLog(event, appId, 80, 'Updating PATH...');
 
-            // PowerShell script content
-            const psScriptContent = `
-$ErrorActionPreference = 'Stop'
-$VerbosePreference = 'Continue'
-$ProgressPreference = 'SilentlyContinue'
+            // Add node-manager to user PATH in registry
+            try {
+                const { execSync } = require('child_process');
+                let userPath = '';
+                try {
+                    const out = execSync('reg query "HKCU\\Environment" /v Path', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
+                    const m = out.match(/Path\s+REG_(?:EXPAND_)?SZ\s+(.+)/i);
+                    if (m) userPath = m[1].trim();
+                } catch (e) { /* Path key may not exist yet */ }
 
-try {
-    Write-Host "=== Starting NVM installation ===" -ForegroundColor Green
-    
-    $installerUrl = "${downloadUrl}"
-    $installerPath = "$env:TEMP\\nvm-setup.exe"
-    $nvmInstallDir = "C:\\nvm"
-    $nvmSymlinkDir = "C:\\nodejs"
-    
-    Write-Host "Downloading installer from: $installerUrl" -ForegroundColor Yellow
-    
-    # Download with retry
-    $maxRetries = 3
-    $retryCount = 0
-    $downloaded = $false
-    
-    while (-not $downloaded -and $retryCount -lt $maxRetries) {
-        try {
-            Invoke-WebRequest -UseBasicParsing -Uri $installerUrl -OutFile $installerPath -ErrorAction Stop
-            $downloaded = $true
-        } catch {
-            $retryCount++
-            Write-Host "Download failed (Attempt $retryCount/$maxRetries): $_" -ForegroundColor Red
-            Start-Sleep -Seconds 2
-        }
-    }
-    
-    if (-not $downloaded) {
-        throw "Failed to download installer after $maxRetries attempts"
-    }
-
-    Write-Host "Downloaded to: $installerPath" -ForegroundColor Green
-    
-    if (!(Test-Path $installerPath)) {
-        throw "Downloaded installer not found"
-    }
-    
-    $fileSize = (Get-Item $installerPath).Length
-    Write-Host "Installer size: $fileSize bytes"
-    
-    if ($fileSize -lt 100000) { # Simple check for valid exe size (~100KB min)
-        throw "Downloaded file seems too small ($fileSize bytes). Likely invalid."
-    }
-
-    Write-Host "Executing installer silently into $nvmInstallDir ..." -ForegroundColor Yellow
-    
-    # Run installer with /DIR to force install to path without spaces (Inno Setup argument)
-    $proc = Start-Process -FilePath $installerPath -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', "/DIR=$nvmInstallDir", "/NVMHOME=$nvmInstallDir", "/NVMSYMLINK=$nvmSymlinkDir") -Verb RunAs -Wait -PassThru
-    
-    $exitCode = $proc.ExitCode
-    if ($exitCode -ne 0 -and $null -ne $exitCode) {
-        throw "Installer failed with exit code: $exitCode"
-    }
-    
-    Write-Host "Installer process completed" -ForegroundColor Green
-    
-    # Cleanup installer
-    Remove-Item $installerPath -ErrorAction SilentlyContinue
-    
-    # Force set env vars to path without spaces (override whatever the installer set)
-    Write-Host "Setting NVM_HOME=$nvmInstallDir and NVM_SYMLINK=$nvmSymlinkDir ..." -ForegroundColor Yellow
-    [Environment]::SetEnvironmentVariable("NVM_HOME", $nvmInstallDir, "User")
-    [Environment]::SetEnvironmentVariable("NVM_SYMLINK", $nvmSymlinkDir, "User")
-
-    # Patch NVM's own settings.txt to use correct paths
-    $settingsFile = "$nvmInstallDir\\settings.txt"
-    if (Test-Path $settingsFile) {
-        $content = Get-Content $settingsFile -Raw
-        $content = $content -replace '(?m)^root:.*', "root: $nvmInstallDir"
-        $content = $content -replace '(?m)^path:.*', "path: $nvmSymlinkDir"
-        Set-Content -Path $settingsFile -Value $content.TrimEnd() -Encoding UTF8
-        Write-Host "Patched settings.txt at $settingsFile" -ForegroundColor Green
-    } else {
-        @("root: $nvmInstallDir", "path: $nvmSymlinkDir", "proxy: none", "arch: 64") -join ([char]13+[char]10) | Set-Content -Path $settingsFile -Encoding UTF8
-        Write-Host "Created settings.txt at $settingsFile" -ForegroundColor Green
-    }
-
-    # Add nvmInstallDir to user PATH if not already present
-    $userPath = [Environment]::GetEnvironmentVariable("PATH", "User")
-    if ($userPath -notlike "*$nvmInstallDir*") {
-        [Environment]::SetEnvironmentVariable("PATH", "$nvmInstallDir;$userPath", "User")
-        Write-Host "Added $nvmInstallDir to user PATH" -ForegroundColor Green
-    }
-
-    # Verify nvm.exe exists at expected location
-    if (Test-Path "$nvmInstallDir\\nvm.exe") {
-        Write-Host "Found NVM at: $nvmInstallDir" -ForegroundColor Green
-    } else {
-        Write-Warning "NVM installed but nvm.exe not found at $nvmInstallDir"
-    }
-    
-    Write-Host "=== Installation completed ===" -ForegroundColor Green
-    exit 0
-    
-} catch {
-    Write-Error "Installation failed: $_"
-    Write-Error $_.Exception.Message
-    exit 1
-}
-`;
-
-            // Write PowerShell script to temp file
-            await fsPromises.writeFile(tempScriptPath, psScriptContent, 'utf-8');
-
-            sendProgressWithLog(event, appId, 20, 'Downloading and Installing NVM...');
-
-            return new Promise((resolve, reject) => {
-                // Execute PowerShell script file
-                // Using maxBuffer to capture reasonable output
-                exec(`powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${tempScriptPath}"`, {
-                    encoding: 'utf-8',
-                    timeout: 600000, // 10 minutes
-                    maxBuffer: 10 * 1024 * 1024
-                }, async (error, stdout, stderr) => {
-
-                    // Cleanup temp script
-                    try {
-                        await fsPromises.unlink(tempScriptPath);
-                    } catch (e) {
-                        // Ignore cleanup errors
-                    }
-
-                    if (error) {
-                        logApp(`PowerShell NVM installation failed: ${error.message}`, 'ERROR');
-                        if (stderr) {
-                            logApp(`Error details: ${stderr}`, 'ERROR');
-                        }
-                        sendProgressWithLog(event, appId, 0, 'Installation failed');
-                        resolve({
-                            error: `Failed to install NVM: ${error.message}\n\nStdout: ${stdout}\n\nStderr: ${stderr}`
-                        });
-                        return;
-                    }
-
-                    sendProgressWithLog(event, appId, 90, 'Verifying installation...');
-
-                    // Wait a bit for environment variables to settle
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-
-                    // Verify installation and find path
-                    let nvmRoot = null;
-                    let nvmExe = null;
-
-                    // 1. Check Registry (most reliable after install)
-                    try {
-                        const { execSync } = require('child_process');
-                        // Helper to query register
-                        const queryReg = (hive) => {
-                            try {
-                                const res = execSync(`reg query "${hive}\\Environment" /v NVM_HOME`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
-                                const match = res.match(/NVM_HOME\s+REG_(?:EXPAND_)?SZ\s+(.+)/i);
-                                return match && match[1] ? match[1].trim() : null;
-                            } catch (e) { return null; }
-                        };
-
-                        let home = queryReg('HKCU') || queryReg('HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager');
-
-                        if (home) {
-                            // If regex didn't catch the system path due to hive diffs (HKLM env is in specific key), try generic approach if needed, 
-                            // but the above logic handles standard locations.
-                            // Note: HKLM path in helper above is wrong for queryReg('HKLM...'). Let's just use specific checks.
-                        }
-
-                        // Re-do specific checks properly
-                        try {
-                            const userEnv = execSync('reg query "HKCU\\Environment" /v NVM_HOME', { encoding: 'utf-8' }).toString();
-                            const match = userEnv.match(/NVM_HOME\s+REG_(?:EXPAND_)?SZ\s+(.+)/i);
-                            if (match) nvmRoot = match[1].trim();
-                        } catch (e) { }
-
-                        if (!nvmRoot) {
-                            try {
-                                const sysEnv = execSync('reg query "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment" /v NVM_HOME', { encoding: 'utf-8' }).toString();
-                                const match = sysEnv.match(/NVM_HOME\s+REG_(?:EXPAND_)?SZ\s+(.+)/i);
-                                if (match) nvmRoot = match[1].trim();
-                            } catch (e) { }
-                        }
-                    } catch (e) {
-                        logApp(`Registry check error: ${e.message}`, 'WARNING');
-                    }
-
-                    if (nvmRoot) {
-                        const exe = path.join(nvmRoot, 'nvm.exe');
-                        if (fs.existsSync(exe)) {
-                            nvmExe = exe;
-                            logApp(`Found NVM via Registry at: ${nvmRoot}`, 'INFO');
-                        } else {
-                            nvmRoot = null; // Path in registry invalid
-                        }
-                    }
-
-                    // 2. Common fallback locations
-                    if (!nvmExe) {
-                        const commonPaths = [
-                            path.join(process.env.APPDATA, 'nvm'),
-                            path.join(process.env.ProgramFiles, 'nvm'),
-                            process.env['ProgramFiles(x86)'] ? path.join(process.env['ProgramFiles(x86)'], 'nvm') : null,
-                            'C:\\nvm'
-                        ].filter(Boolean);
-
-                        for (const p of commonPaths) {
-                            const exe = path.join(p, 'nvm.exe');
-                            if (fs.existsSync(exe)) {
-                                nvmRoot = p;
-                                nvmExe = exe;
-                                logApp(`Found NVM at common path: ${p}`, 'INFO');
-                                break;
-                            }
-                        }
-                    }
-
-                    if (!nvmExe) {
-                        resolve({ error: 'NVM installation completed but nvm.exe could not be found. Please restart the application.' });
-                        return;
-                    }
-
-                    // Save to database
-                    const now = new Date().toISOString();
-                    const result = dbManager.query(
-                        `INSERT OR REPLACE INTO installed_apps (app_id, installed_version, install_path, exec_path, cli_path, custom_args, auto_start, show_on_dashboard, installed_at, updated_at)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
-                        [appId, version, nvmRoot, nvmExe, nvmExe, '', 0, now, now]
+                const parts = userPath ? userPath.split(';').map(p => p.trim()).filter(Boolean) : [];
+                let changed = false;
+                if (!parts.some(p => p.toLowerCase() === currentDir.toLowerCase())) {
+                    parts.push(currentDir);
+                    changed = true;
+                }
+                if (changed) {
+                    execSync(
+                        `reg add "HKCU\\Environment" /v Path /t REG_EXPAND_SZ /d "${parts.join(';')}" /f`,
+                        { stdio: 'ignore' }
                     );
+                    logApp('Added node-manager/current to user PATH', 'INSTALL');
+                }
+            } catch (pathErr) {
+                logApp(`Could not update PATH in registry: ${pathErr.message}`, 'WARNING');
+            }
 
-                    if (result.error) {
-                        resolve({ error: result.error });
-                        return;
-                    }
+            // Inject into the current process immediately
+            injectNodeEnvToProcess(nmRoot);
 
-                    sendProgressWithLog(event, appId, 100, 'Installed!');
-                    logApp('NVM installation completed successfully', 'INSTALL');
+            sendProgressWithLog(event, appId, 100, 'Installed!');
+            logApp('Node Manager setup completed', 'INSTALL');
 
-                    // Inject env vars into current process so NVM works immediately (no restart needed)
-                    injectNvmEnvToProcess(nvmRoot);
-
-                    resolve({
-                        success: true,
-                        installPath: nvmRoot,
-                        execPath: nvmExe,
-                        cliPath: nvmExe
-                    });
-                });
-            });
-
+            return {
+                success: true,
+                installPath: nmRoot,
+                execPath: nodeExe,
+                cliPath: nodeExe
+            };
         } catch (err) {
-            logApp(`NVM installation error: ${err.message}`, 'ERROR');
-            sendProgressWithLog(event, appId, 0, 'Installation failed');
+            logApp(`Node Manager setup failed: ${err.message}`, 'ERROR');
+            sendProgressWithLog(event, appId, 0, 'Setup failed');
             return { error: err.message };
         }
     }
@@ -2219,9 +1907,9 @@ try {
                 return await installPyenvUsingScript(event, appId, version, dbManager);
             }
 
-            // Special handling for NVM - use exe installer
+            // Special handling: NVM app now sets up the custom node-manager (no exe download)
             if (appId === 'nvm') {
-                return await installNvmUsingInstaller(event, appId, version, downloadUrl, dbManager);
+                return await installNodeManager(event, appId, version, dbManager);
             }
 
             // Special handling for Meilisearch
@@ -3236,32 +2924,34 @@ try {
         }
     });
 
-    // ========== NVM Management ==========
+    // ========== Node Manager (Custom — no NVM dependency) ==========
 
-    // List installed node versions (nvm list)
+    // List installed node versions (reads versions/ directory)
     ipcMain.handle('nvm-list', async () => {
         try {
             const dbManager = getDbManager();
-            const output = await runNvmCommand('list', dbManager);
-            const lines = output.split('\n');
-            const installed = [];
-            let current = '';
+            const root = getNMRoot(dbManager);
+            const versionsDir = getNMVersionsDir(root);
+            const currentDir = getNMCurrentDir(root);
 
-            lines.forEach(line => {
-                line = line.trim();
-                if (!line) return;
+            if (!fs.existsSync(versionsDir)) {
+                return { success: true, installed: [], current: '' };
+            }
 
-                const isCurrent = line.includes('*'); // Simpler check
-
-                // Extract version using regex to ignore ANSI codes, whitespace, etc.
-                const versionMatch = line.match(/(\d+\.\d+\.\d+)/);
-
-                if (versionMatch) {
-                    const cleanVersion = versionMatch[1];
-                    installed.push(cleanVersion);
-                    if (isCurrent) current = cleanVersion;
-                }
+            const entries = fs.readdirSync(versionsDir);
+            const installed = entries.filter(e => {
+                const full = path.join(versionsDir, e);
+                return fs.statSync(full).isDirectory() && /^\d+\.\d+\.\d+$/.test(e);
             });
+
+            // Determine current version by reading junction target
+            let current = '';
+            try {
+                if (fs.existsSync(currentDir)) {
+                    const target = fs.realpathSync(currentDir);
+                    current = path.basename(target);
+                }
+            } catch (e) { /* no current set */ }
 
             return { success: true, installed, current };
         } catch (err) {
@@ -3269,141 +2959,190 @@ try {
         }
     });
 
-    // List available (nvm list available)
+    // List available versions from nodejs.org API
     ipcMain.handle('nvm-list-available', async () => {
         try {
-            const dbManager = getDbManager();
-            const output = await runNvmCommand('list available', dbManager);
+            const https = require('https');
+            const INDEX_URL = 'https://nodejs.org/download/release/index.json';
 
-            // Output format is a table:
-            // |   CURRENT    |     LTS      |  OLD STABLE  | OLD UNSTABLE |
-            // |--------------|--------------|--------------|--------------|
-            // |    23.7.0    |   22.13.1    |   0.12.18    |   0.11.16    |
+            const raw = await new Promise((resolve, reject) => {
+                https.get(INDEX_URL, { headers: { 'User-Agent': 'dev-env-app/1.0' } }, (res) => {
+                    let data = '';
+                    res.on('data', c => data += c);
+                    res.on('end', () => resolve(data));
+                    res.on('error', reject);
+                }).on('error', reject);
+            });
 
-            const lines = output.split(/[\r\n]+/);
+            const releases = JSON.parse(raw);
+            const ltsList    = [];
             const currentList = [];
-            const ltsList = [];
 
-            let headerFound = false;
-
-            for (const line of lines) {
-                const trimmed = line.trim();
-                if (!trimmed || trimmed.startsWith('|-')) continue;
-
-                // Check for header
-                if (trimmed.includes('CURRENT') && trimmed.includes('LTS')) {
-                    headerFound = true;
-                    continue;
+            for (const r of releases) {
+                const ver = r.version.replace(/^v/, '');
+                const entry = { version: ver, lts: r.lts || false, date: r.date || '' };
+                if (r.lts) {
+                    ltsList.push(entry);
+                } else {
+                    currentList.push(entry);
                 }
-
-                if (headerFound) {
-                    // Extract columns
-                    // Split by |
-                    const parts = trimmed.split('|').map(p => p.trim());
-                    // 0: empty, 1: Current, 2: LTS, 3: Old Stable, 4: Old Unstable
-
-                    if (parts.length >= 3) {
-                        const current = parts[1];
-                        const lts = parts[2];
-
-                        if (current) {
-                            currentList.push({
-                                version: current,
-                                lts: false,
-                                date: ''
-                            });
-                        }
-
-                        if (lts) {
-                            ltsList.push({
-                                version: lts,
-                                lts: 'Yes',
-                                date: ''
-                            });
-                        }
-                    }
-                }
+                // Cap list size for performance
+                if (ltsList.length >= 60 && currentList.length >= 60) break;
             }
 
-            return {
-                success: true,
-                lts: ltsList,
-                current: currentList
-            };
-
+            return { success: true, lts: ltsList, current: currentList };
         } catch (err) {
-            logApp(`Failed to list available NVM versions: ${err.message}`, 'ERROR');
+            logApp(`Failed to fetch node versions: ${err.message}`, 'ERROR');
             return { error: err.message };
         }
     });
 
-    // Install version
+    // Install a specific Node.js version (download portable zip + unzip)
     ipcMain.handle('nvm-install', async (event, version) => {
+        const http  = require('https');
+        const zlib  = require('zlib');
+        const os    = require('os');
+        let tmpZip  = null;
+
         try {
-            const dbManager = getDbManager();
+            const dbManager  = getDbManager();
+            const root       = getNMRoot(dbManager);
+            const versionsDir = getNMVersionsDir(root);
+            const targetDir  = path.join(versionsDir, version);
 
-            // Use 10 min timeout — downloading Node.js can take a while
-            const output = await runNvmCommand(`install ${version}`, dbManager, 600000);
-
-            // Check output for known failure keywords even when exit code was 0
-            const lowerOut = (output || '').toLowerCase();
-            const hasSuccess = lowerOut.includes('installation complete') || lowerOut.includes('now using') || lowerOut.includes('installed');
-            
-            if (!hasSuccess && (lowerOut.includes('could not') || lowerOut.includes('error') || lowerOut.includes('failed') || lowerOut.includes('no connection'))) {
-                return { error: `NVM reported a problem: ${output.trim()}` };
-            }
-
-            // Verify: check that version actually appears in nvm list
-            try {
-                const listOutput = await runNvmCommand('list', dbManager);
-                
-                // listOutput looks like "  24.13.1\n* 20.9.0 (Currently using 64-bit executable)"
-                // Just check if the exact version number exists as a whole word
-                const versionMatch = version.match(/(\d+\.\d+\.\d+)/);
-                const searchVer = versionMatch ? versionMatch[1] : version;
-                
-                // Using regex word boundary to strictly match "24.13.1" and not "124.13.1"
-                const regex = new RegExp(`\\b${searchVer}\\b`);
-                if (!regex.test(listOutput)) {
-                    return { error: `Node.js v${version} install command ran but version was not found in nvm list. Output: ${output.trim()} | List: ${listOutput.trim()}` };
-                }
-            } catch (verifyErr) {
-                logApp(`Could not verify nvm install via list: ${verifyErr.message}`, 'WARNING');
-                // Don't fail — just warn
-            }
-
-            return { success: true };
-        } catch (err) {
-            // Check if it's just "already installed" or true error
-            if (err && err.message && err.message.includes('is already installed')) {
+            if (fs.existsSync(targetDir)) {
                 return { success: true, message: 'Already installed' };
             }
-            return { error: err.message || 'Install failed' };
+
+            fs.mkdirSync(versionsDir, { recursive: true });
+
+            const zipName = `node-v${version}-win-x64.zip`;
+            const downloadUrl = `https://nodejs.org/download/release/v${version}/${zipName}`;
+            tmpZip = path.join(os.tmpdir(), zipName);
+
+            // -- Download with progress reporting --
+            await new Promise((resolve, reject) => {
+                const file = require('fs').createWriteStream(tmpZip);
+                http.get(downloadUrl, (res) => {
+                    if (res.statusCode !== 200) {
+                        reject(new Error(`HTTP ${res.statusCode} downloading Node.js v${version}`));
+                        return;
+                    }
+                    const total = parseInt(res.headers['content-length'] || '0', 10);
+                    let downloaded = 0;
+                    let lastPct = -1;
+
+                    res.on('data', (chunk) => {
+                        downloaded += chunk.length;
+                        if (total > 0) {
+                            const pct = Math.floor((downloaded / total) * 70); // 0–70%
+                            if (pct !== lastPct) {
+                                lastPct = pct;
+                                try {
+                                    event.sender.send('nvm-install-progress', { version, progress: pct, status: `Downloading... ${pct}%` });
+                                } catch (e) { /* renderer closed */ }
+                            }
+                        }
+                    });
+                    res.pipe(file);
+                    file.on('finish', () => { file.close(); resolve(); });
+                    file.on('error', reject);
+                }).on('error', reject);
+            });
+
+            // -- Extract zip --
+            try { event.sender.send('nvm-install-progress', { version, progress: 72, status: 'Extracting...' }); } catch (e) {}
+
+            const AdmZip = (() => { try { return require('adm-zip'); } catch (e) { return null; } })();
+            if (AdmZip) {
+                const zip = new AdmZip(tmpZip);
+                const tmpExtract = path.join(os.tmpdir(), `node-extract-${Date.now()}`);
+                zip.extractAllTo(tmpExtract, true);
+                // The zip contains a single root folder like node-v22.13.1-win-x64
+                const inner = fs.readdirSync(tmpExtract)[0];
+                fs.renameSync(path.join(tmpExtract, inner), targetDir);
+                try { fs.rmdirSync(tmpExtract); } catch(e) {}
+            } else {
+                // Fallback: use PowerShell Expand-Archive
+                const { execSync } = require('child_process');
+                const tmpExtract = path.join(os.tmpdir(), `node-extract-${Date.now()}`);
+                execSync(`powershell -Command "Expand-Archive -Path '${tmpZip}' -DestinationPath '${tmpExtract}' -Force"`, { stdio: 'ignore' });
+                const inner = fs.readdirSync(tmpExtract)[0];
+                fs.renameSync(path.join(tmpExtract, inner), targetDir);
+                try { fs.rmdirSync(tmpExtract); } catch(e) {}
+            }
+
+            try { event.sender.send('nvm-install-progress', { version, progress: 95, status: 'Finishing...' }); } catch (e) {}
+
+            // If no version is currently active, automatically activate this one
+            const currentDir = getNMCurrentDir(root);
+            if (!fs.existsSync(currentDir)) {
+                await setJunction(targetDir, currentDir);
+                injectNodeEnvToProcess(root);
+            }
+
+            try { event.sender.send('nvm-install-progress', { version, progress: 100, status: 'Done' }); } catch (e) {}
+
+            return { success: true };
+        } catch (err) {
+            logApp(`node-manager install failed: ${err.message}`, 'ERROR');
+            return { error: err.message };
+        } finally {
+            if (tmpZip && fs.existsSync(tmpZip)) {
+                try { fs.unlinkSync(tmpZip); } catch (e) { /* ignore */ }
+            }
         }
     });
 
-    // Uninstall version
+    // Uninstall a version (remove folder; if it's current, remove junction first)
     ipcMain.handle('nvm-uninstall', async (event, version) => {
         try {
-            const dbManager = getDbManager();
-            await runNvmCommand(`uninstall ${version}`, dbManager);
+            const dbManager  = getDbManager();
+            const root       = getNMRoot(dbManager);
+            const targetDir  = path.join(getNMVersionsDir(root), version);
+            const currentDir = getNMCurrentDir(root);
+
+            if (!fs.existsSync(targetDir)) {
+                return { error: `Version ${version} is not installed` };
+            }
+
+            // If this is the currently active version, remove the junction first
+            try {
+                if (fs.existsSync(currentDir)) {
+                    const real = fs.realpathSync(currentDir);
+                    if (real.toLowerCase() === targetDir.toLowerCase()) {
+                        removeJunction(currentDir);
+                    }
+                }
+            } catch (e) { /* ignore */ }
+
+            const removeResult = await removeDirectoryWithRetry(targetDir, 5, 1000);
+            if (!removeResult.success) {
+                return { error: removeResult.error };
+            }
+
             return { success: true };
         } catch (err) {
             return { error: err.message };
         }
     });
 
-    // Use version
+    // Switch active Node.js version (re-point junction)
     ipcMain.handle('nvm-use', async (event, version) => {
         try {
-            const dbManager = getDbManager();
-            const output = await runNvmCommand(`use ${version}`, dbManager);
-            if (output.includes('Now using')) {
-                return { success: true };
-            } else {
-                // Often 'exit status 1' or 'Access is denied'
-                return { error: output || 'Failed to switch version' };
+            const dbManager  = getDbManager();
+            const root       = getNMRoot(dbManager);
+            const targetDir  = path.join(getNMVersionsDir(root), version);
+            const currentDir = getNMCurrentDir(root);
+
+            if (!fs.existsSync(targetDir)) {
+                return { error: `Version ${version} is not installed` };
             }
+
+            await setJunction(targetDir, currentDir);
+            injectNodeEnvToProcess(root);
+
+            return { success: true };
         } catch (err) {
             return { error: err.message || err.toString() };
         }
