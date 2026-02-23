@@ -261,6 +261,32 @@ function register(ipcMain, context) {
             `reg add "HKCU\\Environment" /v Path /t REG_EXPAND_SZ /d "${newPath}" /f`,
             { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
         );
+
+        // Broadcast environment change in the background to avoid blocking
+        const broadcastCmd = `
+$code = '
+using System;
+using System.Runtime.InteropServices;
+public class Win32 {
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+    public static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, UIntPtr wParam, string lParam, uint fuFlags, uint uTimeout, out UIntPtr lpdwResult);
+}';
+Add-Type -TypeDefinition $code;
+$result = [UIntPtr]::Zero;
+[Win32]::SendMessageTimeout([IntPtr]0xffff, 0x001A, [UIntPtr]::Zero, "Environment", 2, 5000, [ref]$result);
+`;
+        
+        // Encode to Base64 (UTF-16LE) for safe passing to PowerShell
+        const base64Cmd = Buffer.from(broadcastCmd, 'utf16le').toString('base64');
+        const { exec } = require('child_process');
+        
+        exec(`powershell -NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand ${base64Cmd}`, (error) => {
+            if (error) {
+                console.error('[PATH] Background broadcast error:', error);
+            } else {
+                console.log('[PATH] Background broadcast completed');
+            }
+        });
     };
 
     // Check if a path is in User PATH
