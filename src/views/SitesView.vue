@@ -1,74 +1,124 @@
 <template>
-  <div class="flex flex-col h-full bg-background text-gray-300 font-sans text-sm">
+  <div
+    class="flex flex-col h-full bg-background text-gray-300 font-sans text-sm"
+  >
     <!-- Header with Tabs -->
     <div class="bg-[#252526] border-b border-gray-700">
       <!-- Tabs -->
       <div class="flex items-center px-4 pt-3 space-x-1">
-        <button v-for="tab in tabs" :key="tab.id" @click="sitesStore.activeTab = tab.id"
-          class="px-4 py-2 text-sm rounded-t-md transition-colors" :class="sitesStore.activeTab === tab.id
-            ? 'bg-background text-white border-t border-l border-r border-gray-700'
-            : 'text-gray-400 hover:text-white hover:bg-gray-800'">
-          {{ tab.name }}
-          <span :class="[
-            'ml-2 px-1.5 py-0.5 rounded-full text-[10px]',
+        <button
+          v-for="tab in tabs"
+          :key="tab.id"
+          @click="sitesStore.activeTab = tab.id"
+          class="px-4 py-2 text-sm rounded-t-md transition-colors"
+          :class="
             sitesStore.activeTab === tab.id
-              ? 'bg-blue-500/20 text-blue-400'
-              : 'bg-gray-700 text-gray-500'
-          ]">
+              ? 'bg-background text-white border-t border-l border-r border-gray-700'
+              : 'text-gray-400 hover:text-white hover:bg-gray-800'
+          "
+        >
+          {{ tab.name }}
+          <span
+            :class="[
+              'ml-2 px-1.5 py-0.5 rounded-full text-[10px]',
+              sitesStore.activeTab === tab.id
+                ? 'bg-blue-500/20 text-blue-400'
+                : 'bg-gray-700 text-gray-500',
+            ]"
+          >
             {{ sitesStore.getSiteCountForTab(tab.id) }}
           </span>
         </button>
       </div>
 
       <!-- Toolbar -->
-      <div class="flex items-center justify-between p-3 bg-background border-t border-gray-700">
+      <div
+        class="flex items-center justify-between p-3 bg-background border-t border-gray-700"
+      >
         <div class="flex items-center space-x-2">
+          <!-- Webserver indicator -->
+          <Button
+            variant="outline"
+            size="sm"
+            disabled
+            class="gap-1.5 text-xs select-none opacity-100! cursor-default!"
+          >
+            <Server class="w-3 h-3 text-yellow-400" />
+            <span
+              v-if="sitesStore.webserver.nginx?.installed_version"
+              class="text-green-400"
+            >
+              Nginx {{ sitesStore.webserver.nginx.installed_version }}
+            </span>
+            <span
+              v-else-if="sitesStore.webserver.nginx"
+              class="text-muted-foreground"
+              >Nginx</span
+            >
+            <span
+              v-else-if="sitesStore.webserver.apache?.installed_version"
+              class="text-green-400"
+            >
+              Apache {{ sitesStore.webserver.apache.installed_version }}
+            </span>
+            <span
+              v-else-if="sitesStore.webserver.apache"
+              class="text-muted-foreground"
+              >Apache</span
+            >
+            <span v-else class="text-muted-foreground">No webserver</span>
+          </Button>
+
           <Button variant="success" size="sm" @click="showAddModal = true">
             <Plus class="w-3 h-3" />
             Add site
           </Button>
 
-          <Button v-if="sitesStore.activeTab === 'php' && sitesStore.webserver.apache"
-            @click="sitesStore.changeApacheRoot" variant="secondary" size="sm" class="border border-gray-600"
-            title="Change Apache Root">
+          <Button
+            v-if="sitesStore.activeTab === 'php' && sitesStore.webserver.apache"
+            @click="sitesStore.changeApacheRoot"
+            variant="secondary"
+            size="sm"
+            class="border border-gray-600"
+            title="Change Apache Root"
+          >
             <FolderCog class="w-3 h-3 text-yellow-500" />
           </Button>
 
-          <Button v-if="sitesStore.activeTab === 'php' && sitesStore.webserver.nginx && !sitesStore.webserver.apache"
-            @click="sitesStore.changeNginxRoot" variant="secondary" size="sm" class="border border-gray-600"
-            title="Change Nginx Root">
+          <Button
+            v-if="
+              sitesStore.activeTab === 'php' &&
+              sitesStore.webserver.nginx &&
+              !sitesStore.webserver.apache
+            "
+            @click="sitesStore.changeNginxRoot"
+            variant="secondary"
+            size="sm"
+            class="border border-gray-600"
+            title="Change Nginx Root"
+          >
             <FolderCog class="w-3 h-3 text-yellow-500" />
           </Button>
-          <!-- Webserver indicator -->
-          <!-- Webserver indicator -->
-          <div class="flex items-center space-x-1 h-8 px-3 bg-gray-700 rounded text-xs select-none">
-            <Server class="w-3 h-3 text-yellow-400" />
-            <span v-if="sitesStore.webserver.nginx && sitesStore.webserver.nginx.installed_version"
-              class="text-green-400">
-              Nginx {{ sitesStore.webserver.nginx.installed_version }}
-            </span>
-            <span v-else-if="sitesStore.webserver.nginx">Nginx</span>
-
-            <template v-else-if="sitesStore.webserver.apache">
-              <span v-if="sitesStore.webserver.apache.installed_version" class="text-green-400">
-                Apache {{ sitesStore.webserver.apache.installed_version }}
-              </span>
-              <span v-else>Apache</span>
-            </template>
-
-            <span v-else class="text-gray-400">No webserver</span>
-          </div>
 
           <Button variant="secondary" size="sm" @click="sitesStore.loadSites">
-            <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': sitesStore.isLoading }" />
+            <RefreshCw
+              class="w-3 h-3"
+              :class="{ 'animate-spin': sitesStore.isLoading }"
+            />
             Reload
           </Button>
         </div>
 
         <div class="flex items-center space-x-2">
           <div class="relative w-48">
-            <Search class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input v-model="searchQuery" placeholder="Search domain..." class="h-8 pl-8 text-xs" />
+            <Search
+              class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
+            />
+            <Input
+              v-model="searchQuery"
+              placeholder="Search domain..."
+              class="h-8 pl-8 text-xs"
+            />
           </div>
         </div>
       </div>
@@ -77,7 +127,9 @@
     <!-- Table -->
     <div class="flex-1 overflow-hidden flex flex-col">
       <!-- Table Header -->
-      <div class="bg-[#252526] flex text-gray-400 text-xs font-medium border-b border-gray-700">
+      <div
+        class="bg-[#252526] flex text-gray-400 text-xs font-medium border-b border-gray-700"
+      >
         <div class="px-3 py-2 text-left flex-1">Site name</div>
         <div class="px-3 py-2 text-center w-20">Status</div>
         <div class="px-3 py-2 text-center w-28">Quick action</div>
@@ -86,29 +138,49 @@
       </div>
 
       <!-- Empty State -->
-      <div v-if="filteredSites.length === 0" class="flex-1 flex items-center justify-center">
+      <div
+        v-if="filteredSites.length === 0"
+        class="flex-1 flex items-center justify-center"
+      >
         <div class="flex flex-col items-center space-y-2 text-gray-500">
           <Globe2 class="w-8 h-8" />
           <span>No {{ activeTabName }} sites found</span>
-          <button @click="showAddModal = true" class="text-green-400 hover:underline">
+          <button
+            @click="showAddModal = true"
+            class="text-green-400 hover:underline"
+          >
             Add your first site
           </button>
         </div>
       </div>
 
       <!-- Virtual Scroller for Sites -->
-      <RecycleScroller v-else class="flex-1" :items="filteredSites" :item-size="50" key-field="id"
-        v-slot="{ item: site }">
-        <div class="flex items-center border-b border-gray-800 hover:bg-gray-800/50 h-12.5 text-xs">
+      <RecycleScroller
+        v-else
+        class="flex-1"
+        :items="filteredSites"
+        :item-size="50"
+        key-field="id"
+        v-slot="{ item: site }"
+      >
+        <div
+          class="flex items-center border-b border-gray-800 hover:bg-gray-800/50 h-12.5 text-xs"
+        >
           <!-- Site name -->
           <div class="px-3 py-2 flex-1">
             <div class="flex items-center space-x-2">
-              <component :is="getTypeIcon(site.type)" class="w-4 h-4" :class="getTypeColor(site.type)" />
+              <component
+                :is="getTypeIcon(site.type)"
+                class="w-4 h-4"
+                :class="getTypeColor(site.type)"
+              />
               <div>
                 <div class="flex items-center space-x-1">
                   <span class="text-white font-medium">{{ site.domain }}</span>
-                  <ExternalLink class="w-3 h-3 text-gray-400 hover:text-blue-400 cursor-pointer"
-                    @click="openInBrowser(site.domain)" />
+                  <ExternalLink
+                    class="w-3 h-3 text-gray-400 hover:text-blue-400 cursor-pointer"
+                    @click="openInBrowser(site.domain)"
+                  />
                 </div>
                 <div class="text-gray-500 text-[10px]">{{ site.name }}</div>
               </div>
@@ -119,17 +191,34 @@
           <div class="px-3 py-2 text-center w-20">
             <template v-if="site.type === 'node'">
               <div class="flex items-center justify-center space-x-1">
-                <div class="w-2 h-2 rounded-full" :class="site.processRunning ? 'bg-green-500' : 'bg-gray-500'"></div>
-                <span :class="site.processRunning ? 'text-green-400' : 'text-gray-400'" class="text-[10px]">
-                  {{ site.processRunning ? 'Running' : 'Stopped' }}
+                <div
+                  class="w-2 h-2 rounded-full"
+                  :class="site.processRunning ? 'bg-green-500' : 'bg-gray-500'"
+                ></div>
+                <span
+                  :class="
+                    site.processRunning ? 'text-green-400' : 'text-gray-400'
+                  "
+                  class="text-[10px]"
+                >
+                  {{ site.processRunning ? "Running" : "Stopped" }}
                 </span>
               </div>
             </template>
             <template v-else-if="site.type === 'php'">
-              <select :value="site.php_version" @change="sitesStore.updatePhpVersion(site, $event.target.value)"
+              <select
+                :value="site.php_version"
+                @change="sitesStore.updatePhpVersion(site, $event.target.value)"
                 :disabled="site.updatingPhp"
-                class="bg-gray-700 text-white text-[10px] rounded px-1 py-0.5 border border-gray-600 focus:outline-none cursor-pointer disabled:opacity-50">
-                <option v-for="ver in sitesStore.phpVersions" :key="ver" :value="ver">{{ ver }}</option>
+                class="bg-gray-700 text-white text-[10px] rounded px-1 py-0.5 border border-gray-600 focus:outline-none cursor-pointer disabled:opacity-50"
+              >
+                <option
+                  v-for="ver in sitesStore.phpVersions"
+                  :key="ver"
+                  :value="ver"
+                >
+                  {{ ver }}
+                </option>
               </select>
             </template>
             <template v-else>
@@ -142,25 +231,42 @@
             <div class="flex items-center justify-center space-x-2">
               <!-- Node: Start/Stop -->
               <template v-if="site.type === 'node'">
-                <button v-if="!site.processRunning" @click="sitesStore.startNodeSite(site)" :disabled="site.loading"
-                  class="p-1 hover:bg-green-500/20 rounded" title="Start">
+                <button
+                  v-if="!site.processRunning"
+                  @click="sitesStore.startNodeSite(site)"
+                  :disabled="site.loading"
+                  class="p-1 hover:bg-green-500/20 rounded"
+                  title="Start"
+                >
                   <Play class="w-3.5 h-3.5 text-green-500" />
                 </button>
-                <button v-else @click="sitesStore.stopNodeSite(site)" :disabled="site.loading"
-                  class="p-1 hover:bg-red-500/20 rounded" title="Stop">
+                <button
+                  v-else
+                  @click="sitesStore.stopNodeSite(site)"
+                  :disabled="site.loading"
+                  class="p-1 hover:bg-red-500/20 rounded"
+                  title="Stop"
+                >
                   <Square class="w-3.5 h-3.5 text-red-500" />
                 </button>
               </template>
 
               <!-- Open folder -->
-              <button v-if="site.root_path" @click="openFolder(site.root_path)"
-                class="p-1 hover:bg-yellow-500/20 rounded" title="Open folder">
+              <button
+                v-if="site.root_path"
+                @click="openFolder(site.root_path)"
+                class="p-1 hover:bg-yellow-500/20 rounded"
+                title="Open folder"
+              >
                 <Folder class="w-3.5 h-3.5 text-yellow-500" />
               </button>
 
               <!-- Open in browser -->
-              <button @click="openInBrowser(site.domain)" class="p-1 hover:bg-blue-500/20 rounded"
-                title="Open in browser">
+              <button
+                @click="openInBrowser(site.domain)"
+                class="p-1 hover:bg-blue-500/20 rounded"
+                title="Open in browser"
+              >
                 <Globe class="w-3.5 h-3.5 text-blue-500" />
               </button>
             </div>
@@ -174,13 +280,22 @@
           <!-- Operate -->
           <div class="px-3 py-2 text-center w-40">
             <div class="flex items-center justify-center space-x-2">
-              <button @click="openConfig(site)" class="text-blue-400 hover:text-blue-300 text-xs">
+              <button
+                @click="openConfig(site)"
+                class="text-blue-400 hover:text-blue-300 text-xs"
+              >
                 Conf
               </button>
-              <button @click="showLogs(site)" class="text-green-400 hover:text-green-300 text-xs">
+              <button
+                @click="showLogs(site)"
+                class="text-green-400 hover:text-green-300 text-xs"
+              >
                 Logs
               </button>
-              <button @click="sitesStore.deleteSite(site)" class="text-red-400 hover:text-red-300 text-xs">
+              <button
+                @click="sitesStore.deleteSite(site)"
+                class="text-red-400 hover:text-red-300 text-xs"
+              >
                 Delete
               </button>
             </div>
@@ -190,98 +305,137 @@
     </div>
 
     <!-- Footer -->
-    <div class="p-2 border-t border-gray-700 bg-[#252526] flex items-center justify-between text-xs text-gray-400">
-      <div>
-        Total {{ filteredSites.length }} sites
-      </div>
+    <div
+      class="p-2 border-t border-gray-700 bg-[#252526] flex items-center justify-between text-xs text-gray-400"
+    >
+      <div>Total {{ filteredSites.length }} sites</div>
       <div>
         {{ activeTabName }}
       </div>
     </div>
 
     <!-- Add Site Modal -->
-    <AddSiteModal v-if="showAddModal" :type="sitesStore.activeTab" :webserver="sitesStore.webserver"
-      @close="showAddModal = false" @created="onSiteCreated" />
+    <AddSiteModal
+      v-if="showAddModal"
+      :type="sitesStore.activeTab"
+      :webserver="sitesStore.webserver"
+      @close="showAddModal = false"
+      @created="onSiteCreated"
+    />
 
     <!-- Site Config Modal -->
-    <SiteConfigModal v-if="showConfigModal" :site="selectedSite" @close="showConfigModal = false"
-      @saved="sitesStore.loadSites" />
+    <SiteConfigModal
+      v-if="showConfigModal"
+      :site="selectedSite"
+      @close="showConfigModal = false"
+      @saved="sitesStore.loadSites"
+    />
 
     <!-- Site Logs Modal -->
-    <SiteLogsModal v-if="showLogsModal" :site="selectedSite" @close="showLogsModal = false" />
+    <SiteLogsModal
+      v-if="showLogsModal"
+      :site="selectedSite"
+      @close="showLogsModal = false"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, defineAsyncComponent } from 'vue';
+import { ref, computed, onMounted, defineAsyncComponent } from "vue";
 import {
-  Plus, RefreshCw, Search, Server, Globe2, Globe, ExternalLink,
-  Folder, Play, Square, FileCode, Terminal, ArrowRightLeft, FolderCog,
-  RotateCw
-} from 'lucide-vue-next';
-import { toast } from 'vue-sonner';
-import { useSitesStore } from '@/stores/sites';
-import { useDebouncedRef } from '@/composables/useDebouncedRef';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { RecycleScroller } from 'vue3-virtual-scroller';
-import 'vue3-virtual-scroller/dist/vue3-virtual-scroller.css';
+  Plus,
+  RefreshCw,
+  Search,
+  Server,
+  Globe2,
+  Globe,
+  ExternalLink,
+  Folder,
+  Play,
+  Square,
+  FileCode,
+  Terminal,
+  ArrowRightLeft,
+  FolderCog,
+  RotateCw,
+} from "lucide-vue-next";
+import { toast } from "vue-sonner";
+import { useSitesStore } from "@/stores/sites";
+import { useDebouncedRef } from "@/composables/useDebouncedRef";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { RecycleScroller } from "vue3-virtual-scroller";
+import "vue3-virtual-scroller/dist/vue3-virtual-scroller.css";
 
 // Lazy load heavy modal components
-const AddSiteModal = defineAsyncComponent(() =>
-  import('../components/AddSiteModal.vue')
+const AddSiteModal = defineAsyncComponent(
+  () => import("../components/AddSiteModal.vue"),
 );
-const SiteConfigModal = defineAsyncComponent(() =>
-  import('../components/SiteConfigModal.vue')
+const SiteConfigModal = defineAsyncComponent(
+  () => import("../components/SiteConfigModal.vue"),
 );
-const SiteLogsModal = defineAsyncComponent(() =>
-  import('../components/SiteLogsModal.vue')
+const SiteLogsModal = defineAsyncComponent(
+  () => import("../components/SiteLogsModal.vue"),
 );
 
 const sitesStore = useSitesStore();
 
 // Tabs
 const tabs = [
-  { id: 'php', name: 'PHP Project' },
-  { id: 'node', name: 'Node Project' },
-  { id: 'proxy', name: 'Proxy Project' }
+  { id: "php", name: "PHP Project" },
+  { id: "node", name: "Node Project" },
+  { id: "proxy", name: "Proxy Project" },
 ];
 
-const activeTabName = computed(() => tabs.find(t => t.id === sitesStore.activeTab)?.name || 'PHP');
+const activeTabName = computed(
+  () => tabs.find((t) => t.id === sitesStore.activeTab)?.name || "PHP",
+);
 
 // State - use debounced search for better performance
-const { value: searchQuery, debouncedValue: debouncedSearchQuery } = useDebouncedRef('', 300);
+const { value: searchQuery, debouncedValue: debouncedSearchQuery } =
+  useDebouncedRef("", 300);
 const showAddModal = ref(false);
 const showConfigModal = ref(false);
 const showLogsModal = ref(false);
 const selectedSite = ref(null);
 
 // Filtered sites by tab and search - uses debounced value
-const filteredSites = computed(() => sitesStore.filteredSites(debouncedSearchQuery.value));
+const filteredSites = computed(() =>
+  sitesStore.filteredSites(debouncedSearchQuery.value),
+);
 
 // Get type icon
 const getTypeIcon = (type) => {
   switch (type) {
-    case 'php': return FileCode;
-    case 'node': return Terminal;
-    case 'proxy': return ArrowRightLeft;
-    default: return Globe;
+    case "php":
+      return FileCode;
+    case "node":
+      return Terminal;
+    case "proxy":
+      return ArrowRightLeft;
+    default:
+      return Globe;
   }
 };
 
 // Get type color
 const getTypeColor = (type) => {
   switch (type) {
-    case 'php': return 'text-purple-400';
-    case 'node': return 'text-green-400';
-    case 'proxy': return 'text-blue-400';
-    default: return 'text-gray-400';
+    case "php":
+      return "text-purple-400";
+    case "node":
+      return "text-green-400";
+    case "proxy":
+      return "text-blue-400";
+    default:
+      return "text-gray-400";
   }
 };
 
 // Format date
 const formatDate = (dateStr) => {
-  if (!dateStr) return '--';
+  if (!dateStr) return "--";
   return new Date(dateStr).toLocaleDateString();
 };
 
