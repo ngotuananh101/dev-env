@@ -4,7 +4,7 @@ import { createPinia } from 'pinia';
 import App from './App.vue';
 import router from './router';
 import './main.css'; // Import Tailwind CSS via main.css (or output.css if preferred)
-import 'vue-sonner/lib/index.css'; // vue-sonner styles (imported here to bypass @tailwindcss/vite "style" exports condition)
+import 'vue-sonner/style.css'; // vue-sonner styles
 
 const app = createApp(App);
 
