@@ -1093,6 +1093,8 @@ try {
     
     $installerUrl = "${downloadUrl}"
     $installerPath = "$env:TEMP\\nvm-setup.exe"
+    $nvmInstallDir = "C:\\nvm"
+    $nvmSymlinkDir = "C:\\nodejs"
     
     Write-Host "Downloading installer from: $installerUrl" -ForegroundColor Yellow
     
@@ -1129,11 +1131,10 @@ try {
         throw "Downloaded file seems too small ($fileSize bytes). Likely invalid."
     }
 
-    Write-Host "Executing installer silently..." -ForegroundColor Yellow
+    Write-Host "Executing installer silently into $nvmInstallDir ..." -ForegroundColor Yellow
     
-    # Run installer with flags for silent install
-    # /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-
-    $proc = Start-Process -FilePath $installerPath -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' -Verb RunAs -Wait -PassThru
+    # Run installer with /DIR to force install to path without spaces (Inno Setup argument)
+    $proc = Start-Process -FilePath $installerPath -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', "/DIR=$nvmInstallDir", "/NVMHOME=$nvmInstallDir", "/NVMSYMLINK=$nvmSymlinkDir") -Verb RunAs -Wait -PassThru
     
     $exitCode = $proc.ExitCode
     if ($exitCode -ne 0 -and $null -ne $exitCode) {
@@ -1145,35 +1146,36 @@ try {
     # Cleanup installer
     Remove-Item $installerPath -ErrorAction SilentlyContinue
     
-    # Check for installation
-    $nvmHome = [Environment]::GetEnvironmentVariable("NVM_HOME", "User")
-    if (-not $nvmHome) {
-        $nvmHome = [Environment]::GetEnvironmentVariable("NVM_HOME", "Machine")
-    }
-    
-    if ($nvmHome -and (Test-Path "$nvmHome\\nvm.exe")) {
-        Write-Host "Found NVM at: $nvmHome" -ForegroundColor Green
+    # Force set env vars to path without spaces (override whatever the installer set)
+    Write-Host "Setting NVM_HOME=$nvmInstallDir and NVM_SYMLINK=$nvmSymlinkDir ..." -ForegroundColor Yellow
+    [Environment]::SetEnvironmentVariable("NVM_HOME", $nvmInstallDir, "User")
+    [Environment]::SetEnvironmentVariable("NVM_SYMLINK", $nvmSymlinkDir, "User")
+
+    # Patch NVM's own settings.txt to use correct paths
+    $settingsFile = "$nvmInstallDir\\settings.txt"
+    if (Test-Path $settingsFile) {
+        $content = Get-Content $settingsFile -Raw
+        $content = $content -replace '(?m)^root:.*', "root: $nvmInstallDir"
+        $content = $content -replace '(?m)^path:.*', "path: $nvmSymlinkDir"
+        Set-Content -Path $settingsFile -Value $content.TrimEnd() -Encoding UTF8
+        Write-Host "Patched settings.txt at $settingsFile" -ForegroundColor Green
     } else {
-        # Fallback search
-        $commonPaths = @(
-            "$env:APPDATA\\nvm\\nvm.exe",
-            "$env:ProgramFiles\\nvm\\nvm.exe",
-            "$env:ProgramFiles(x86)\\nvm\\nvm.exe",
-            "C:\\nvm\\nvm.exe"
-        )
-        
-        $found = $false
-        foreach ($path in $commonPaths) {
-            if (Test-Path $path) {
-                Write-Host "Found NVM at: $path" -ForegroundColor Green
-                $found = $true
-                break
-            }
-        }
-        
-        if (-not $found) {
-            Write-Warning "NVM installed but verification failed (nvm.exe not found in common locations)"
-        }
+        @("root: $nvmInstallDir", "path: $nvmSymlinkDir", "proxy: none", "arch: 64") -join ([char]13+[char]10) | Set-Content -Path $settingsFile -Encoding UTF8
+        Write-Host "Created settings.txt at $settingsFile" -ForegroundColor Green
+    }
+
+    # Add nvmInstallDir to user PATH if not already present
+    $userPath = [Environment]::GetEnvironmentVariable("PATH", "User")
+    if ($userPath -notlike "*$nvmInstallDir*") {
+        [Environment]::SetEnvironmentVariable("PATH", "$nvmInstallDir;$userPath", "User")
+        Write-Host "Added $nvmInstallDir to user PATH" -ForegroundColor Green
+    }
+
+    # Verify nvm.exe exists at expected location
+    if (Test-Path "$nvmInstallDir\\nvm.exe") {
+        Write-Host "Found NVM at: $nvmInstallDir" -ForegroundColor Green
+    } else {
+        Write-Warning "NVM installed but nvm.exe not found at $nvmInstallDir"
     }
     
     Write-Host "=== Installation completed ===" -ForegroundColor Green

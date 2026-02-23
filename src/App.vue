@@ -25,7 +25,7 @@
         <a href="#" class="hover:text-white">Documentation</a> -->
         <span>Support:</span>
         <a href="#" class="text-blue-400 hover:underline flex items-center space-x-1">
-          <span>◎</span><span>Telegram</span>
+          <span>◎ngotuananh2101</span><span>Telegram</span>
         </a>
         <a href="#" class="text-purple-400 hover:underline flex items-center space-x-1">
           <span>●</span><span>Discord</span>
