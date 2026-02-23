@@ -42,13 +42,6 @@ Desktop.ini
 out/
 release/
 
-# Native module build artifacts
-build/
-*.node
-
-# Tailwind
-tailwind.config.js
-
 # Other
 .agent/
 sites/
