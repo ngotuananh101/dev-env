@@ -1,16 +1,21 @@
-name: Build
+name: Release
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v1.0.0)"
+        required: true
+      release_name:
+        description: "Release name (e.g. Version 1.0.0)"
+        required: true
+      prerelease:
+        description: "Mark as pre-release?"
+        type: boolean
+        default: false
 
 jobs:
-  build:
+  release:
     runs-on: windows-latest
 
     steps:
@@ -38,14 +43,14 @@ jobs:
       - name: Zip win-unpacked
         run: Compress-Archive -Path release/win-unpacked -DestinationPath release/win-unpacked.zip
 
-      - name: Upload installer
-        uses: actions/upload-artifact@v4
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: windows-installer
-          path: release/*.exe
-
-      - name: Upload win-unpacked zip
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-unpacked
-          path: release/win-unpacked.zip
+          tag_name: ${{ inputs.tag }}
+          name: ${{ inputs.release_name }}
+          prerelease: ${{ inputs.prerelease }}
+          files: |
+            release/*.exe
+            release/win-unpacked.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
