@@ -181,18 +181,52 @@ function sendProgressWithLog(event, appId, progress, status, logDetail = null) {
 
 
 /**
+ * Inject NVM environment variables into the current process immediately
+ * after installation so NVM works without restarting the app.
+ * @param {string} nvmRoot - Path to NVM installation directory (e.g. C:\nvm)
+ * @param {string} [nvmSymlink='C:\\nodejs'] - Path to NVM symlink
+ */
+function injectNvmEnvToProcess(nvmRoot, nvmSymlink = 'C:\\nodejs') {
+    if (!nvmRoot) return;
+
+    // Set NVM_HOME and NVM_SYMLINK for this process
+    process.env['NVM_HOME'] = nvmRoot;
+    process.env['NVM_SYMLINK'] = nvmSymlink;
+
+    // Add nvmRoot to PATH if not already there
+    const pathSep = ';';
+    const currentPath = process.env['PATH'] || '';
+    const parts = currentPath.split(pathSep).map(p => p.trim()).filter(Boolean);
+
+    let changed = false;
+    if (!parts.some(p => p.toLowerCase() === nvmRoot.toLowerCase())) {
+        parts.unshift(nvmRoot);
+        changed = true;
+    }
+    if (!parts.some(p => p.toLowerCase() === nvmSymlink.toLowerCase())) {
+        parts.splice(1, 0, nvmSymlink); // insert after nvmRoot
+        changed = true;
+    }
+    if (changed) {
+        process.env['PATH'] = parts.join(pathSep);
+    }
+
+    logApp(`Injected NVM env into process: NVM_HOME=${nvmRoot}, NVM_SYMLINK=${nvmSymlink}`, 'INFO');
+}
+
+/**
  * Execute NVM command and return output
  * @param {string} command - NVM command
  * @param {Object} [dbManager=null] - Database manager for fallback lookup
  * @returns {Promise<string>} Output
  */
-async function runNvmCommand(command, dbManager = null) {
+async function runNvmCommand(command, dbManager = null, timeoutMs = 60000) {
     const { exec } = require('child_process');
 
     const execPromise = (cmd) => new Promise((resolve, reject) => {
         exec(cmd, {
             encoding: 'utf-8',
-            timeout: 60000, // 1 minute timeout
+            timeout: timeoutMs,
             maxBuffer: 1024 * 1024 // 1MB buffer
         }, (error, stdout, stderr) => {
             if (error) {
@@ -1068,6 +1102,9 @@ function register(ipcMain, context) {
                 sendProgressWithLog(event, appId, 100, 'Installed!');
                 logApp('Existing NVM registered successfully', 'INSTALL');
 
+                // Inject env vars into current process so NVM works immediately (no restart needed)
+                injectNvmEnvToProcess(existingNvmRoot);
+
                 return {
                     success: true,
                     installPath: existingNvmRoot,
@@ -1318,6 +1355,9 @@ try {
 
                     sendProgressWithLog(event, appId, 100, 'Installed!');
                     logApp('NVM installation completed successfully', 'INSTALL');
+
+                    // Inject env vars into current process so NVM works immediately (no restart needed)
+                    injectNvmEnvToProcess(nvmRoot);
 
                     resolve({
                         success: true,
@@ -3301,7 +3341,44 @@ try {
     ipcMain.handle('nvm-install', async (event, version) => {
         try {
             const dbManager = getDbManager();
-            await runNvmCommand(`install ${version}`, dbManager);
+
+            // Use 10 min timeout — downloading Node.js can take a while
+            const output = await runNvmCommand(`install ${version}`, dbManager, 600000);
+
+            // Check output for known failure keywords even when exit code was 0
+            const lowerOut = (output || '').toLowerCase();
+            if (lowerOut.includes('could not') || lowerOut.includes('error') || lowerOut.includes('failed') || lowerOut.includes('no connection')) {
+                // Only treat as error if no success keyword present
+                const hasSuccess = lowerOut.includes('installation complete') || lowerOut.includes('now using') || lowerOut.includes('installed');
+                if (!hasSuccess) {
+                    return { error: `NVM reported a problem: ${output.trim()}` };
+                }
+            }
+
+            // Verify: check that version actually appears in nvm list
+            try {
+                const listOutput = await runNvmCommand('list', dbManager);
+                const versionMatch = version.match(/(\d+\.\d+\.\d+)/);
+                const versionShort = version.match(/^(\d+)$/) ? version : null; // e.g. "20"
+
+                const installed = listOutput.split('\n')
+                    .map(l => { const m = l.match(/(\d+\.\d+\.\d+)/); return m ? m[1] : null; })
+                    .filter(Boolean);
+
+                const isInstalled = installed.some(v =>
+                    (versionMatch && v === versionMatch[1]) ||
+                    (versionShort && v.startsWith(versionShort + '.')) ||
+                    v === version
+                );
+
+                if (!isInstalled) {
+                    return { error: `Node.js v${version} install command ran but version was not found in nvm list. Output: ${output.trim()}` };
+                }
+            } catch (verifyErr) {
+                logApp(`Could not verify nvm install via list: ${verifyErr.message}`, 'WARNING');
+                // Don't fail — just warn
+            }
+
             return { success: true };
         } catch (err) {
             // Check if it's just "already installed" or true error
