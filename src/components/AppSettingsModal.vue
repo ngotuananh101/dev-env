@@ -424,7 +424,6 @@ const loadConfig = async () => {
   configMessage.value = "";
 
   try {
-    console.log(appDir, configFile);
     const result = await window.sysapi.apps.readConfig(appDir, configFile);
     if (result.error) {
       toast.error(result.error);
