@@ -2190,9 +2190,10 @@ try {
                         }
                         else if (appId.startsWith('php')) {
                             const configPath = path.join(appInstallDir, 'php.ini');
-                            const devConfigPath = path.join(appInstallDir, 'php.ini-development');
-                            if (fs.existsSync(devConfigPath)) {
-                                fs.copyFileSync(devConfigPath, configPath);
+                            const templatePath = path.join(context.appDir, 'data', 'config', 'php.ini');
+                            // const devConfigPath = path.join(appInstallDir, 'php.ini-development');
+                            if (fs.existsSync(templatePath)) {
+                                fs.copyFileSync(templatePath, configPath);
                             }
                             // Check if current php app is single
                             const phpAppInstalled = await dbManager.query("SELECT * FROM installed_apps WHERE app_id Like 'php%';");

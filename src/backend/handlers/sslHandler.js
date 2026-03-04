@@ -56,16 +56,38 @@ async function initializeSSL(userDataPath) {
         // Auto-install CA to system on first creation
         const installResult = await installCAToSystem(caCertPath);
 
+        // Download curl CA bundle
+        const curlCaPath = path.join('C:\\ssl', 'cacert.pem');
+        if (!fs.existsSync(curlCaPath)) {
+            fs.mkdirSync('C:\\ssl', { recursive: true });
+        }
+        await downloadCurlCaBundle(curlCaPath);
+
         return {
             success: true,
             message: 'CA created',
             isNew: true,
             caCertPath: caCertPath,
-            caInstalled: installResult.success
+            caInstalled: installResult.success,
+            curlCaPath: curlCaPath,
         };
     } catch (error) {
         console.error('[SSL] Failed to initialize CA:', error);
         return { success: false, error: error.message };
+    }
+}
+
+async function downloadCurlCaBundle(curlCaPath) {
+    try {
+        const response = await fetch('https://curl.se/ca/cacert.pem');
+        if (!response.ok) {
+            throw new Error('Failed to download curl CA bundle');
+        }
+        const data = await response.text();
+        fs.writeFileSync(curlCaPath, data);
+        console.log('[SSL] Downloaded curl CA bundle to:', curlCaPath);
+    } catch (error) {
+        console.error('[SSL] Failed to download curl CA bundle:', error);
     }
 }
 
