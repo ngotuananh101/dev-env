@@ -598,6 +598,7 @@ const createDatabase = async () => {
   loading.value = true;
   try {
     const result = await dbStore.createDatabase(
+      activeTab.value,
       newDbName.value,
       newUsername.value,
       newPassword.value,
